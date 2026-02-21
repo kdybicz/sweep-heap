@@ -474,6 +474,7 @@ Screen: Invite acceptance
 Screen: Completion history
 - Show recent activity by chore and member (assign, reassign, snooze, skip, complete).
 - Visible to all members.
+- If member activity visibility is off, history entries are anonymized (no display name).
 - MVP: no filters; future: filter by member and chore.
 - History feed includes undo events.
 - No activity log export in MVP.
@@ -698,6 +699,7 @@ Household deletion policy
 - Household deletion is logged in history.
 - No extra grace period beyond the 30-day purge window.
 - Household deletion requires email-link confirmation.
+- Any admin can initiate household deletion.
 - Household deletion can be canceled during the 30-day purge window.
 - Show a pending-deletion banner to all members.
 - Only admins can cancel household deletion.
@@ -706,6 +708,7 @@ Time zones
 - Use household time zone for due dates.
 - Admins can change household time zone.
 - Existing due dates are stored as absolute timestamps and do not shift when the time zone changes.
+- Future recurring occurrences follow the current household time zone.
 
 Chore lifecycle
 - Snooze with new due date (quick presets: 30m, 1h, end of day, tomorrow morning).
@@ -719,7 +722,7 @@ Chore lifecycle
 - Skip events are logged in history.
 - Skip history stores reason category and optional note.
 - Default skip reasons: Not enough time, Not my turn, Too tired, Supplies missing, Other.
-- Only the current assignee can complete a chore; others must take over first.
+- Only the current assignee can complete a chore; admins may complete without taking over.
 - Overdue non-recurring chores remain overdue until completed or archived.
 - Reassign: admins can reassign any chore; members can reassign only chores assigned to themselves.
 - MVP: no reassignment note.
@@ -731,6 +734,7 @@ Chore lifecycle
 - Chore deletion is soft (archive).
 - MVP: all members can archive chores; future: household setting to restrict to admins.
 - MVP: all members can restore archived chores; future: household setting to restrict to admins.
+- MVP: archived chores are kept indefinitely; revisit for full implementation.
 - Restoring an archived chore preserves its history.
 - Chore edits apply to future assignments only; history remains unchanged.
 - Chore creation/edit/delete events are logged in history.
@@ -743,7 +747,7 @@ Chore lifecycle
 - No email notification for assignment changes in MVP.
 - Quick undo available for 10 seconds.
 - Undo creates a new history event (audit trail).
-- Write actions take a short-lived chore lock to prevent simultaneous updates; others can view but not modify until released or timed out (default 60s).
+- First write wins; if the chore changes during an action, the second user sees an error and must retry.
 - Assigned chores may have no due date.
 - Recurrence requires a due date.
 - Take-over notifies the previous assignee (in-app).
