@@ -360,7 +360,7 @@ Constraints and Indexes (Draft)
 - HouseholdMembership unique on (household_id, user_id).
 - Invite unique on (household_id, email, status=pending).
 - Invite.token unique.
-- Chore name unique per household (can relax if needed).
+- Chore name duplicates allowed per household; encourage distinct names.
 - ChoreAssignment.status constrained to open or completed.
 - Indexes on: household_id for HouseholdMembership, Invite, Chore; assignee_user_id and due_date for ChoreAssignment.
 
@@ -371,7 +371,7 @@ Recurring Chores (Draft)
 - If skipped or overdue, the next scheduled occurrence is still created.
 - Recurrence cadence: MVP weekly only; future daily/weekly/monthly; no N-intervals.
 - Weekly recurrence requires selecting a weekday.
-- Recurrence edits apply to future occurrences only.
+- Recurrence edits prompt for scope (this occurrence or all future); default to future-only.
 - Due date changes affect only the current occurrence (do not shift recurrence schedule).
 - Overdue recurring chores do not pile up; when a new occurrence is created, any prior open occurrence is auto-skipped (logged in history).
 - Auto-skipped occurrences include a standard reason.
@@ -611,6 +611,7 @@ Invite management
 - Invite revocation requires confirmation.
 - Invite validation: email format only in MVP.
 - Invites to existing user emails are allowed; acceptance links to the existing account.
+- Soft cap on pending invites (default 20); warn but allow.
 
 Completion history
 - Recent list grouped by day, showing who completed what.
@@ -677,6 +678,7 @@ Household lifecycle
 - Removing a member unassigns their chores.
 - Removed members receive an email notification.
 - Member removal supports a 10-second undo.
+- Removed members require a new invite to rejoin.
 
 Admin leave policy
 - If an admin is the only admin, they must promote another admin before leaving.
@@ -702,6 +704,8 @@ Household deletion policy
 
 Time zones
 - Use household time zone for due dates.
+- Admins can change household time zone.
+- Existing due dates are stored as absolute timestamps and do not shift when the time zone changes.
 
 Chore lifecycle
 - Snooze with new due date (quick presets: 30m, 1h, end of day, tomorrow morning).
@@ -715,6 +719,8 @@ Chore lifecycle
 - Skip events are logged in history.
 - Skip history stores reason category and optional note.
 - Default skip reasons: Not enough time, Not my turn, Too tired, Supplies missing, Other.
+- Only the current assignee can complete a chore; others must take over first.
+- Overdue non-recurring chores remain overdue until completed or archived.
 - Reassign: admins can reassign any chore; members can reassign only chores assigned to themselves.
 - MVP: no reassignment note.
 - Future: optional reassignment note.
@@ -737,6 +743,7 @@ Chore lifecycle
 - No email notification for assignment changes in MVP.
 - Quick undo available for 10 seconds.
 - Undo creates a new history event (audit trail).
+- Write actions take a short-lived chore lock to prevent simultaneous updates; others can view but not modify until released or timed out (default 60s).
 - Assigned chores may have no due date.
 - Recurrence requires a due date.
 - Take-over notifies the previous assignee (in-app).
@@ -744,6 +751,7 @@ Chore lifecycle
 
 Privacy
 - History retention when user leaves: retain entries, anonymize display name.
+- MVP: keep history indefinitely; must be reconsidered before going live.
 - Leaving a household removes household-related notifications.
 - Account deletion: remove memberships and anonymize history.
 - Account deletion uses a 7-day grace period before purge.
@@ -765,6 +773,7 @@ Notifications
 - No in-app notice for new chore creation in MVP.
 - No in-app notice for chore archive/restore in MVP.
 - No in-app notice for chore deletion in MVP.
+- Notifications auto-purge after expiry (no archive in MVP).
 
 Quiet hours
 - Per-user quiet hours.
