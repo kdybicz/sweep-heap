@@ -9,6 +9,10 @@
 - First-session outcome: Complete a task by creating a household, adding/accepting members, and assigning or scheduling the first chore.
 - Constraints: Short timeline and compliance considerations.
 - Roles: Admins + members for MVP.
+- Decision: Defer PWA-lite to post-MVP.
+- Decision: Use Next.js API routes (route handlers) for MVP backend.
+- Decision: Start local development with Docker; hosting/provider deferred.
+- Decision: Hosting deferred until post-MVP decision point.
 
 ## Problem Statement (Draft)
 People living together need a simple way to coordinate recurring household chores, clarify responsibility, and keep a shared understanding of what needs to be done and when.
@@ -35,6 +39,81 @@ People living together need a simple way to coordinate recurring household chore
 - Categories: fixed list for MVP; future per-household customization.
 - Categories include rooms and task types.
 - Preset names are localized in MVP.
+
+## Preset Catalog (MVP)
+
+Categories (localized)
+- Kitchen / Kuchnia
+- Bathroom / Łazienka
+- Living room / Salon
+- Bedroom / Sypialnia
+- Office / Biuro
+- Laundry / Pranie
+- Floors / Podłogi
+- Trash & Recycling / Śmieci i recykling
+- Outdoor / Balkon i ogród
+- General / Ogólne
+
+Preset chores (localized)
+- Kitchen / Kuchnia
+  - Wipe countertops / Przetrzyj blaty
+  - Wash dishes / Umyj naczynia
+  - Load dishwasher / Załaduj zmywarkę
+  - Unload dishwasher / Rozładuj zmywarkę
+  - Clean sink / Wyczyść zlew
+  - Clean stove / Wyczyść kuchenkę
+- Bathroom / Łazienka
+  - Clean toilet / Wyczyść toaletę
+  - Clean sink / Wyczyść umywalkę
+  - Clean shower/bath / Wyczyść prysznic/wannę
+  - Wipe mirror / Umyj lustro
+  - Replace towels / Wymień ręczniki
+  - Empty bathroom trash / Wynieś śmieci z łazienki
+- Living room / Salon
+  - Vacuum / Odkurz
+  - Dust surfaces / Zetrzyj kurz
+  - Tidy items / Uporządkuj rzeczy
+  - Wipe coffee table / Przetrzyj stolik
+- Bedroom / Sypialnia
+  - Change bed sheets / Zmień pościel
+  - Vacuum / Odkurz
+  - Dust surfaces / Zetrzyj kurz
+  - Tidy clothes / Uporządkuj ubrania
+  - Air out room / Przewietrz pokój
+- Office / Biuro
+  - Tidy desk / Uporządkuj biurko
+  - Dust surfaces / Zetrzyj kurz
+  - Wipe keyboard / Przetrzyj klawiaturę
+  - Organize papers / Posegreguj papiery
+- Laundry / Pranie
+  - Wash laundry / Zrób pranie
+  - Dry laundry / Wysusz pranie
+  - Fold laundry / Złóż pranie
+  - Put away laundry / Odłóż pranie
+  - Sort laundry / Posegreguj pranie
+- Floors / Podłogi
+  - Sweep floors / Zamiataj podłogi
+  - Mop floors / Umyj podłogi
+  - Vacuum floors / Odkurz podłogi
+  - Spot-clean spills / Usuń plamy
+- Trash & Recycling / Śmieci i recykling
+  - Take out trash / Wynieś śmieci
+  - Take out recycling / Wynieś recykling
+  - Replace bin bags / Wymień worki
+  - Sort recycling / Posegreguj recykling
+- Outdoor / Balkon i ogród
+  - Water plants / Podlej rośliny
+  - Sweep balcony / Zamiataj balkon
+  - Take out bins / Wystaw kosze
+  - Bring in bins / Schowaj kosze
+  - Clear snow (seasonal) / Odśnież (sezonowo)
+- General / Ogólne
+  - Clean windows / Umyj okna
+  - Clean windowsills / Umyj parapety
+  - Dust baseboards / Odkurz listwy
+  - Wipe light switches / Przetrzyj włączniki
+  - Check supplies / Sprawdź zapasy
+  - Tidy entryway / Uporządkuj przedpokój
 
 ## Localization (Draft)
 - Preset names support localization in MVP.
@@ -74,11 +153,7 @@ People living together need a simple way to coordinate recurring household chore
 - Invite management: admins only.
 
 ## Open Questions
-- Confirm MVP inclusion for PWA-lite (manifest + offline fallback).
-- Decide backend approach: Next.js API routes vs lightweight Node server.
-- Choose database provider (EU Postgres) and hosting.
-- Define initial preset catalog and categories (English + Polish).
-- Define micro-feedback message set (English + Polish).
+- Choose database provider (EU Postgres) later.
 
 ## MVP Scope (Draft)
 - Household creation and invites (admins manage invites/settings).
@@ -558,6 +633,18 @@ MVP behaviors
 - Streak is hidden when count is 0.
 - Streak display is independent of nudges setting.
 
+Micro-feedback message set (MVP, localized, soft tone)
+- mf_01: Thanks for taking care of that. / Dzięki za ogarnięcie.
+- mf_02: All set. / Gotowe.
+- mf_03: One less thing to think about. / Jedna rzecz mniej do ogarniania.
+- mf_04: Thanks for chipping in. / Dzięki, że pomagasz.
+- mf_05: Nice and steady. / Spokojnie do przodu.
+- mf_06: Appreciate it. / Dzięki, to ważne.
+- mf_07: That makes a difference. / To robi różnicę.
+- mf_08: Looking tidier already. / Od razu czyściej.
+- mf_09: Good to have it done. / Dobrze mieć to zrobione.
+- mf_10: Thanks for getting this done. / Dzięki za zrobienie tego.
+
 Future enhancements
 - Optional substeps/checklists per chore.
 - Estimated time per chore for quick-win filtering.
@@ -689,7 +776,7 @@ Quiet hours
 - Frontend: Next.js + TypeScript.
 - UI: Tailwind CSS.
 - Auth: Auth.js magic-link (email via SMTP).
-- Backend: Next.js API routes or lightweight Node server (decision pending).
+- Backend: Next.js API routes (route handlers) for MVP.
 - Database: Postgres in EU region (provider pending).
 - Hosting: pending (Vercel vs Render EU vs Fly.io).
 - Considering AWS hosting/DB (EU region).
