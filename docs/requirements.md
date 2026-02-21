@@ -259,6 +259,7 @@ GDPR data export
 - MVP: support-assisted export.
 - Future: self-serve export.
 - Notifications are excluded from export.
+- "Takeaway my data" is handled via support in MVP.
 
 Household export
 - MVP: not available.
@@ -504,6 +505,7 @@ Screen: Household settings
 Screen: User profile/settings
 - Update display name.
 - Change avatar.
+- User accent color/theme selection (future; not in MVP).
 - Override language selection.
 - Accessed from dashboard header avatar/menu.
 - MVP: email changes not supported; future: allow email change with re-verification.
@@ -651,6 +653,8 @@ Future enhancements
 - Optional substeps/checklists per chore.
 - Estimated time per chore for quick-win filtering.
 - Focus timer per chore.
+- Calendar overview of planned chores.
+- Calendar export (iCal link for Google Calendar, etc.).
 - Household progress rings and consistency streaks.
 - Badges/achievements (opt-in and non-competitive).
 - Streak pause/vacation mode.
@@ -722,6 +726,7 @@ Chore lifecycle
 - Skip events are logged in history.
 - Skip history stores reason category and optional note.
 - Default skip reasons: Not enough time, Not my turn, Too tired, Supplies missing, Other.
+- MVP: no away/holiday mode; use skip with a reason for time away.
 - Only the current assignee can complete a chore; admins may complete without taking over.
 - Overdue non-recurring chores remain overdue until completed or archived.
 - Reassign: admins can reassign any chore; members can reassign only chores assigned to themselves.
@@ -809,6 +814,8 @@ Quiet hours
 - Payments or monetization.
 - Smart home integrations.
 - Complex analytics or gamification beyond basic completion history.
+- Private chores (visible only to creator, excluded from metrics) are post-MVP but important for full implementation.
+- Shared chores (multi-assignee) and partial completion are post-MVP.
 
 ## Future Data Models (Draft)
 
