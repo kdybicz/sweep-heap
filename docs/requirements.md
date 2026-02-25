@@ -25,7 +25,7 @@
 - Partial contributions use predefined sub-tasks.
 - Fixed points per sub-task.
 - Ongoing chores support reset cadence; default weekly with lifetime totals also visible.
-- Recurring chores create a new instance each cycle.
+- Recurring chores (finite only) create a new instance each cycle.
 - Visibility includes totals plus optional ranking view.
 - No contribution limits in MVP; future option for soft warnings.
 
@@ -34,7 +34,7 @@
 Core model
 - Household hosts a shared board of chores (no individual assignment required).
 - All members can declare completion or log contributions.
-- Chores can be one-off or recurring.
+- Chores can be one-off or recurring (finite only).
 - Chores can be whole-completion or partial (via sub-tasks).
 - Two chore behaviors: finite (vanish when complete) and ongoing (always available).
 
@@ -45,13 +45,14 @@ Confirmation
 Contributions and points
 - Partial contributions use predefined sub-tasks.
 - Sub-tasks award fixed points.
+- Whole-only chores award fixed points per completion.
 - No contribution limits in MVP; future option for soft warning thresholds.
 
 Ongoing chores
-- Ongoing chores have a reset cadence for period totals; default weekly.
+- Ongoing chores have a reset cadence for period totals; defaults to household cadence.
 - Show period totals and lifetime totals.
 
-Recurring chores
+Recurring chores (finite only)
 - Each recurrence creates a new instance.
 
 Visibility
@@ -64,7 +65,8 @@ Example A: Finite, whole completion (no sub-tasks)
 - Chore: "Clean bathroom"
 - Behavior: finite
 - Contribution mode: whole_only
-- Completion rule: whole completion
+- Fixed points: 3
+- Completion rule: inferred from contribution mode
 - Recurrence: weekly (creates a new instance each week)
 - Result: one member marks complete; if confirmation is required, admin approves.
 
@@ -73,7 +75,7 @@ Example B: Finite, sub-tasks (all sub-tasks)
 - Behavior: finite
 - Contribution mode: sub_tasks
 - Sub-tasks (points): Wipe counters (2), Clean stove (2), Mop floor (1)
-- Completion rule: all sub-tasks
+- Completion rule: inferred from contribution mode
 - Recurrence: monthly
 - Result: once all three sub-tasks are logged (and approved if required), the instance completes.
 
@@ -90,6 +92,7 @@ Example D: Ongoing, whole contribution (no sub-tasks)
 - Chore: "Tidy entryway"
 - Behavior: ongoing
 - Contribution mode: whole_only
+- Fixed points: 1
 - Completion rule: none (ongoing)
 - Reset cadence: weekly
 - Result: members log "done" contributions that add to weekly/lifetime totals; the chore never completes.
@@ -217,6 +220,7 @@ Preset chores (localized)
 - Completion confirmation can be required by household default with per-chore overrides.
 - Partial contributions are logged via predefined sub-tasks.
 - Sub-tasks award fixed points.
+- Whole-only chores award fixed points per completion.
 
 ## Constraints
 - Short timeline: prioritize an MVP with minimal complexity.
@@ -235,13 +239,13 @@ Preset chores (localized)
 ## MVP Scope (Draft)
 - Household creation and invites (admins manage invites/settings).
 - Chore list from presets plus custom edits.
-- Scheduling includes due date with optional recurrence.
-- Due date is optional for chores.
+- Scheduling includes due date with optional recurrence (finite only; recurrence requires due date).
+- Due date is optional for chores; recurrence requires a due date.
 - Log contributions and complete chores.
 - Optional admin confirmation for completion (household default + per-chore override).
 - View contribution totals and recent history.
 - In-app reminders for upcoming/overdue chores.
-- Points tracked via sub-tasks; no manual point entry in MVP.
+- Points tracked via sub-tasks; whole-only chores award fixed points per completion; no manual point entry in MVP.
 
 ## Legacy V1 Sections (Deprecated)
 - The sections below are V1 content and will be refactored for V2.
@@ -409,9 +413,10 @@ Chore
 - created_at
 - behavior (finite or ongoing)
 - contribution_mode (whole_only or sub_tasks)
-- completion_rule (all_sub_tasks only)
+  - whole_only chores include fixed_points (integer)
+- completion_rule (remove; infer from contribution_mode)
 - confirmation_required (nullable; defaults to household setting)
-- reset_cadence (nullable; for ongoing chores, default weekly)
+- reset_cadence (nullable; for ongoing chores, defaults to household cadence)
 
 ChorePreset
 - id
@@ -422,13 +427,14 @@ ChorePreset
 - Category is required for presets.
 - No suggested estimated minutes in presets (MVP).
 
-ChoreInstance
+ChoreInstance (finite chores only, one-off or recurring)
 - id
 - chore_id
 - due_date (nullable)
 - recurrence_rule (nullable; simple cadence only)
-- status (open, completed, pending_confirmation)
+- status (derived: open, completed, pending_confirmation)
 - completed_at (nullable)
+  - One-off finite chores create a single instance at creation (due_date nullable).
 
 ChoreSubTask
 - id
@@ -441,33 +447,34 @@ ChoreSubTask
 Contribution
 - id
 - chore_id
-- chore_instance_id (nullable for ongoing chores)
+- chore_instance_id (nullable for ongoing chores; required for finite chores)
 - sub_task_id (nullable when completing whole chore)
 - user_id
 - points_awarded
 - created_at
-- status (pending, approved, rejected)
+- status (pending, approved, rejected) is the source of truth
 - reviewed_by_user_id (nullable)
 - reviewed_at (nullable)
 
-ChoreHistory
+ActivityHistory
 - id
-- chore_id
+- household_id
+- chore_id (nullable)
 - actor_user_id
-- action_type (contribute, complete, approve, reject, edit, archive, restore)
+- action_type (contribute, complete, approve, reject, edit, archive, restore, settings_update, invite_sent, invite_revoked, invite_resent, member_joined, member_left, member_removed, role_changed)
 - payload (json)
 - created_at
 
 Relationships
 - Household has many HouseholdMembership, Invite, Chore.
 - Household has one HouseholdSettings.
-- User has many HouseholdMembership, Contribution, and ChoreHistory entries.
+- User has many HouseholdMembership, Contribution, and ActivityHistory entries.
 - HouseholdMembership links User to Household with role.
 - Invite belongs to Household; accepted invite creates HouseholdMembership.
 - Chore belongs to Household.
 - Chore has many ChoreInstance and ChoreSubTask.
 - Contribution belongs to User and Chore (and optionally ChoreInstance and ChoreSubTask).
-- ChoreHistory belongs to Chore.
+- ActivityHistory belongs to Household; optional Chore.
 - UserPreferences belongs to User.
 - Achievement belongs to Household.
 
@@ -477,31 +484,31 @@ Constraints and Indexes (Draft)
 - Invite unique on (household_id, email, status=pending).
 - Invite.token unique.
 - Chore name duplicates allowed per household; encourage distinct names.
-- ChoreInstance.status constrained to open, completed, or pending_confirmation.
+- ChoreInstance.status derived from contributions; if stored, constrained to open, completed, or pending_confirmation.
 - Contribution.status constrained to pending, approved, or rejected.
 - Indexes on: household_id for HouseholdMembership, Invite, Chore; chore_id for ChoreInstance, ChoreSubTask, Contribution.
 
 Completion and Approval Rules (V2)
 - If confirmation is required, contributions start in pending status and require admin approval.
-- A completion is recorded when the completion rule is satisfied (whole completion or all sub-tasks).
+- A completion is recorded for finite chores when the completion rule is satisfied (whole completion or all sub-tasks).
 - Rejected contributions do not count toward totals.
-- Default completion rule: all sub-tasks.
+- Completion rule is inferred from contribution_mode.
 - Ongoing chores never complete; they stay open and reset period totals on cadence.
 - Finite recurring chores reset sub-tasks each instance.
 
 Contribution Totals (Derived)
-- Period totals are derived from Contribution entries within the reset cadence window.
+- Period totals are derived from Contribution entries within the household cadence window (weekly by default).
 - Lifetime totals are derived from all Contribution entries.
 - If needed for performance, add a materialized summary table keyed by (household_id, user_id, period_start).
 
-Recurring Chores (Draft)
-- ChoreInstance represents a single occurrence.
+Recurring Chores (Draft, finite only)
+- ChoreInstance represents a single occurrence for finite recurring chores.
 - Recurrence is calendar-based and anchored to the due date.
 - Next occurrence is created on schedule (e.g., next Monday) regardless of early completion.
 - If skipped or overdue, the next scheduled occurrence is still created.
 - Recurrence cadence: MVP weekly only; future daily/weekly/monthly; no N-intervals.
 - Weekly recurrence requires selecting a weekday.
-- Recurrence edits prompt for scope (this occurrence or all future); default to future-only.
+- Schedule edits prompt for scope (this occurrence or all future); default to future-only.
 - Due date changes affect only the current occurrence (do not shift recurrence schedule).
 - Overdue recurring chores do not pile up; when a new occurrence is created, any prior open occurrence is auto-skipped (logged in history).
 - Auto-skipped occurrences include a standard reason.
@@ -557,13 +564,14 @@ Screen: Notifications
 - In-app notification center list for key notices.
 - Accessed from a bell icon in the header.
 - Notifications can be dismissed individually.
-- Notifications auto-expire after 7 days.
+- Notifications auto-expire after 7 days if not resolved.
 - Group similar notifications in the list.
 - Notifications include contextual actions (e.g., view chore, log contribution, approve completion).
 - Bell icon shows unread count badge.
 - Notifications are marked read when viewed.
 - Allow "Mark all as read".
-- Notifications auto-clear when the underlying condition is resolved.
+- Notifications auto-clear immediately when the underlying condition is resolved (before expiry).
+  - Resolution always wins over expiry; purge follows the same rules as expired notifications.
 - Notification center includes a link to notification settings.
 - Notification center shows all notifications across households when multi-household is supported.
 - Notifications are grouped by household when multi-household is supported.
@@ -590,7 +598,7 @@ Screen: Chore editor
 - Configure reset cadence for ongoing chores (default weekly).
 
 Screen: Schedule chore
-- Set due date and optional recurrence (finite chores only).
+- Set due date and optional recurrence (finite chores only; recurrence requires due date).
 
 Screen: Invite management (admin)
 - Send email invites.
@@ -696,7 +704,7 @@ Household dashboard
 - Chore detail allows snooze/skip actions.
 - Chore detail allows completion.
 - MVP: chore detail does not show created-by; future option to display it.
-- Primary actions: log sub-task, complete, request approval (if required).
+- Primary actions: log sub-task, complete (finite only), request approval (if required).
 - Skip/snooze actions live in the chore detail panel (not on cards).
 - Ongoing chores show current period totals and progress.
 - Overdue section includes subtle encouragement messaging.
@@ -707,8 +715,7 @@ Household dashboard
 - Archived chores are excluded from dashboard sections and Quick win.
 - Show estimated minutes when available (future data).
 - No bulk snooze for overdue chores in MVP.
-- Completed chores remain visible for the rest of the day in a completed state.
-- Completed chores are collapsed by default.
+- Completed chores are removed immediately after completion.
 - Display personal streak in the dashboard header (private to user in MVP).
 - Future: household setting to allow streak visibility to other members.
 - Dashboard header shows today's date.
@@ -750,7 +757,7 @@ Invite management
 - Invite resend rate limit: once per day.
 - Invite revocation requires confirmation.
 - Invite validation: email format only in MVP.
-- Invites to existing user emails are allowed; acceptance links to the existing account.
+- Invites to existing user emails are allowed only if the user does not already belong to a household; acceptance links to the existing account.
 - Soft cap on pending invites (default 20); warn but allow.
 
 Completion history
@@ -861,7 +868,7 @@ Chore lifecycle
 - MVP: no away/holiday mode; use skip with a reason for time away.
 - Snooze/skip apply to finite chore instances only.
 - Ongoing chores do not support skip.
-- Snooze on recurring finite chores prompts scope (this instance or all future).
+- Snooze on recurring finite chores affects only the current occurrence.
 - Household setting controls who can snooze/skip (admins-only or any member).
 - Any member can complete a chore; when confirmation is required, completion is pending until admin approval.
 - Overdue non-recurring chore instances remain overdue until completed or archived.
@@ -874,7 +881,7 @@ Chore lifecycle
 - MVP: all members can restore archived chores; future: household setting to restrict to admins.
 - MVP: archived chores are kept indefinitely; revisit for full implementation.
 - Restoring an archived chore preserves its history.
-- Chore edits apply to future instances only; history remains unchanged.
+- Chore edits (name/category/description/points/sub-tasks/behavior) apply to future instances only; history remains unchanged.
 - Chore creation/edit/delete events are logged in history.
 - All members can edit any chore.
 - Completion uses a quick undo toast instead of a confirmation dialog.
@@ -910,7 +917,7 @@ Notifications
 - No in-app notice for new chore creation in MVP.
 - No in-app notice for chore archive/restore in MVP.
 - No in-app notice for chore deletion in MVP.
-- Notifications auto-purge after expiry (no archive in MVP).
+- Notifications auto-purge after expiry or auto-clear (no archive in MVP).
 
 Quiet hours
 - Per-user quiet hours.
@@ -926,7 +933,7 @@ Quiet hours
 - Database: Postgres in EU region (provider pending).
 - Hosting: pending (Vercel vs Render EU vs Fly.io).
 - Considering AWS hosting/DB (EU region).
-- Progressive Web App (PWA) support: PWA-lite optional for MVP; push notifications considered for future.
+- Progressive Web App (PWA) support: PWA-lite deferred to post-MVP; push notifications considered for future.
 
 ## Local Development Strategy (Draft)
 - Start with local development only; hosting decision deferred.
