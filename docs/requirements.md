@@ -201,18 +201,18 @@ Preset chores (localized)
 
 ## Localization (Draft)
 - Preset names support localization in MVP.
-- Full UI localization in MVP.
+- UI copy is English-only in MVP; full UI localization post-MVP.
+- Routing is not localized; use English routes.
 - Household language selected by admins.
 - On account creation, user locale is initialized from household locale and stored.
 - Household language changes apply only to new users (existing users keep their stored locale).
 - User locale override supported in MVP.
-- MVP languages: English + Polish.
+- MVP languages: English UI; preset names in English + Polish.
 - No RTL support in MVP.
 - Use locale-aware pluralization and date/time formatting.
 - Date/time formats follow the user locale.
-- In-app reminder copy is localized.
-- Preset categories are localized.
-- Email templates (magic link, invites) are localized.
+- In-app reminder copy is English in MVP.
+- Email templates (magic link, invites) are English in MVP.
 
 ## Contribution Model (V2)
 - Household chores are shared by default (no assignees required).
@@ -573,8 +573,9 @@ Screen: Notifications
 - Notifications auto-clear immediately when the underlying condition is resolved (before expiry).
   - Resolution always wins over expiry; purge follows the same rules as expired notifications.
 - Notification center includes a link to notification settings.
-- Notification center shows all notifications across households when multi-household is supported.
-- Notifications are grouped by household when multi-household is supported.
+- MVP: notification center is scoped to the current household only.
+- Future: notification center shows all notifications across households when multi-household is supported.
+- Future: notifications are grouped by household when multi-household is supported.
 - No notification sounds in MVP.
 - No notification priority levels in MVP.
 - No notification categories/filters in MVP.
@@ -896,7 +897,8 @@ Chore lifecycle
 
 Privacy
 - History retention when user leaves: retain entries, anonymize display name.
-- MVP: keep history indefinitely; must be reconsidered before going live.
+- On account deletion request, anonymize history entries immediately and remove personal identifiers after the 7-day grace period.
+- MVP: history is retained only in anonymized form after deletion; no indefinite retention of identifiable data.
 - Leaving a household removes household-related notifications.
 - Account deletion: remove memberships and anonymize history.
 - Account deletion uses a 7-day grace period before purge.
