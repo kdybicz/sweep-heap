@@ -579,12 +579,13 @@ Screen: Chore editor
 - Editor search defaults to active chores only.
 - Editor includes a "Show archived" toggle.
 - Configure chore behavior: finite or ongoing.
-- Configure sub-tasks with fixed points (optional; required for partial contributions).
+- Configure contribution mode: whole_only or sub_tasks.
+- Configure sub-tasks with fixed points (optional; required for sub_tasks mode).
 - Configure confirmation requirement (inherit from household or override).
 - Configure reset cadence for ongoing chores (default weekly).
 
 Screen: Schedule chore
-- Set due date and optional recurrence.
+- Set due date and optional recurrence (finite chores only).
 
 Screen: Invite management (admin)
 - Send email invites.
@@ -616,7 +617,7 @@ Screen: Completion history
 Screen: Household settings
 - Manage household name.
 - Manage member roles (admin/member).
-- Show last completed date per member.
+- Show last contribution/completion date per member.
 - Display last completed as relative time with exact date on hover.
 - Member activity visibility is configurable per household.
 - Default: visible to all members.
