@@ -365,6 +365,9 @@ HouseholdSettings
 - confirmation_required_default (boolean)
 - ranking_view_enabled (boolean)
 - period_cadence_default (weekly)
+- Defaults: confirmation_required_default = false, ranking_view_enabled = false.
+- Defaults: snooze_skip_allowed = any_member.
+- snooze_skip_allowed (any_member or admins_only)
 
 User
 - id
@@ -546,7 +549,9 @@ Screen: Household dashboard (chore list)
 - "Manage chores" is visible to all members.
 - Show household totals for the current period (weekly by default).
 - Optional ranking view available in the dashboard.
+- Points are visible in totals/rankings and in chore detail only.
 - Show a small "Needs approval" badge when a chore has pending completions.
+- Contribution logging is available inline on cards with a detail view for more actions.
 
 Screen: Notifications
 - In-app notification center list for key notices.
@@ -636,6 +641,7 @@ Screen: Approvals (admin)
 - Approve or reject with optional note.
 - Rejected items notify the member with reason.
 - Admin contributions auto-approve when confirmation is required.
+- Rejected contributions remain in history; chore stays open for re-submission.
 
 Screen: User profile/settings
 - Update display name.
@@ -681,6 +687,7 @@ Household dashboard
 - Chore detail/hover shows latest contributions and approvals.
 - Chore detail uses a side panel/modal.
 - Chore detail includes recent history for that chore.
+- Chore detail shows sub-task points.
 - Chore detail history shows the last 10 events (no pagination).
 - Chore detail allows editing (name/category/description).
 - Chore detail history uses relative timestamps with exact time on hover.
@@ -710,6 +717,7 @@ Household dashboard
 - No "mark all done" action in MVP.
 - Ongoing chores appear in the Ongoing section (no separate section in MVP).
 - Due soon excludes ongoing chores.
+- Ongoing chores are never overdue.
 - Allow per-user custom ordering of chores.
 - Custom ordering is a single order across sections.
 - Custom ordering is included in MVP.
