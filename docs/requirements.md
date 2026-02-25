@@ -538,6 +538,7 @@ Screen: Household dashboard (chore list)
 - Room/category filters are multi-select.
 - No chore search in MVP.
 - Provide a "My contributions" filter for items the user has contributed to.
+- Provide a "My approvals" filter for admins to see pending approvals.
 - Remember last-used filter per user.
 - Filters are stored per user per household.
 - No household switcher in MVP.
@@ -693,7 +694,7 @@ Household dashboard
 - Overdue section includes subtle encouragement messaging.
 - After quiet hours, show a small catch-up banner for overdue items.
 - Catch-up banner is dismissible for the day.
-- Show a "Quick win" callout for the shortest sub-task available.
+- Show a "Quick win" callout for the shortest available action (sub-task or whole chore).
 - Quick win is dismissible for the day.
 - Archived chores are excluded from dashboard sections and Quick win.
 - Show estimated minutes when available (future data).
@@ -844,19 +845,17 @@ Time zones
 
 Chore lifecycle
 - Snooze with new due date (quick presets: 30m, 1h, end of day, tomorrow morning).
-- Snooze allowed only by the user who logged the contribution or completion.
-- Snooze events are logged in history.
-- Snooze history includes only the new due date.
 - Skip with a reason (fixed list + optional note).
-- Skip allowed only by the user who logged the contribution or completion.
-- MVP: skip reasons visible to all members.
-- Future: household setting to control skip-reason visibility.
-- Skip events are logged in history.
-- Skip history stores reason category and optional note.
+- Snooze/skip actions are logged in history.
+- Skip reasons visible to all members in MVP; future household visibility setting.
 - Default skip reasons: Not enough time, Not my turn, Too tired, Supplies missing, Other.
 - MVP: no away/holiday mode; use skip with a reason for time away.
+- Snooze/skip apply to finite chore instances only.
+- Ongoing chores do not support skip.
+- Snooze on recurring finite chores prompts scope (this instance or all future).
+- Household setting controls who can snooze/skip (admins-only or any member).
 - Any member can complete a chore; when confirmation is required, completion is pending until admin approval.
-- Overdue non-recurring chores remain overdue until completed or archived.
+- Overdue non-recurring chore instances remain overdue until completed or archived.
 - No reassignment in V2 (shared chores by default).
 - Allow completion after due date without visible “late” label; keep internal late flag for future stats.
 - Recurrence exceptions for missed or skipped chores.
