@@ -24,8 +24,8 @@
 - Per-chore admin confirmation override supported (household default + per-chore setting).
 - Partial contributions use predefined sub-tasks.
 - Fixed points per sub-task.
-- Ongoing chores support reset cadence; default weekly with lifetime totals also visible.
-- Recurring chores (finite only) create a new instance each cycle.
+- Ongoing chores follow recurrence-based instances; default weekly cadence with bi-weekly option; lifetime totals also visible.
+- Recurring chores create a new instance each cycle (finite and ongoing).
 - Visibility includes totals plus optional ranking view.
 - No contribution limits in MVP; future option for soft warnings.
 
@@ -34,7 +34,7 @@
 Core model
 - Household hosts a shared board of chores (no individual assignment required).
 - All members can declare completion or log contributions.
-- Chores can be one-off or recurring (finite only).
+- Chores can be one-off or recurring.
 - Chores can be whole-completion or partial (via sub-tasks).
 - Two chore behaviors: finite (vanish when complete) and ongoing (always available).
 
@@ -49,11 +49,12 @@ Contributions and points
 - No contribution limits in MVP; future option for soft warning thresholds.
 
 Ongoing chores
-- Ongoing chores have a reset cadence for period totals; defaults to household cadence.
+- Ongoing chores use recurrence-based instances; cadence defaults to weekly (bi-weekly option).
+- Instances close at the cadence window end (not by completion).
 - Show period totals and lifetime totals.
 
-Recurring chores (finite only)
-- Each recurrence creates a new instance.
+Recurring chores
+- Each recurrence creates a new instance (finite and ongoing).
 
 Visibility
 - Household view shows totals.
@@ -76,26 +77,26 @@ Example B: Finite, sub-tasks (all sub-tasks)
 - Contribution mode: sub_tasks
 - Sub-tasks (points): Wipe counters (2), Clean stove (2), Mop floor (1)
 - Completion rule: inferred from contribution mode
-- Recurrence: monthly
+- Recurrence: bi-weekly
 - Result: once all three sub-tasks are logged (and approved if required), the instance completes.
 
-Example C: Ongoing, sub-tasks (never completes)
+Example C: Ongoing, sub-tasks (per window instance)
 - Chore: "Dishes"
 - Behavior: ongoing
 - Contribution mode: sub_tasks
 - Sub-tasks (points): Load dishwasher (2), Unload dishwasher (2), Hand-wash items (1)
 - Completion rule: none (ongoing)
-- Reset cadence: weekly
-- Result: contributions accumulate for the week; weekly totals reset while lifetime totals remain.
+- Recurrence: weekly (bi-weekly option)
+- Result: contributions accumulate for the window instance; totals reset each window while lifetime totals remain.
 
-Example D: Ongoing, whole contribution (no sub-tasks)
+Example D: Ongoing, whole contribution (per window instance)
 - Chore: "Tidy entryway"
 - Behavior: ongoing
 - Contribution mode: whole_only
 - Fixed points: 1
 - Completion rule: none (ongoing)
-- Reset cadence: weekly
-- Result: members log "done" contributions that add to weekly/lifetime totals; the chore never completes.
+- Recurrence: weekly (bi-weekly option)
+- Result: members log contributions that add to window/lifetime totals; the instance closes on window end.
 
 
 ## Problem Statement (Draft)
@@ -111,7 +112,7 @@ People living together need a simple way to coordinate recurring household chore
 - Create a household and invite housemates.
 - Accept an invite and join a household.
 - Browse chore presets and add/edit chores.
-- Schedule recurring chores with due dates.
+- Schedule chores with start dates and recurrence (finite chores may also set due dates).
 - Log a contribution or complete a chore.
 - Confirm a completion when admin confirmation is required.
 - View contribution totals and optional rankings.
@@ -239,8 +240,8 @@ Preset chores (localized)
 ## MVP Scope (Draft)
 - Household creation and invites (admins manage invites/settings).
 - Chore list from presets plus custom edits.
-- Scheduling includes due date with optional recurrence (finite only; recurrence requires due date).
-- Due date is optional for chores; recurrence requires a due date.
+- Scheduling includes start date with optional recurrence (finite and ongoing; recurrence requires start date).
+- Due date is optional for finite chores; for one-off finite chores, due date equals start date.
 - Log contributions and complete chores.
 - Optional admin confirmation for completion (household default + per-chore override).
 - View contribution totals and recent history.
@@ -280,9 +281,10 @@ User Story 7: As an admin, I can confirm completions so that progress is verifie
 - Acceptance: admin can approve or reject a completion.
 - Acceptance: approved completions count toward totals and history.
 
-User Story 8: As a member, I can schedule a due date and recurrence so chores repeat.
-- Acceptance: chore can have a due date.
-- Acceptance: recurrence can be set to a simple cadence (e.g., weekly).
+User Story 8: As a member, I can schedule a start date and recurrence so chores repeat.
+- Acceptance: chore can have a start date (required for recurrence).
+- Acceptance: finite chores can have a due date.
+- Acceptance: recurrence can be set to a simple cadence (weekly or bi-weekly).
 
 User Story 9: As a member, I can see upcoming and overdue chores so I know what to do.
 - Acceptance: in-app view shows upcoming chores.
@@ -299,7 +301,7 @@ Flow A: First session (household creator)
 2. Create household (name).
 3. Creator becomes admin.
 4. Add chores from presets and/or create a custom chore with sub-tasks.
-5. Set due date and optional recurrence.
+5. Set start date and optional recurrence (finite may also set due date).
 6. Log the first contribution or completion.
 7. See upcoming/overdue view and contribution totals.
 
@@ -368,7 +370,7 @@ HouseholdSettings
 - household_id
 - confirmation_required_default (boolean)
 - ranking_view_enabled (boolean)
-- period_cadence_default (weekly)
+- recurrence_cadence_default (weekly; bi-weekly option)
 - Defaults: confirmation_required_default = false, ranking_view_enabled = false.
 - Defaults: snooze_skip_allowed = any_member.
 - snooze_skip_allowed (any_member or admins_only)
@@ -415,8 +417,10 @@ Chore
 - contribution_mode (whole_only or sub_tasks)
   - whole_only chores include fixed_points (integer)
 - completion_rule (remove; infer from contribution_mode)
+- start_date (required; recurrence anchor for all chores)
+- recurrence_rule (nullable; weekly/bi-weekly in MVP)
+- recurrence_end (nullable; date or occurrences)
 - confirmation_required (nullable; defaults to household setting)
-- reset_cadence (nullable; for ongoing chores, defaults to household cadence)
 
 ChorePreset
 - id
@@ -427,14 +431,15 @@ ChorePreset
 - Category is required for presets.
 - No suggested estimated minutes in presets (MVP).
 
-ChoreInstance (finite chores only, one-off or recurring)
+ChoreInstance (finite and ongoing)
 - id
 - chore_id
-- due_date (nullable)
-- recurrence_rule (nullable; simple cadence only)
-- status (derived: open, completed, pending_confirmation)
+- window_start (derived at instance creation; may be stored)
+- window_end (derived at instance creation; may be stored)
+- due_date (nullable; finite only)
+- status (derived: open, completed, pending_confirmation for finite; open/closed for ongoing)
 - completed_at (nullable)
-  - One-off finite chores create a single instance at creation (due_date nullable).
+  - One-off finite chores create a single instance at creation (due_date equals start_date).
 
 ChoreSubTask
 - id
@@ -484,7 +489,7 @@ Constraints and Indexes (Draft)
 - Invite unique on (household_id, email, status=pending).
 - Invite.token unique.
 - Chore name duplicates allowed per household; encourage distinct names.
-- ChoreInstance.status derived from contributions; if stored, constrained to open, completed, or pending_confirmation.
+- ChoreInstance.status derived from contributions for finite; if stored, constrained to open, completed, pending_confirmation (finite) or open/closed (ongoing).
 - Contribution.status constrained to pending, approved, or rejected.
 - Indexes on: household_id for HouseholdMembership, Invite, Chore; chore_id for ChoreInstance, ChoreSubTask, Contribution.
 
@@ -493,28 +498,29 @@ Completion and Approval Rules (V2)
 - A completion is recorded for finite chores when the completion rule is satisfied (whole completion or all sub-tasks).
 - Rejected contributions do not count toward totals.
 - Completion rule is inferred from contribution_mode.
-- Ongoing chores never complete; they stay open and reset period totals on cadence.
+- Ongoing chores never complete; instances close at window end and a new instance opens on cadence.
 - Finite recurring chores reset sub-tasks each instance.
 
 Contribution Totals (Derived)
-- Period totals are derived from Contribution entries within the household cadence window (weekly by default).
+- Period totals are derived from Contribution entries within the household cadence window (weekly by default; bi-weekly option).
+- Chore-level period totals align to the current instance window.
 - Lifetime totals are derived from all Contribution entries.
 - If needed for performance, add a materialized summary table keyed by (household_id, user_id, period_start).
 
-Recurring Chores (Draft, finite only)
-- ChoreInstance represents a single occurrence for finite recurring chores.
-- Recurrence is calendar-based and anchored to the due date.
+Recurring Chores (Draft)
+- ChoreInstance represents a single occurrence for finite and ongoing chores.
+- Recurrence is calendar-based and anchored to the start date.
 - Next occurrence is created on schedule (e.g., next Monday) regardless of early completion.
-- If skipped or overdue, the next scheduled occurrence is still created.
-- Recurrence cadence: MVP weekly only; future daily/weekly/monthly; no N-intervals.
-- Weekly recurrence requires selecting a weekday.
+- If skipped or overdue (finite only), the next scheduled occurrence is still created.
+- Recurrence cadence: MVP weekly default with bi-weekly option; future daily/weekly/monthly; allow N-intervals later.
+- Weekly/bi-weekly recurrence requires selecting a weekday.
 - Schedule edits prompt for scope (this occurrence or all future); default to future-only.
 - Due date changes affect only the current occurrence (do not shift recurrence schedule).
-- Overdue recurring chores do not pile up; when a new occurrence is created, any prior open occurrence is auto-skipped (logged in history).
+- Overdue recurring chores do not pile up; when a new finite occurrence is created, any prior open finite occurrence is auto-skipped (logged in history).
 - Auto-skipped occurrences include a standard reason.
 - MVP: auto-skip events visible to all members; future: household setting for visibility.
-- Snooze is allowed on recurring chores and affects only the current occurrence.
-- Skip is allowed on recurring chores and affects only the current occurrence.
+- Snooze is allowed on recurring finite chores and affects only the current occurrence.
+- Skip is allowed on recurring finite chores and affects only the current occurrence.
 
 ## MVP Screens and Page-Level Requirements (Draft)
 
@@ -554,7 +560,7 @@ Screen: Household dashboard (chore list)
 - No household switcher in MVP.
 - Provide a "Manage chores" button linking to the chore editor.
 - "Manage chores" is visible to all members.
-- Show household totals for the current period (weekly by default).
+- Show household totals for the current period (HouseholdSettings.recurrence_cadence_default).
 - Optional ranking view available in the dashboard.
 - Points are visible in totals/rankings and in chore detail only.
 - Show a small "Needs approval" badge when a chore has pending completions.
@@ -596,10 +602,11 @@ Screen: Chore editor
 - Configure contribution mode: whole_only or sub_tasks.
 - Configure sub-tasks with fixed points (optional; required for sub_tasks mode).
 - Configure confirmation requirement (inherit from household or override).
-- Configure reset cadence for ongoing chores (default weekly).
+- Configure recurrence cadence for ongoing chores (default weekly; bi-weekly option).
 
 Screen: Schedule chore
-- Set due date and optional recurrence (finite chores only; recurrence requires due date).
+- Set start date and optional recurrence (finite and ongoing; recurrence requires start date).
+- Finite chores may also set a due date (defaults to start date for one-off).
 
 Screen: Invite management (admin)
 - Send email invites.
@@ -707,7 +714,7 @@ Household dashboard
 - MVP: chore detail does not show created-by; future option to display it.
 - Primary actions: log sub-task, complete (finite only), request approval (if required).
 - Skip/snooze actions live in the chore detail panel (not on cards).
-- Ongoing chores show current period totals and progress.
+- Ongoing chores show current window totals and progress.
 - Overdue section includes subtle encouragement messaging.
 - After quiet hours, show a small catch-up banner for overdue items.
 - Catch-up banner is dismissible for the day.
@@ -748,7 +755,8 @@ Chore editor
 - Preset search uses substring matching.
 
 Schedule
-- Due date calendar with optional recurrence dropdown.
+- Start date calendar with optional recurrence dropdown.
+- Finite chores can optionally set a due date.
 
 Invite management
 - Input email + send invite.
@@ -804,7 +812,7 @@ Future enhancements
 - Badges/achievements (opt-in and non-competitive).
 - Streak pause/vacation mode.
 - Weekly summary card.
-- Per-chore reset cadence customization (daily/monthly/never).
+- Per-chore recurrence cadence expansion (daily/monthly/never).
 
 ## Additional Considerations (Draft)
 
@@ -855,9 +863,9 @@ Household deletion policy
 - Only admins can cancel household deletion.
 
 Time zones
-- Use household time zone for due dates.
+- Use household time zone for start dates, recurrence windows, and due dates (finite only).
 - Admins can change household time zone.
-- Existing due dates are stored as absolute timestamps and do not shift when the time zone changes.
+- Existing start dates and due dates are stored as absolute timestamps and do not shift when the time zone changes.
 - Future recurring occurrences follow the current household time zone.
 
 Chore lifecycle
@@ -892,7 +900,7 @@ Chore lifecycle
 - Undo creates a new history event (audit trail).
 - First write wins; if the chore changes during an action, the second user sees an error and must retry.
 - Chores may have no due date.
-- Recurrence requires a due date.
+- Recurrence requires a start date.
 - No take-over actions in V2.
 
 Privacy
