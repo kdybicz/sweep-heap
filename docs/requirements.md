@@ -108,3 +108,18 @@ Example D: Yearly on Feb 29
 - If a close_on_done occurrence is completed, it closes immediately; future occurrences are unaffected.
 - If current_date passes end_date, all open occurrences close with closed_reason=schedule_end.
 - Time zone changes are not supported in MVP; time_zone is immutable after creation.
+
+## Open questions
+- Add formal recurrence math pseudocode?
+- Define explicit today/overdue query behavior?
+- Decide lazy vs precomputed occurrence storage?
+
+## Tech Stack (Draft)
+- Frontend: Next.js + TypeScript.
+- UI: Tailwind CSS.
+- Auth: Auth.js magic-link (email via SMTP).
+- Backend: Next.js API routes (route handlers) for MVP.
+- Database: Postgres in EU region (provider pending).
+- Hosting: pending (Vercel vs Render EU vs Fly.io).
+- Considering AWS hosting/DB (EU region).
+- Progressive Web App (PWA) support: PWA-lite deferred to post-MVP; push notifications considered for future.
