@@ -17,6 +17,17 @@
 - Monthly/yearly repeats snap to the last day of the month if needed.
 - Custom repeat rules are post-MVP (intervals, weekdays, etc.).
 
+## Occurrence generation (MVP)
+- A chore defines a series; each scheduled date in the series is a ChoreOccurrence.
+- Occurrences are generated for every scheduled date between start_date and end_date (inclusive).
+- For repeat=none, generate exactly one occurrence at start_date.
+- For repeat=day, generate every calendar day.
+- For repeat=week, generate every 7 days on the start_date weekday.
+- For repeat=month, generate on the start_date day-of-month; if a month lacks that day, use the last day of that month.
+- For repeat=year, generate on the start_date month/day; if missing (Feb 29), use Feb 28 in non-leap years.
+- Occurrences can be generated lazily (on read) or precomputed; behavior must be identical.
+- Occurrence_date is a date in the chore time zone (no time-of-day).
+
 ## Chore types
 - close_on_done: marking done closes the occurrence and removes it from active lists.
 - stay_open: marking done records a completion but the occurrence stays active/visible.
@@ -38,6 +49,9 @@ Chore (series definition)
 - time_zone (IANA; required for date math)
 - status: active | closed
 - closed_reason: schedule_end | manual
+- created_at
+- updated_at
+- closed_at (timestamp, nullable)
 
 ChoreOccurrence (derived per scheduled date)
 - id
@@ -47,9 +61,50 @@ ChoreOccurrence (derived per scheduled date)
 - closed_reason: done | schedule_end
 - last_completed_at (timestamp, optional)
 - completed_count (int, optional; useful for stay_open)
+- created_at
 
 Completion (history)
 - id
 - chore_id
 - occurrence_id
 - completed_at (timestamp)
+- actor_label (string, optional; placeholder for future ownership)
+
+## Derived fields and indexes (draft)
+- Chore.is_active is derived: current_date <= end_date AND status != closed.
+- ChoreOccurrence.status is derived: if occurrence_date < current_date and not already closed, close_reason = schedule_end.
+- Unique index on (chore_id, occurrence_date).
+- Index on (chore_id, status) for active occurrence lookups.
+- Index on (occurrence_date) for upcoming/overdue queries.
+
+## Examples
+Example A: One-off close_on_done
+- start_date: 2026-03-10
+- end_date: 2026-03-10
+- repeat: none
+- Result: one occurrence on 2026-03-10; closes when done.
+
+Example B: Daily stay_open for a week
+- start_date: 2026-03-01
+- end_date: 2026-03-07
+- repeat: day
+- Result: 7 occurrences; each stays open for that day even after completion; all close after 2026-03-07.
+
+Example C: Monthly on the 31st
+- start_date: 2026-01-31
+- end_date: 2026-04-30
+- repeat: month
+- Result: 2026-01-31, 2026-02-28, 2026-03-31, 2026-04-30.
+
+Example D: Yearly on Feb 29
+- start_date: 2024-02-29
+- end_date: 2026-02-28
+- repeat: year
+- Result: 2024-02-29, 2025-02-28, 2026-02-28.
+
+## Edge cases (MVP)
+- end_date before start_date is invalid.
+- If a chore is manually closed, no future occurrences are active, even if within date range.
+- If a close_on_done occurrence is completed, it closes immediately; future occurrences are unaffected.
+- If current_date passes end_date, all open occurrences close with closed_reason=schedule_end.
+- Time zone changes are not supported in MVP; time_zone is immutable after creation.
