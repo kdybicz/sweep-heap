@@ -1,64 +1,205 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const weekDayFormatter = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
+const dayFormatter = new Intl.DateTimeFormat("en-US", { day: "numeric" });
+const yearFormatter = new Intl.DateTimeFormat("en-US", { year: "numeric" });
+
+const startOfWeek = (date: Date) => {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const weekDayIndex = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - weekDayIndex);
+  return start;
+};
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatRange = (start: Date, end: Date) => {
+  const sameMonth =
+    start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const startLabel = `${monthFormatter.format(start)} ${dayFormatter.format(start)}`;
+  const endLabel = `${monthFormatter.format(end)} ${dayFormatter.format(end)}`;
+
+  if (sameMonth) {
+    return `${monthFormatter.format(start)} ${dayFormatter.format(
+      start,
+    )}–${dayFormatter.format(end)}, ${yearFormatter.format(start)}`;
+  }
+
+  if (sameYear) {
+    return `${startLabel}–${endLabel}, ${yearFormatter.format(start)}`;
+  }
+
+  return `${startLabel}, ${yearFormatter.format(start)}–${endLabel}, ${yearFormatter.format(end)}`;
+};
 
 export default function Home() {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const baseDateRef = useRef(new Date());
+  const lastRangeRef = useRef<string | null>(null);
+  const [chores, setChores] = useState<
+    Array<{ id: number; title: string; occurrence_date: string; status: string }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  const weekStart = useMemo(
+    () => addDays(startOfWeek(baseDateRef.current), weekOffset * 7),
+    [weekOffset],
+  );
+
+  const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
+  const startKey = useMemo(() => toDateKey(weekStart), [weekStart]);
+  const endKey = useMemo(() => toDateKey(weekEnd), [weekEnd]);
+  const rangeKey = useMemo(() => `${startKey}:${endKey}`, [startKey, endKey]);
+
+  const days = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
+    [weekStart],
+  );
+  const rangeLabel = formatRange(weekStart, weekEnd);
+
+  useEffect(() => {
+    if (lastRangeRef.current === rangeKey) {
+      return;
+    }
+    lastRangeRef.current = rangeKey;
+
+    const loadChores = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/chores?start=${startKey}&end=${endKey}`);
+        const data = await response.json();
+        if (data?.ok) {
+          setChores(data.chores ?? []);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChores();
+  }, [rangeKey, startKey, endKey]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.9),_transparent_60%),radial-gradient(circle_at_20%_20%,_rgba(255,211,170,0.4),_transparent_40%),radial-gradient(circle_at_80%_10%,_rgba(255,240,214,0.6),_transparent_45%)]" />
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 pb-12 pt-10">
+        <header className="flex flex-col gap-4 rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-6 shadow-[var(--shadow)]">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Chores</span>
+              <h1 className="text-3xl font-semibold tracking-tight">Weekly Overview</h1>
+              <p className="text-sm text-[var(--muted)]">
+                All-day columns, no time slots, just the week ahead.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                className="rounded-full border border-[var(--stroke)] bg-white px-4 py-2 text-sm font-medium text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+                onClick={() => setWeekOffset(0)}
+                type="button"
+              >
+                Today
+              </button>
+              <div className="flex items-center rounded-full border border-[var(--stroke)] bg-white text-sm font-medium">
+                <button
+                  className="px-4 py-2 transition hover:bg-[var(--surface-strong)]"
+                  onClick={() => setWeekOffset((value) => value - 1)}
+                  type="button"
+                >
+                  ←
+                </button>
+                <span className="px-4 py-2 text-[var(--muted)]">{rangeLabel}</span>
+                <button
+                  className="px-4 py-2 transition hover:bg-[var(--surface-strong)]"
+                  onClick={() => setWeekOffset((value) => value + 1)}
+                  type="button"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow)]">
+          <div className="flex items-center justify-between border-b border-[var(--stroke)] px-2 pb-4">
+            <div className="text-sm font-medium text-[var(--muted)]">Week view</div>
+            <div className="text-xs text-[var(--muted)]">Week starts on Monday</div>
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <div className="grid min-w-[720px] grid-cols-7 gap-3">
+              {days.map((day) => {
+                const dayKey = toDateKey(day);
+                const dayChores = chores.filter(
+                  (chore) => chore.occurrence_date === dayKey,
+                );
+                const isToday = day.toDateString() === new Date().toDateString();
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className="flex min-h-[420px] flex-col rounded-2xl border border-[var(--stroke)] bg-[var(--card)] p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium uppercase tracking-[0.25em] text-[var(--muted)]">
+                        {weekDayFormatter.format(day)}
+                      </span>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          isToday
+                            ? "bg-[var(--accent)] text-white"
+                            : "bg-[var(--surface-strong)] text-[var(--ink)]"
+                        }`}
+                      >
+                        {dayFormatter.format(day)}
+                      </span>
+                    </div>
+                    <div className="mt-6 flex-1 rounded-xl border border-dashed border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-3">
+                      {loading ? (
+                        <div className="text-xs text-[var(--muted)]">Loading chores...</div>
+                      ) : dayChores.length ? (
+                        <div className="flex flex-col gap-2">
+                          {dayChores.map((chore) => (
+                            <div
+                              key={chore.id}
+                              className="rounded-lg border border-[var(--stroke)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)]"
+                            >
+                              {chore.title}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-[var(--muted)]">No chores scheduled</div>
+                      )}
+                    </div>
+                    <button
+                      className="mt-4 rounded-xl border border-[var(--stroke)] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+                      type="button"
+                    >
+                      Add chore
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );
