@@ -447,8 +447,9 @@ ChoreInstance (finite and ongoing)
 - window_start (derived at instance creation; may be stored)
 - window_end (derived at instance creation; may be stored)
 - due_date (nullable; finite or ongoing)
-- status (derived: open, completed, pending_confirmation for finite; open/closed for ongoing)
+- status (derived: open, pending_confirmation, closed)
 - pending_confirmation is used for finite instances with required contributions awaiting approval
+- closed_reason (nullable; completed, skipped, window_end)
 - completed_at (nullable)
   - One-off finite chores create a single instance at creation (due_date equals start_date).
 
@@ -511,6 +512,7 @@ Completion and Approval Rules (V2)
 - Rejected contributions do not count toward totals.
 - Completion rule is inferred from contribution_mode.
 - Ongoing chores never complete; instances close at window end and a new instance opens on cadence.
+- When an instance closes, set status=closed with closed_reason: completed (finite completion), skipped (finite auto-skip), window_end (ongoing or expired finite).
 - Finite recurring chores reset sub-tasks each instance.
 
 Contribution Totals (Derived)
