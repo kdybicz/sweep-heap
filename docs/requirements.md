@@ -112,7 +112,7 @@ People living together need a simple way to coordinate recurring household chore
 - Create a household and invite housemates.
 - Accept an invite and join a household.
 - Browse chore presets and add/edit chores.
-- Schedule chores with start dates and recurrence (finite chores may also set due dates).
+- Schedule chores with start dates and recurrence (chores may also set due dates).
 - Log a contribution or complete a chore.
 - Confirm a completion when admin confirmation is required.
 - View contribution totals and optional rankings.
@@ -241,7 +241,7 @@ Preset chores (localized)
 - Household creation and invites (admins manage invites/settings).
 - Chore list from presets plus custom edits.
 - Scheduling includes start date with optional recurrence (finite and ongoing; recurrence requires start date).
-- Due date is optional for finite chores; for one-off finite chores, due date equals start date.
+- Due date is optional for all chores; for one-off finite chores, due date equals start date.
 - Log contributions and complete chores.
 - Optional admin confirmation for completion (household default + per-chore override).
 - View contribution totals and recent history.
@@ -283,7 +283,7 @@ User Story 7: As an admin, I can confirm completions so that progress is verifie
 
 User Story 8: As a member, I can schedule a start date and recurrence so chores repeat.
 - Acceptance: chore can have a start date (required for recurrence).
-- Acceptance: finite chores can have a due date.
+- Acceptance: chores can have a due date.
 - Acceptance: recurrence can be set to a simple cadence (weekly or bi-weekly).
 
 User Story 9: As a member, I can see upcoming and overdue chores so I know what to do.
@@ -301,7 +301,7 @@ Flow A: First session (household creator)
 2. Create household (name).
 3. Creator becomes admin.
 4. Add chores from presets and/or create a custom chore with sub-tasks.
-5. Set start date and optional recurrence (finite may also set due date).
+5. Set start date and optional recurrence (chores may also set due date).
 6. Log the first contribution or completion.
 7. See upcoming/overdue view and contribution totals.
 
@@ -436,7 +436,7 @@ ChoreInstance (finite and ongoing)
 - chore_id
 - window_start (derived at instance creation; may be stored)
 - window_end (derived at instance creation; may be stored)
-- due_date (nullable; finite only)
+- due_date (nullable; finite or ongoing)
 - status (derived: open, completed, pending_confirmation for finite; open/closed for ongoing)
 - completed_at (nullable)
   - One-off finite chores create a single instance at creation (due_date equals start_date).
@@ -511,7 +511,7 @@ Recurring Chores (Draft)
 - ChoreInstance represents a single occurrence for finite and ongoing chores.
 - Recurrence is calendar-based and anchored to the start date.
 - Next occurrence is created on schedule (e.g., next Monday) regardless of early completion.
-- If skipped or overdue (finite only), the next scheduled occurrence is still created.
+- If a finite occurrence is skipped or overdue, the next scheduled occurrence is still created.
 - Recurrence cadence: MVP weekly default with bi-weekly option; future daily/weekly/monthly; allow N-intervals later.
 - Weekly/bi-weekly recurrence requires selecting a weekday.
 - Schedule edits prompt for scope (this occurrence or all future); default to future-only.
@@ -606,7 +606,7 @@ Screen: Chore editor
 
 Screen: Schedule chore
 - Set start date and optional recurrence (finite and ongoing; recurrence requires start date).
-- Finite chores may also set a due date (defaults to start date for one-off).
+- Chores may also set a due date (defaults to start date for one-off finite).
 
 Screen: Invite management (admin)
 - Send email invites.
@@ -731,8 +731,8 @@ Household dashboard
 - Greeting uses display name when available, otherwise generic.
 - No "mark all done" action in MVP.
 - Ongoing chores appear in the Ongoing section (no separate section in MVP).
-- Due soon excludes ongoing chores.
-- Ongoing chores are never overdue.
+- Due soon includes any chore instance with a due date (finite or ongoing).
+- Ongoing chores can be overdue when a due date is set; overdue status does not close the instance.
 - Allow per-user custom ordering of chores.
 - Custom ordering is a single order across sections.
 - Custom ordering is included in MVP.
@@ -863,7 +863,7 @@ Household deletion policy
 - Only admins can cancel household deletion.
 
 Time zones
-- Use household time zone for start dates, recurrence windows, and due dates (finite only).
+- Use household time zone for start dates, recurrence windows, and due dates.
 - Admins can change household time zone.
 - Existing start dates and due dates are stored as absolute timestamps and do not shift when the time zone changes.
 - Future recurring occurrences follow the current household time zone.
@@ -880,7 +880,7 @@ Chore lifecycle
 - Snooze on recurring finite chores affects only the current occurrence.
 - Household setting controls who can snooze/skip (admins-only or any member).
 - Any member can complete a chore; when confirmation is required, completion is pending until admin approval.
-- Overdue non-recurring chore instances remain overdue until completed or archived.
+- Overdue non-recurring finite chore instances remain overdue until completed or archived.
 - No reassignment in V2 (shared chores by default).
 - Allow completion after due date without visible “late” label; keep internal late flag for future stats.
 - Recurrence exceptions for missed or skipped chores.
