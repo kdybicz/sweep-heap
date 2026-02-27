@@ -46,6 +46,12 @@ Household
 - time_zone (IANA)
 - created_at
 
+User
+- id
+- household_id
+- email
+- created_at
+
 Chore (series definition)
 - id
 - household_id
@@ -88,8 +94,8 @@ ChoreOccurrenceOverride (exceptions)
 - updated_at
 
 ## Derived fields and indexes (draft)
-- Chore.is_active is derived: current_date <= end_date AND status != closed.
-- ChoreOccurrence.status is derived: if occurrence_date < current_date and not already closed, close_reason = schedule_end.
+- Chore.is_active is derived: status != closed AND (series_end_date is null OR current_date <= series_end_date).
+- ChoreOccurrence.status is derived from overrides; otherwise open unless occurrence_date < current_date, then close_reason = schedule_end.
 - Unique index on (chore_id, occurrence_date).
 - Index on (chore_id, status) for active occurrence lookups.
 - Index on (occurrence_date) for upcoming/overdue queries.
@@ -98,32 +104,37 @@ ChoreOccurrenceOverride (exceptions)
 Example A: One-off close_on_done
 - start_date: 2026-03-10
 - end_date: 2026-03-10
+- series_end_date: 2026-03-10
 - repeat: none
 - Result: one occurrence on 2026-03-10; closes when done.
 
 Example B: Daily stay_open for a week
 - start_date: 2026-03-01
-- end_date: 2026-03-07
+- end_date: 2026-03-01
+- series_end_date: 2026-03-07
 - repeat: day
 - Result: 7 occurrences; each stays open for that day even after completion; all close after 2026-03-07.
 
 Example C: Monthly on the 31st
 - start_date: 2026-01-31
-- end_date: 2026-04-30
+- end_date: 2026-01-31
+- series_end_date: 2026-04-30
 - repeat: month
 - Result: 2026-01-31, 2026-02-28, 2026-03-31, 2026-04-30.
 
 Example D: Yearly on Feb 29
 - start_date: 2024-02-29
-- end_date: 2026-02-28
+- end_date: 2024-02-29
+- series_end_date: 2026-02-28
 - repeat: year
 - Result: 2024-02-29, 2025-02-28, 2026-02-28.
 
 ## Edge cases (MVP)
-- end_date before start_date is invalid.
+- end_date before start_date is invalid (occurrence span).
+- series_end_date before start_date is invalid.
 - If a chore is manually closed, no future occurrences are active, even if within date range.
 - If a close_on_done occurrence is completed, it closes immediately; future occurrences are unaffected.
-- If current_date passes end_date, all open occurrences close with closed_reason=schedule_end.
+- If current_date passes series_end_date, all open occurrences close with closed_reason=schedule_end.
 - Time zone changes are not supported in MVP; time_zone is immutable after creation.
 
 ## Open questions

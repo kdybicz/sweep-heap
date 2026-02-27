@@ -6,6 +6,10 @@ export const ensureChoresTable = async () => {
   );
 
   await pool.query(
+    "create table if not exists users (id serial primary key, household_id integer not null references households(id) on delete cascade, email text not null unique, created_at timestamptz not null default now())",
+  );
+
+  await pool.query(
     "create table if not exists chores (id serial primary key, household_id integer not null references households(id) on delete cascade, title text not null, type text not null, start_date date not null, end_date date not null, series_end_date date, repeat_rule text not null, status text not null default 'active', created_at timestamptz not null default now())",
   );
 
