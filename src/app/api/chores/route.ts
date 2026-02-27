@@ -41,6 +41,7 @@ const generateOccurrences = (
   rangeStart: string,
   rangeEnd: string,
   repeatRule: string,
+  spanDays: number,
   timeZone: string,
 ) => {
   const occurrences: string[] = [];
@@ -60,9 +61,24 @@ const generateOccurrences = (
   const clampStart = start > from ? start : from;
   const clampEnd = end < to ? end : to;
 
+  const addOccurrenceSpan = (occurrenceStart: DateTime) => {
+    const daySpan = Math.max(spanDays, 1);
+    for (let offset = 0; offset < daySpan; offset += 1) {
+      const day = occurrenceStart.plus({ days: offset });
+      if (day < clampStart || day > clampEnd) {
+        continue;
+      }
+      const isoDate = day.toISODate();
+      if (!isoDate) {
+        continue;
+      }
+      occurrences.push(isoDate);
+    }
+  };
+
   if (repeatRule === "none") {
     if (start >= clampStart && start <= clampEnd) {
-      occurrences.push(start.toISODate());
+      addOccurrenceSpan(start);
     }
     return occurrences;
   }
@@ -83,7 +99,7 @@ const generateOccurrences = (
   }
 
   while (cursor <= clampEnd) {
-    occurrences.push(cursor.toISODate());
+    addOccurrenceSpan(cursor);
     if (repeatRule === "day") {
       cursor = cursor.plus({ days: 1 });
     } else if (repeatRule === "week") {
@@ -115,7 +131,7 @@ export async function GET(request: Request) {
     const timeZone = household?.time_zone;
 
     const seriesResult = await pool.query(
-      "select id, title, type, start_date, end_date, repeat_rule, status from chores where status = 'active' and household_id = $1",
+      "select id, title, type, start_date, end_date, series_end_date, duration_days, repeat_rule, status from chores where status = 'active' and household_id = $1",
       [householdId],
     );
 
@@ -142,16 +158,21 @@ export async function GET(request: Request) {
 
     const chores = seriesResult.rows.flatMap((row) => {
       const seriesStart = normalizeDate(row.start_date);
-      const seriesEnd = normalizeDate(row.end_date);
-      if (!seriesStart || !seriesEnd) {
+      const occurrenceEnd = normalizeDate(row.end_date);
+      const seriesEnd = normalizeDate(row.series_end_date) ?? rangeEnd;
+      if (!seriesStart || !seriesEnd || !occurrenceEnd) {
         return [];
       }
+      const startDate = DateTime.fromISO(seriesStart, { zone: timeZone });
+      const endDate = DateTime.fromISO(occurrenceEnd, { zone: timeZone });
+      const spanDays = Math.max(Math.round(endDate.diff(startDate, "days").days) + 1, 1);
       const occurrences = generateOccurrences(
         seriesStart,
         seriesEnd,
         rangeStart,
         rangeEnd,
         row.repeat_rule,
+        spanDays,
         timeZone,
       );
       return occurrences.map((occurrenceDate) => {

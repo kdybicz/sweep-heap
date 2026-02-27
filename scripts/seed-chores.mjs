@@ -48,7 +48,7 @@ const seed = async () => {
     "create table if not exists households (id serial primary key, name text not null, time_zone text not null, created_at timestamptz not null default now())",
   );
   await pool.query(
-    "create table if not exists chores (id serial primary key, household_id integer not null references households(id) on delete cascade, title text not null, type text not null, start_date date not null, end_date date not null, repeat_rule text not null, status text not null default 'active', created_at timestamptz not null default now())",
+    "create table if not exists chores (id serial primary key, household_id integer not null references households(id) on delete cascade, title text not null, type text not null, start_date date not null, end_date date not null, series_end_date date, duration_days integer not null default 1, repeat_rule text not null, status text not null default 'active', created_at timestamptz not null default now())",
   );
   await pool.query(
     "create table if not exists chore_occurrence_overrides (id serial primary key, chore_id integer not null references chores(id) on delete cascade, occurrence_date date not null, status text not null, closed_reason text, updated_at timestamptz not null default now(), unique(chore_id, occurrence_date))",
@@ -74,21 +74,24 @@ const seed = async () => {
       title: "Sweep kitchen",
       type: "close_on_done",
       start_date: toDateString(weekMonday),
-      end_date: toDateString(weekMonday.plus({ days: 28 })),
+      end_date: toDateString(weekMonday),
+      series_end_date: toDateString(weekMonday.plus({ days: 28 })),
       repeat_rule: "week",
     },
     {
       title: "Water plants",
       type: "stay_open",
       start_date: toDateString(weekTuesday),
-      end_date: toDateString(weekTuesday.plus({ days: 28 })),
+      end_date: toDateString(weekTuesday),
+      series_end_date: toDateString(weekTuesday.plus({ days: 28 })),
       repeat_rule: "week",
     },
     {
       title: "Take out trash",
       type: "close_on_done",
       start_date: toDateString(weekThursday),
-      end_date: toDateString(weekThursday.plus({ days: 28 })),
+      end_date: toDateString(weekThursday),
+      series_end_date: toDateString(weekThursday.plus({ days: 28 })),
       repeat_rule: "week",
     },
     {
@@ -96,14 +99,24 @@ const seed = async () => {
       type: "stay_open",
       start_date: toDateString(weekFriday),
       end_date: toDateString(weekSaturday),
+      series_end_date: toDateString(weekSaturday.plus({ days: 28 })),
       repeat_rule: "week",
     },
   ];
 
   for (const chore of chores) {
     await pool.query(
-      "insert into chores (household_id, title, type, start_date, end_date, repeat_rule) values ($1, $2, $3, $4, $5, $6)",
-      [householdId, chore.title, chore.type, chore.start_date, chore.end_date, chore.repeat_rule],
+      "insert into chores (household_id, title, type, start_date, end_date, series_end_date, duration_days, repeat_rule) values ($1, $2, $3, $4, $5, $6, $7, $8)",
+      [
+        householdId,
+        chore.title,
+        chore.type,
+        chore.start_date,
+        chore.end_date,
+        chore.series_end_date ?? null,
+        chore.duration_days ?? 1,
+        chore.repeat_rule,
+      ],
     );
   }
 
