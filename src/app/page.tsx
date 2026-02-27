@@ -1,7 +1,7 @@
 "use client";
 
 import { DateTime } from "luxon";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const toDateKey = (date: DateTime) => date.toISODate();
 
@@ -32,9 +32,24 @@ export default function Home() {
   const baseDateRef = useRef<DateTime | null>(null);
   const lastRangeRef = useRef<string | null>(null);
   const [chores, setChores] = useState<
-    Array<{ id: number; title: string; occurrence_date: string; status: string }>
+    Array<{
+      id: number;
+      title: string;
+      occurrence_date: string;
+      status: string;
+      closed_reason?: string | null;
+      undo_until?: string | null;
+      can_undo?: boolean;
+    }>
   >([]);
   const [loading, setLoading] = useState(true);
+  const [undoToast, setUndoToast] = useState<{
+    choreId: number;
+    occurrenceDate: string;
+    title: string;
+    undoUntil: string;
+  } | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (!baseDateRef.current) {
     baseDateRef.current = getHouseholdToday(timeZone);
@@ -93,12 +108,153 @@ export default function Home() {
     loadChores();
   }, [rangeKey, startKey, endKey, weekOffset]);
 
-  const toggleChoreStatus = async (choreId: number, occurrenceDate: string, current: string) => {
-    const nextStatus = current === "closed" ? "open" : "closed";
+  useEffect(() => {
+    if (undoToast) {
+      return;
+    }
+    const candidates = chores.filter((chore) => chore.can_undo && chore.undo_until);
+    if (!candidates.length) {
+      return;
+    }
+    const next = candidates.sort(
+      (a, b) =>
+        DateTime.fromISO(b.undo_until ?? "").toMillis() -
+        DateTime.fromISO(a.undo_until ?? "").toMillis(),
+    )[0];
+    if (next?.undo_until) {
+      setUndoToast({
+        choreId: next.id,
+        occurrenceDate: next.occurrence_date,
+        title: next.title,
+        undoUntil: next.undo_until,
+      });
+    }
+  }, [chores, undoToast]);
+
+  const clearUndoTimeout = useCallback(() => {
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleUndoTimeout = useCallback(
+    (undoUntil: string) => {
+      clearUndoTimeout();
+      const remainingMs = Math.max(
+        0,
+        DateTime.fromISO(undoUntil).toMillis() - DateTime.utc().toMillis(),
+      );
+      undoTimeoutRef.current = setTimeout(() => {
+        setUndoToast(null);
+        clearUndoTimeout();
+      }, remainingMs);
+    },
+    [clearUndoTimeout],
+  );
+
+  useEffect(() => {
+    if (!undoToast) {
+      clearUndoTimeout();
+      return;
+    }
+    scheduleUndoTimeout(undoToast.undoUntil);
+    return () => {
+      clearUndoTimeout();
+    };
+  }, [undoToast, clearUndoTimeout, scheduleUndoTimeout]);
+
+  const markChoreDone = async (choreId: number, occurrenceDate: string, title: string) => {
+    const undoUntil = DateTime.utc().plus({ seconds: 5 }).toISO();
     setChores((prev) =>
       prev.map((chore) =>
         chore.id === choreId && chore.occurrence_date === occurrenceDate
-          ? { ...chore, status: nextStatus }
+          ? {
+              ...chore,
+              status: "closed",
+              closed_reason: "done",
+              undo_until: undoUntil,
+              can_undo: true,
+            }
+          : chore,
+      ),
+    );
+    setUndoToast({ choreId, occurrenceDate, title, undoUntil });
+    scheduleUndoTimeout(undoUntil);
+
+    try {
+      const response = await fetch("/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          choreId,
+          occurrenceDate,
+          status: "closed",
+          action: "set",
+        }),
+      });
+      const data = await response.json();
+      if (!data?.ok) {
+        throw new Error(data?.error ?? "Failed to update chore");
+      }
+      if (data.undo_until) {
+        setChores((prev) =>
+          prev.map((chore) =>
+            chore.id === choreId && chore.occurrence_date === occurrenceDate
+              ? {
+                  ...chore,
+                  status: "closed",
+                  closed_reason: "done",
+                  undo_until: data.undo_until,
+                  can_undo: true,
+                }
+              : chore,
+          ),
+        );
+        setUndoToast({ choreId, occurrenceDate, title, undoUntil: data.undo_until });
+        scheduleUndoTimeout(data.undo_until);
+      }
+    } catch (error) {
+      console.error(error);
+      setChores((prev) =>
+        prev.map((chore) =>
+          chore.id === choreId && chore.occurrence_date === occurrenceDate
+            ? {
+                ...chore,
+                status: "open",
+                closed_reason: null,
+                undo_until: null,
+                can_undo: false,
+              }
+            : chore,
+        ),
+      );
+      setUndoToast(null);
+      clearUndoTimeout();
+    }
+  };
+
+  const undoChoreDone = async () => {
+    if (!undoToast) {
+      return;
+    }
+    const { choreId, occurrenceDate, title, undoUntil } = undoToast;
+    setUndoToast(null);
+    clearUndoTimeout();
+
+    const previous = chores.find(
+      (chore) => chore.id === choreId && chore.occurrence_date === occurrenceDate,
+    );
+    setChores((prev) =>
+      prev.map((chore) =>
+        chore.id === choreId && chore.occurrence_date === occurrenceDate
+          ? {
+              ...chore,
+              status: "open",
+              closed_reason: null,
+              undo_until: null,
+              can_undo: false,
+            }
           : chore,
       ),
     );
@@ -110,23 +266,26 @@ export default function Home() {
         body: JSON.stringify({
           choreId,
           occurrenceDate,
-          status: nextStatus,
-          householdId: 1,
+          action: "undo",
         }),
       });
       const data = await response.json();
       if (!data?.ok) {
-        throw new Error(data?.error ?? "Failed to update chore");
+        throw new Error(data?.error ?? "Failed to undo chore");
       }
     } catch (error) {
       console.error(error);
-      setChores((prev) =>
-        prev.map((chore) =>
-          chore.id === choreId && chore.occurrence_date === occurrenceDate
-            ? { ...chore, status: current }
-            : chore,
-        ),
-      );
+      if (previous) {
+        setChores((prev) =>
+          prev.map((chore) =>
+            chore.id === choreId && chore.occurrence_date === occurrenceDate ? previous : chore,
+          ),
+        );
+        setUndoToast({ choreId, occurrenceDate, title, undoUntil });
+        if (undoUntil) {
+          scheduleUndoTimeout(undoUntil);
+        }
+      }
     }
   };
 
@@ -215,9 +374,12 @@ export default function Home() {
                                   ? "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--muted)] line-through"
                                   : "border-[var(--stroke)] bg-white text-[var(--ink)] hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
                               }`}
-                              onClick={() =>
-                                toggleChoreStatus(chore.id, chore.occurrence_date, chore.status)
-                              }
+                              disabled={chore.status === "closed"}
+                              onClick={() => {
+                                if (chore.status !== "closed") {
+                                  markChoreDone(chore.id, chore.occurrence_date, chore.title);
+                                }
+                              }}
                               type="button"
                             >
                               <span>{chore.title}</span>
@@ -244,6 +406,21 @@ export default function Home() {
           </div>
         </section>
       </main>
+      {undoToast ? (
+        <div className="fixed bottom-6 left-6 right-6 z-50 mx-auto flex max-w-md items-center justify-between gap-4 rounded-2xl border border-[var(--stroke)] bg-white px-4 py-3 text-xs font-semibold text-[var(--ink)] shadow-[var(--shadow)]">
+          <div className="flex flex-col gap-1">
+            <span className="text-[var(--muted)]">Marked done</span>
+            <span>{undoToast.title}</span>
+          </div>
+          <button
+            className="rounded-full border border-[var(--stroke)] px-3 py-2 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+            onClick={undoChoreDone}
+            type="button"
+          >
+            Undo
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

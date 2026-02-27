@@ -57,19 +57,24 @@ export async function GET(request: Request) {
     );
 
     const overridesResult = await pool.query(
-      "select o.chore_id, to_char(o.occurrence_date, 'YYYY-MM-DD') as occurrence_date, o.status, o.closed_reason from chore_occurrence_overrides o join chores c on c.id = o.chore_id where c.household_id = $1",
+      "select o.chore_id, to_char(o.occurrence_date, 'YYYY-MM-DD') as occurrence_date, o.status, o.closed_reason, o.undo_until from chore_occurrence_overrides o join chores c on c.id = o.chore_id where c.household_id = $1",
       [householdId],
     );
 
-    const overrides = new Map<string, { status: string; closed_reason: string | null }>();
+    const overrides = new Map<
+      string,
+      { status: string; closed_reason: string | null; undo_until: string | null }
+    >();
     for (const row of overridesResult.rows) {
       const dateKey = normalizeDate(row.occurrence_date);
       if (!dateKey) {
         continue;
       }
+      const undoUntil = row.undo_until ? DateTime.fromJSDate(row.undo_until).toUTC().toISO() : null;
       overrides.set(`${row.chore_id}:${dateKey}`, {
         status: row.status,
         closed_reason: row.closed_reason ?? null,
+        undo_until: undoUntil,
       });
     }
 
@@ -97,12 +102,21 @@ export async function GET(request: Request) {
       return occurrences.map((occurrenceDate: string) => {
         const overrideKey = `${row.id}:${occurrenceDate}`;
         const override = overrides.get(overrideKey);
+        const nowUtc = DateTime.utc();
+        const undoUntil = override?.undo_until ? DateTime.fromISO(override.undo_until) : null;
+        const isUndoWindowActive =
+          override?.status === "closed" &&
+          override?.closed_reason === "done" &&
+          !!undoUntil &&
+          undoUntil > nowUtc;
         return {
           id: row.id,
           title: row.title,
           status: override?.status ?? "open",
           closed_reason: override?.closed_reason ?? null,
           occurrence_date: occurrenceDate,
+          undo_until: override?.undo_until ?? null,
+          can_undo: isUndoWindowActive,
         };
       });
     });
@@ -133,6 +147,7 @@ export async function PATCH(request: Request) {
     const choreId = Number(payload?.choreId);
     const occurrenceDate = normalizeDate(payload?.occurrenceDate);
     const status = payload?.status === "closed" ? "closed" : "open";
+    const action = typeof payload?.action === "string" ? payload.action : "set";
 
     if (!choreId || !occurrenceDate) {
       return Response.json(
@@ -156,11 +171,19 @@ export async function PATCH(request: Request) {
     }
 
     const closedReason = status === "closed" ? "done" : null;
+    const undoUntil = status === "closed" ? DateTime.utc().plus({ seconds: 5 }).toISO() : null;
 
-    await pool.query(
-      "insert into chore_occurrence_overrides (chore_id, occurrence_date, status, closed_reason) values ($1, $2, $3, $4) on conflict (chore_id, occurrence_date) do update set status = excluded.status, closed_reason = excluded.closed_reason, updated_at = now()",
-      [choreId, occurrenceDate, status, closedReason],
-    );
+    if (action === "undo") {
+      await pool.query(
+        "delete from chore_occurrence_overrides where chore_id = $1 and occurrence_date = $2",
+        [choreId, occurrenceDate],
+      );
+    } else {
+      await pool.query(
+        "insert into chore_occurrence_overrides (chore_id, occurrence_date, status, closed_reason, undo_until) values ($1, $2, $3, $4, $5) on conflict (chore_id, occurrence_date) do update set status = excluded.status, closed_reason = excluded.closed_reason, undo_until = excluded.undo_until, updated_at = now()",
+        [choreId, occurrenceDate, status, closedReason, undoUntil],
+      );
+    }
 
     return Response.json({
       ok: true,
@@ -168,6 +191,7 @@ export async function PATCH(request: Request) {
       occurrenceDate,
       status,
       closed_reason: closedReason,
+      undo_until: undoUntil,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
