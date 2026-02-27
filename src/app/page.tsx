@@ -45,16 +45,8 @@ export default function Home() {
     }>
   >([]);
   const [loading, setLoading] = useState(true);
-  const [undoToast, setUndoToast] = useState<{
-    choreId: number;
-    occurrenceDate: string;
-    title: string;
-    undoUntil: string;
-    startedAt?: string;
-  } | null>(null);
-  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [undoProgress, setUndoProgress] = useState(0);
+  const [nowMs, setNowMs] = useState(() => DateTime.utc().toMillis());
 
   if (!baseDateRef.current) {
     baseDateRef.current = getHouseholdToday(timeZone);
@@ -121,51 +113,6 @@ export default function Home() {
     loadChores();
   }, [weekOffset]);
 
-  useEffect(() => {
-    const candidates = chores.filter((chore) => chore.can_undo && chore.undo_until);
-    if (!candidates.length) {
-      if (undoToast) {
-        setUndoToast(null);
-      }
-      return;
-    }
-    const next = candidates.sort(
-      (a, b) =>
-        DateTime.fromISO(b.undo_until ?? "").toMillis() -
-        DateTime.fromISO(a.undo_until ?? "").toMillis(),
-    )[0];
-    const undoUntil = next?.undo_until;
-    if (!undoUntil) {
-      return;
-    }
-    setUndoToast((current) => {
-      if (
-        current &&
-        current.choreId === next.id &&
-        current.occurrenceDate === next.occurrence_date &&
-        current.undoUntil === undoUntil
-      ) {
-        return current;
-      }
-      return {
-        choreId: next.id,
-        occurrenceDate: next.occurrence_date,
-        title: next.title,
-        undoUntil,
-        startedAt:
-          DateTime.fromISO(undoUntil).minus({ seconds: 5 }).toUTC().toISO() ??
-          DateTime.utc().minus({ seconds: 5 }).toISO(),
-      };
-    });
-  }, [chores, undoToast]);
-
-  const clearUndoTimeout = useCallback(() => {
-    if (undoTimeoutRef.current) {
-      clearTimeout(undoTimeoutRef.current);
-      undoTimeoutRef.current = null;
-    }
-  }, []);
-
   const clearToastTick = useCallback(() => {
     if (toastTickRef.current) {
       clearInterval(toastTickRef.current);
@@ -173,62 +120,43 @@ export default function Home() {
     }
   }, []);
 
-  const scheduleUndoTimeout = useCallback(
-    (undoUntil: string) => {
-      clearUndoTimeout();
-      const remainingMs = Math.max(
-        0,
-        DateTime.fromISO(undoUntil).toMillis() - DateTime.utc().toMillis(),
-      );
-      undoTimeoutRef.current = setTimeout(() => {
-        setUndoToast(null);
-        clearUndoTimeout();
-      }, remainingMs);
-    },
-    [clearUndoTimeout],
-  );
-
-  const startToastCountdown = useCallback(
-    (undoUntil: string, startedAt: string) => {
-      clearToastTick();
-      const totalMs = Math.max(
-        0,
-        DateTime.fromISO(undoUntil).toMillis() - DateTime.fromISO(startedAt).toMillis(),
-      );
-      if (totalMs === 0) {
-        setUndoProgress(0);
-        return;
-      }
-      const tick = () => {
-        const now = DateTime.utc().toMillis();
-        const elapsedMs = now - DateTime.fromISO(startedAt).toMillis();
-        const remainingMs = Math.max(0, DateTime.fromISO(undoUntil).toMillis() - now);
-        const progress = Math.min(100, (remainingMs / totalMs) * 100);
-        setUndoProgress(progress);
-        if (elapsedMs >= totalMs) {
-          clearToastTick();
-        }
-      };
-      tick();
-      toastTickRef.current = setInterval(tick, 100);
-    },
-    [clearToastTick],
-  );
-
   useEffect(() => {
-    if (!undoToast) {
-      clearUndoTimeout();
+    const hasActiveUndo = chores.some((chore) => {
+      if (!chore.can_undo || !chore.undo_until) {
+        return false;
+      }
+      return DateTime.fromISO(chore.undo_until).toMillis() > DateTime.utc().toMillis();
+    });
+    if (!hasActiveUndo) {
       clearToastTick();
-      setUndoProgress(0);
       return;
     }
-    scheduleUndoTimeout(undoToast.undoUntil);
-    startToastCountdown(undoToast.undoUntil, undoToast.startedAt ?? DateTime.utc().toISO());
+    if (toastTickRef.current) {
+      return;
+    }
+    toastTickRef.current = setInterval(() => {
+      setNowMs(DateTime.utc().toMillis());
+    }, 100);
     return () => {
-      clearUndoTimeout();
       clearToastTick();
     };
-  }, [undoToast, clearUndoTimeout, scheduleUndoTimeout, startToastCountdown, clearToastTick]);
+  }, [chores, clearToastTick]);
+
+  const undoToasts = useMemo(() => {
+    return chores
+      .filter((chore) => chore.can_undo && chore.undo_until)
+      .map((chore) => ({
+        choreId: chore.id,
+        occurrenceDate: chore.occurrence_date,
+        title: chore.title,
+        undoUntil: chore.undo_until as string,
+      }))
+      .filter((toast) => DateTime.fromISO(toast.undoUntil).toMillis() > nowMs)
+      .sort(
+        (a, b) =>
+          DateTime.fromISO(b.undoUntil).toMillis() - DateTime.fromISO(a.undoUntil).toMillis(),
+      );
+  }, [chores, nowMs]);
 
   const markChoreDone = async (choreId: number, occurrenceDate: string, title: string) => {
     const undoUntil = DateTime.utc().plus({ seconds: 5 }).toISO();
@@ -245,9 +173,6 @@ export default function Home() {
           : chore,
       ),
     );
-    setUndoToast({ choreId, occurrenceDate, title, undoUntil, startedAt: DateTime.utc().toISO() });
-    scheduleUndoTimeout(undoUntil);
-
     try {
       const response = await fetch("/api/chores", {
         method: "PATCH",
@@ -277,14 +202,6 @@ export default function Home() {
               : chore,
           ),
         );
-        setUndoToast({
-          choreId,
-          occurrenceDate,
-          title,
-          undoUntil: data.undo_until,
-          startedAt: DateTime.utc().toISO(),
-        });
-        scheduleUndoTimeout(data.undo_until);
       }
     } catch (error) {
       console.error(error);
@@ -301,19 +218,10 @@ export default function Home() {
             : chore,
         ),
       );
-      setUndoToast(null);
-      clearUndoTimeout();
     }
   };
 
-  const undoChoreDone = async () => {
-    if (!undoToast) {
-      return;
-    }
-    const { choreId, occurrenceDate, title, undoUntil } = undoToast;
-    setUndoToast(null);
-    clearUndoTimeout();
-
+  const undoChoreDone = async (choreId: number, occurrenceDate: string) => {
     const previous = chores.find(
       (chore) => chore.id === choreId && chore.occurrence_date === occurrenceDate,
     );
@@ -353,16 +261,6 @@ export default function Home() {
             chore.id === choreId && chore.occurrence_date === occurrenceDate ? previous : chore,
           ),
         );
-        setUndoToast({
-          choreId,
-          occurrenceDate,
-          title,
-          undoUntil,
-          startedAt: DateTime.utc().toISO(),
-        });
-        if (undoUntil) {
-          scheduleUndoTimeout(undoUntil);
-        }
       }
     }
   };
@@ -484,27 +382,38 @@ export default function Home() {
           </div>
         </section>
       </main>
-      {undoToast ? (
-        <div className="fixed bottom-6 left-6 right-6 z-50 mx-auto flex max-w-md flex-col gap-3 rounded-2xl border border-[var(--stroke)] bg-white px-4 py-3 text-xs font-semibold text-[var(--ink)] shadow-[var(--shadow)]">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-[var(--muted)]">Marked done</span>
-              <span>{undoToast.title}</span>
-            </div>
-            <button
-              className="rounded-full border border-[var(--stroke)] px-3 py-2 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-              onClick={undoChoreDone}
-              type="button"
-            >
-              Undo
-            </button>
-          </div>
-          <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--surface-strong)]">
-            <div
-              className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-100"
-              style={{ width: `${undoProgress}%` }}
-            />
-          </div>
+      {undoToasts.length ? (
+        <div className="fixed bottom-6 left-6 right-6 z-50 mx-auto flex max-w-md flex-col gap-3">
+          {undoToasts.map((toast) => {
+            const remainingMs = Math.max(0, DateTime.fromISO(toast.undoUntil).toMillis() - nowMs);
+            const progress = Math.min(100, (remainingMs / 5000) * 100);
+            return (
+              <div
+                key={`${toast.choreId}-${toast.occurrenceDate}`}
+                className="flex flex-col gap-3 rounded-2xl border border-[var(--stroke)] bg-white px-4 py-3 text-xs font-semibold text-[var(--ink)] shadow-[var(--shadow)]"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[var(--muted)]">Marked done</span>
+                    <span>{toast.title}</span>
+                  </div>
+                  <button
+                    className="rounded-full border border-[var(--stroke)] px-3 py-2 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+                    onClick={() => undoChoreDone(toast.choreId, toast.occurrenceDate)}
+                    type="button"
+                  >
+                    Undo
+                  </button>
+                </div>
+                <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--surface-strong)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-100"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : null}
     </div>
