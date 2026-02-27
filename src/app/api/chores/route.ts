@@ -4,6 +4,9 @@ import { ensureChoresTable } from "@/lib/chores";
 import { pool } from "@/lib/db";
 import { generateOccurrences } from "@/lib/occurrences";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const toDateString = (value: string | null) => {
   if (!value) {
     return null;
@@ -40,6 +43,7 @@ export async function GET(request: Request) {
     const start = toDateString(requestUrl.searchParams.get("start"));
     const end = toDateString(requestUrl.searchParams.get("end"));
     const householdId = requestUrl.searchParams.get("householdId") ?? "1";
+    const weekOffset = Number(requestUrl.searchParams.get("weekOffset") ?? "0");
 
     const householdResult = await pool.query("select id, time_zone from households where id = $1", [
       householdId,
@@ -48,12 +52,12 @@ export async function GET(request: Request) {
     const timeZone = household?.time_zone ?? "UTC";
 
     const seriesResult = await pool.query(
-      "select id, title, type, start_date, end_date, series_end_date, repeat_rule, status from chores where status = 'active' and household_id = $1",
+      "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, status from chores where status = 'active' and household_id = $1",
       [householdId],
     );
 
     const overridesResult = await pool.query(
-      "select o.chore_id, o.occurrence_date, o.status, o.closed_reason from chore_occurrence_overrides o join chores c on c.id = o.chore_id where c.household_id = $1",
+      "select o.chore_id, to_char(o.occurrence_date, 'YYYY-MM-DD') as occurrence_date, o.status, o.closed_reason from chore_occurrence_overrides o join chores c on c.id = o.chore_id where c.household_id = $1",
       [householdId],
     );
 
@@ -69,9 +73,11 @@ export async function GET(request: Request) {
       });
     }
 
-    const todayKey = DateTime.now().setZone(timeZone).toISODate();
-    const rangeStart = start ?? todayKey ?? "";
-    const rangeEnd = end ?? todayKey ?? "";
+    const today = DateTime.now().setZone(timeZone).startOf("day");
+    const defaultWeekStart = today.minus({ days: today.weekday - 1 }).plus({ weeks: weekOffset });
+    const defaultWeekEnd = defaultWeekStart.plus({ days: 6 });
+    const rangeStart = start ?? defaultWeekStart.toISODate() ?? "";
+    const rangeEnd = end ?? defaultWeekEnd.toISODate() ?? "";
 
     const chores = seriesResult.rows.flatMap((row) => {
       const seriesStart = normalizeDate(row.start_date);
@@ -104,7 +110,64 @@ export async function GET(request: Request) {
     return Response.json({
       ok: true,
       timeZone,
+      rangeStart,
+      rangeEnd,
       chores,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return Response.json(
+      {
+        ok: false,
+        error: message,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    await ensureChoresTable();
+    const payload = await request.json();
+    const choreId = Number(payload?.choreId);
+    const occurrenceDate = normalizeDate(payload?.occurrenceDate);
+    const status = payload?.status === "closed" ? "closed" : "open";
+
+    if (!choreId || !occurrenceDate) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Missing choreId or occurrenceDate",
+        },
+        { status: 400 },
+      );
+    }
+
+    const choreResult = await pool.query("select id from chores where id = $1", [choreId]);
+    if (!choreResult.rowCount) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Chore not found",
+        },
+        { status: 404 },
+      );
+    }
+
+    const closedReason = status === "closed" ? "done" : null;
+
+    await pool.query(
+      "insert into chore_occurrence_overrides (chore_id, occurrence_date, status, closed_reason) values ($1, $2, $3, $4) on conflict (chore_id, occurrence_date) do update set status = excluded.status, closed_reason = excluded.closed_reason, updated_at = now()",
+      [choreId, occurrenceDate, status, closedReason],
+    );
+
+    return Response.json({
+      ok: true,
+      choreId,
+      occurrenceDate,
+      status,
+      closed_reason: closedReason,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

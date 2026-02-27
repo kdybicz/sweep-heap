@@ -42,7 +42,6 @@ export default function Home() {
 
   useEffect(() => {
     baseDateRef.current = getHouseholdToday(timeZone);
-    lastRangeRef.current = null;
   }, [timeZone]);
 
   const weekStart = useMemo(() => {
@@ -62,20 +61,26 @@ export default function Home() {
   const rangeLabel = formatRange(weekStart, weekEnd);
 
   useEffect(() => {
-    if (lastRangeRef.current === rangeKey) {
-      return;
-    }
-    lastRangeRef.current = rangeKey;
-
     const loadChores = async () => {
+      if (lastRangeRef.current === rangeKey) {
+        return;
+      }
+      lastRangeRef.current = rangeKey;
+
       try {
         setLoading(true);
-        const response = await fetch(`/api/chores?start=${startKey}&end=${endKey}&householdId=1`);
+        const response = await fetch(
+          `/api/chores?start=${startKey}&end=${endKey}&weekOffset=${weekOffset}&householdId=1`,
+          { cache: "no-store" },
+        );
         const data = await response.json();
         if (data?.ok) {
           setChores(data.chores ?? []);
-          if (data.timeZone && data.timeZone !== timeZone) {
-            setTimeZone(data.timeZone);
+          if (data.timeZone) {
+            setTimeZone((current) => (data.timeZone !== current ? data.timeZone : current));
+          }
+          if (data.rangeStart && data.rangeEnd) {
+            lastRangeRef.current = `${data.rangeStart}:${data.rangeEnd}`;
           }
         }
       } catch (error) {
@@ -86,7 +91,44 @@ export default function Home() {
     };
 
     loadChores();
-  }, [rangeKey, startKey, endKey]);
+  }, [rangeKey, startKey, endKey, weekOffset]);
+
+  const toggleChoreStatus = async (choreId: number, occurrenceDate: string, current: string) => {
+    const nextStatus = current === "closed" ? "open" : "closed";
+    setChores((prev) =>
+      prev.map((chore) =>
+        chore.id === choreId && chore.occurrence_date === occurrenceDate
+          ? { ...chore, status: nextStatus }
+          : chore,
+      ),
+    );
+
+    try {
+      const response = await fetch("/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          choreId,
+          occurrenceDate,
+          status: nextStatus,
+          householdId: 1,
+        }),
+      });
+      const data = await response.json();
+      if (!data?.ok) {
+        throw new Error(data?.error ?? "Failed to update chore");
+      }
+    } catch (error) {
+      console.error(error);
+      setChores((prev) =>
+        prev.map((chore) =>
+          chore.id === choreId && chore.occurrence_date === occurrenceDate
+            ? { ...chore, status: current }
+            : chore,
+        ),
+      );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -166,12 +208,23 @@ export default function Home() {
                       ) : dayChores.length ? (
                         <div className="flex flex-col gap-2">
                           {dayChores.map((chore) => (
-                            <div
-                              key={chore.id}
-                              className="rounded-lg border border-[var(--stroke)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)]"
+                            <button
+                              key={`${chore.id}-${chore.occurrence_date}`}
+                              className={`flex items-center justify-between rounded-lg border px-3 py-2 text-left text-xs font-semibold transition ${
+                                chore.status === "closed"
+                                  ? "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--muted)] line-through"
+                                  : "border-[var(--stroke)] bg-white text-[var(--ink)] hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+                              }`}
+                              onClick={() =>
+                                toggleChoreStatus(chore.id, chore.occurrence_date, chore.status)
+                              }
+                              type="button"
                             >
-                              {chore.title}
-                            </div>
+                              <span>{chore.title}</span>
+                              <span className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--muted)]">
+                                {chore.status === "closed" ? "Done" : "Mark"}
+                              </span>
+                            </button>
                           ))}
                         </div>
                       ) : (
