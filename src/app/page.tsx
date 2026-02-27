@@ -49,6 +49,9 @@ export default function Home() {
   const toastTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [nowMs, setNowMs] = useState(() => DateTime.utc().toMillis());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDate, setNewDate] = useState(() => DateTime.utc().toISODate());
   const [newRepeat, setNewRepeat] = useState("none");
@@ -88,9 +91,9 @@ export default function Home() {
   );
   const rangeLabel = formatRange(weekStart, weekEnd);
 
-  useEffect(() => {
-    const loadChores = async () => {
-      if (lastRangeRef.current === String(weekOffset)) {
+  const loadChores = useCallback(
+    async ({ force }: { force?: boolean } = {}) => {
+      if (!force && lastRangeRef.current === String(weekOffset)) {
         return;
       }
       lastRangeRef.current = String(weekOffset);
@@ -116,10 +119,13 @@ export default function Home() {
       } finally {
         setLoading(false);
       }
-    };
+    },
+    [weekOffset],
+  );
 
+  useEffect(() => {
     loadChores();
-  }, [weekOffset]);
+  }, [loadChores]);
 
   const clearToastTick = useCallback(() => {
     if (toastTickRef.current) {
@@ -186,8 +192,7 @@ export default function Home() {
   const openChores = totalChores - doneChores;
   const progress = totalChores ? Math.round((doneChores / totalChores) * 100) : 0;
 
-  const handleAddChore = useCallback((event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const resetAddChore = useCallback(() => {
     setShowAddModal(false);
     setNewTitle("");
     setNewDate(DateTime.utc().toISODate());
@@ -195,11 +200,16 @@ export default function Home() {
     setNewEndDate(DateTime.utc().toISODate());
     setNewRepeatEnd(DateTime.utc().toISODate());
     setNewNotes("");
+    setSubmitError(null);
+    setFieldErrors({});
   }, []);
 
   const submitAddChore = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      setSubmitError(null);
+      setFieldErrors({});
+      setSubmitting(true);
       const payload = {
         action: "create",
         title: newTitle,
@@ -218,26 +228,23 @@ export default function Home() {
         });
         const data = await response.json();
         if (!data?.ok) {
+          if (data?.fieldErrors) {
+            setFieldErrors(data.fieldErrors);
+            setSubmitError(data.error ?? "Validation failed");
+            setSubmitting(false);
+            return;
+          }
           throw new Error(data?.error ?? "Failed to create chore");
         }
-        setChores((prev) =>
-          prev.concat({
-            id: data.choreId,
-            title: data.title,
-            occurrence_date: data.startDate,
-            status: "open",
-            closed_reason: null,
-            undo_until: null,
-            can_undo: false,
-            notes: data.notes ?? null,
-          }),
-        );
-        handleAddChore(event);
+        resetAddChore();
+        await loadChores({ force: true });
       } catch (error) {
-        console.error(error);
+        const message = error instanceof Error ? error.message : "Failed to create chore";
+        setSubmitError(message);
       }
+      setSubmitting(false);
     },
-    [handleAddChore, newDate, newEndDate, newRepeat, newRepeatEnd, newTitle, newNotes],
+    [loadChores, newDate, newEndDate, newRepeat, newRepeatEnd, newTitle, newNotes, resetAddChore],
   );
 
   const markChoreDone = async (choreId: number, occurrenceDate: string, title: string) => {
@@ -370,7 +377,10 @@ export default function Home() {
               </button>
               <button
                 className="rounded-full border border-[var(--stroke)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
-                onClick={() => setShowAddModal(true)}
+                onClick={() => {
+                  setSubmitError(null);
+                  setShowAddModal(true);
+                }}
                 type="button"
               >
                 Add chore
@@ -547,7 +557,10 @@ export default function Home() {
                       </div>
                       <button
                         className="mt-3 rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-                        onClick={() => setShowAddModal(true)}
+                        onClick={() => {
+                          setSubmitError(null);
+                          setShowAddModal(true);
+                        }}
                         type="button"
                       >
                         Add chore
@@ -611,39 +624,75 @@ export default function Home() {
               </div>
             </div>
             <form className="flex flex-col gap-4 px-6 py-5" onSubmit={submitAddChore}>
+              {submitError ? (
+                <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
+                  {submitError}
+                </div>
+              ) : null}
               <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
                 Title
                 <input
-                  className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                  className={`rounded-xl border bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)] ${
+                    fieldErrors.title
+                      ? "border-[var(--danger)] ring-1 ring-[var(--danger)]"
+                      : "border-[var(--stroke)]"
+                  }`}
                   placeholder="Laundry, dishes, vacuum"
                   required
                   value={newTitle}
                   onChange={(event) => setNewTitle(event.target.value)}
                 />
+                {fieldErrors.title ? (
+                  <span className="text-[0.65rem] font-semibold text-[var(--danger-ink)]">
+                    {fieldErrors.title}
+                  </span>
+                ) : null}
               </label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
                   Start date
                   <input
-                    className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                    className={`rounded-xl border bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)] ${
+                      fieldErrors.startDate
+                        ? "border-[var(--danger)] ring-1 ring-[var(--danger)]"
+                        : "border-[var(--stroke)]"
+                    }`}
                     type="date"
                     value={newDate}
                     onChange={(event) => setNewDate(event.target.value)}
                   />
+                  {fieldErrors.startDate ? (
+                    <span className="text-[0.65rem] font-semibold text-[var(--danger-ink)]">
+                      {fieldErrors.startDate}
+                    </span>
+                  ) : null}
                 </label>
                 <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
                   End date
                   <input
-                    className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                    className={`rounded-xl border bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)] ${
+                      fieldErrors.endDate
+                        ? "border-[var(--danger)] ring-1 ring-[var(--danger)]"
+                        : "border-[var(--stroke)]"
+                    }`}
                     type="date"
                     value={newEndDate}
                     onChange={(event) => setNewEndDate(event.target.value)}
                   />
+                  {fieldErrors.endDate ? (
+                    <span className="text-[0.65rem] font-semibold text-[var(--danger-ink)]">
+                      {fieldErrors.endDate}
+                    </span>
+                  ) : null}
                 </label>
                 <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
                   Repeat
                   <select
-                    className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                    className={`rounded-xl border bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)] ${
+                      fieldErrors.repeatRule
+                        ? "border-[var(--danger)] ring-1 ring-[var(--danger)]"
+                        : "border-[var(--stroke)]"
+                    }`}
                     value={newRepeat}
                     onChange={(event) => setNewRepeat(event.target.value)}
                   >
@@ -654,16 +703,30 @@ export default function Home() {
                     <option value="monthly">Monthly</option>
                     <option value="yearly">Yearly</option>
                   </select>
+                  {fieldErrors.repeatRule ? (
+                    <span className="text-[0.65rem] font-semibold text-[var(--danger-ink)]">
+                      {fieldErrors.repeatRule}
+                    </span>
+                  ) : null}
                 </label>
                 {newRepeat !== "none" ? (
                   <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
                     Repeat ends
                     <input
-                      className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                      className={`rounded-xl border bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)] ${
+                        fieldErrors.repeatEnd
+                          ? "border-[var(--danger)] ring-1 ring-[var(--danger)]"
+                          : "border-[var(--stroke)]"
+                      }`}
                       type="date"
                       value={newRepeatEnd}
                       onChange={(event) => setNewRepeatEnd(event.target.value)}
                     />
+                    {fieldErrors.repeatEnd ? (
+                      <span className="text-[0.65rem] font-semibold text-[var(--danger-ink)]">
+                        {fieldErrors.repeatEnd}
+                      </span>
+                    ) : null}
                   </label>
                 ) : null}
               </div>
@@ -679,16 +742,17 @@ export default function Home() {
               <div className="flex items-center justify-end gap-2 border-t border-[var(--stroke)] pt-4">
                 <button
                   className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={resetAddChore}
                   type="button"
                 >
                   Cancel
                 </button>
                 <button
-                  className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
+                  className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={submitting}
                   type="submit"
                 >
-                  Save chore
+                  {submitting ? "Saving..." : "Save chore"}
                 </button>
               </div>
             </form>

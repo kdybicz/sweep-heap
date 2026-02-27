@@ -20,6 +20,10 @@
   --glow-2: rgba(200, 214, 255, 0.7);
   --glow-3: rgba(255, 235, 210, 0.5);
   --grid-line: rgba(38, 67, 130, 0.08);
+  --danger: #c63d2b;
+  --danger-bg: #fbe9e7;
+  --danger-stroke: #f1b8b0;
+  --danger-ink: #8f2b20;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,6 +47,10 @@
     --glow-2: rgba(36, 72, 130, 0.6);
     --glow-3: rgba(72, 101, 160, 0.35);
     --grid-line: rgba(150, 170, 220, 0.08);
+    --danger: #ff9b8c;
+    --danger-bg: #2b1620;
+    --danger-stroke: #5f2b38;
+    --danger-ink: #ffd2cc;
   }
 }
 

@@ -182,33 +182,33 @@ export async function PATCH(request: Request) {
     const type = "close_on_done";
 
     if (action === "create") {
+      const fieldErrors: Record<string, string> = {};
+
       if (!title) {
-        return Response.json({ ok: false, error: "Title is required" }, { status: 400 });
+        fieldErrors.title = "Title is required";
       }
-      if (!startDate || !endDate) {
-        return Response.json(
-          { ok: false, error: "Start date and end date are required" },
-          { status: 400 },
-        );
+      if (!startDate) {
+        fieldErrors.startDate = "Start date is required";
+      }
+      if (!endDate) {
+        fieldErrors.endDate = "End date is required";
+      }
+      if (startDate && endDate && endDate < startDate) {
+        fieldErrors.endDate = "End date must be on or after start date";
       }
       if (!allowedRepeatRules.has(repeatRule)) {
-        return Response.json({ ok: false, error: "Invalid repeat rule" }, { status: 400 });
-      }
-      if (endDate < startDate) {
-        return Response.json(
-          { ok: false, error: "End date must be on or after start date" },
-          { status: 400 },
-        );
-      }
-      if (seriesEndDate && seriesEndDate < startDate) {
-        return Response.json(
-          { ok: false, error: "Repeat end must be on or after start date" },
-          { status: 400 },
-        );
+        fieldErrors.repeatRule = "Invalid repeat rule";
       }
       if (repeatRule === "none" && seriesEndDate) {
+        fieldErrors.repeatEnd = "Repeat end is only allowed when repeating";
+      }
+      if (seriesEndDate && startDate && seriesEndDate < startDate) {
+        fieldErrors.repeatEnd = "Repeat end must be on or after start date";
+      }
+
+      if (Object.keys(fieldErrors).length) {
         return Response.json(
-          { ok: false, error: "Repeat end is only allowed when repeating" },
+          { ok: false, error: "Validation failed", fieldErrors },
           { status: 400 },
         );
       }
