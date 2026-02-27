@@ -114,6 +114,14 @@ const seed = async () => {
       series_end_date: toDateString(weekNextMonday.plus({ days: 28 })),
       repeat_rule: "week",
     },
+    {
+      title: "Monthly review",
+      type: "stay_open",
+      start_date: "2025-01-01",
+      end_date: "2025-01-09",
+      series_end_date: null,
+      repeat_rule: "month",
+    },
   ];
 
   for (const chore of chores) {
