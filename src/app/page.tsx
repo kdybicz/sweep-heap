@@ -60,6 +60,7 @@ export default function Home() {
   const [newRepeatEnd, setNewRepeatEnd] = useState(() => DateTime.utc().toISODate());
   const [newNotes, setNewNotes] = useState("");
   const [todayChores, setTodayChores] = useState<ChoreItem[]>([]);
+  const [selectedChore, setSelectedChore] = useState<ChoreItem | null>(null);
 
   if (!baseDateRef.current) {
     baseDateRef.current = getHouseholdToday(timeZone);
@@ -571,18 +572,12 @@ export default function Home() {
                                     ? "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--muted)] line-through"
                                     : "border-[var(--stroke)] bg-[var(--card)] text-[var(--ink)] hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
                                 }`}
-                                disabled={chore.status === "closed"}
                                 onClick={() => {
-                                  if (chore.status !== "closed") {
-                                    markChoreDone(chore.id, chore.occurrence_date, chore.title);
-                                  }
+                                  setSelectedChore(chore);
                                 }}
                                 type="button"
                               >
                                 <span>{chore.title}</span>
-                                <span className="text-[0.6rem] uppercase tracking-[0.2em] text-[var(--muted)]">
-                                  {chore.status === "closed" ? "Done" : "Mark"}
-                                </span>
                               </button>
                             ))}
                           </div>
@@ -797,6 +792,76 @@ export default function Home() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+      {selectedChore ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+          <button
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setSelectedChore(null)}
+            type="button"
+          />
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]">
+            <div className="border-b border-[var(--stroke)] bg-[var(--surface-weak)] px-6 py-5">
+              <div className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Chore</div>
+              <h3 className="text-xl font-semibold">{selectedChore.title}</h3>
+              <p className="text-xs text-[var(--muted)]">
+                {DateTime.fromISO(selectedChore.occurrence_date).toFormat("cccc, LLL d")}
+              </p>
+            </div>
+            <div className="flex flex-col gap-4 px-6 py-5">
+              <div className="flex items-center justify-between rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold">
+                <span className="text-[var(--muted)]">Status</span>
+                <span>{selectedChore.status === "closed" ? "Completed" : "Open"}</span>
+              </div>
+              {selectedChore.notes ? (
+                <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold">
+                  <div className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--muted)]">
+                    Notes
+                  </div>
+                  <div className="mt-2 text-sm text-[var(--ink)]">{selectedChore.notes}</div>
+                </div>
+              ) : null}
+              <div className="flex flex-col gap-2">
+                <button
+                  className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={selectedChore.status === "closed"}
+                  onClick={() => {
+                    markChoreDone(
+                      selectedChore.id,
+                      selectedChore.occurrence_date,
+                      selectedChore.title,
+                    );
+                    setSelectedChore(null);
+                  }}
+                  type="button"
+                >
+                  Complete
+                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
+                    type="button"
+                  >
+                    Skip
+                  </button>
+                  <button
+                    className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
+                    type="button"
+                  >
+                    Snooze
+                  </button>
+                </div>
+                <button
+                  className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
+                  onClick={() => setSelectedChore(null)}
+                  type="button"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
