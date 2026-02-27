@@ -38,6 +38,7 @@ const reset = async () => {
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
+  await pool.query("drop table if exists chore_occurrence_overrides");
   await pool.query("drop table if exists chores");
   await pool.end();
 };

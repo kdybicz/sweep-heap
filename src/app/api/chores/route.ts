@@ -50,7 +50,7 @@ export async function GET(request: Request) {
     const end = toDateString(requestUrl.searchParams.get("end"));
 
     const result = await pool.query(
-      "select id, title, occurrence_date, status from chores where ($1::date is null or occurrence_date >= $1::date) and ($2::date is null or occurrence_date <= $2::date) order by occurrence_date asc, id asc",
+      "select c.id, c.title, c.occurrence_date, coalesce(o.status, c.status) as status, coalesce(o.closed_reason, null) as closed_reason from chores c left join chore_occurrence_overrides o on o.chore_id = c.id and o.occurrence_date = c.occurrence_date where ($1::date is null or c.occurrence_date >= $1::date) and ($2::date is null or c.occurrence_date <= $2::date) order by c.occurrence_date asc, c.id asc",
       [start, end],
     );
 
@@ -60,6 +60,7 @@ export async function GET(request: Request) {
         id: row.id,
         title: row.title,
         status: row.status,
+        closed_reason: row.closed_reason ?? null,
         occurrence_date: normalizedDate,
       };
     });

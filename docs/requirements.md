@@ -70,6 +70,14 @@ Completion (history)
 - completed_at (timestamp)
 - actor_label (string, optional; placeholder for future ownership)
 
+ChoreOccurrenceOverride (exceptions)
+- id
+- chore_id
+- occurrence_date (date)
+- status: open | closed
+- closed_reason: done | schedule_end | manual
+- updated_at
+
 ## Derived fields and indexes (draft)
 - Chore.is_active is derived: current_date <= end_date AND status != closed.
 - ChoreOccurrence.status is derived: if occurrence_date < current_date and not already closed, close_reason = schedule_end.
@@ -112,7 +120,12 @@ Example D: Yearly on Feb 29
 ## Open questions
 - Add formal recurrence math pseudocode?
 - Define explicit today/overdue query behavior?
-- Decide lazy vs precomputed occurrence storage?
+
+## Occurrence storage decision
+- Use lazy occurrence generation from the series definition.
+- Store only per-occurrence overrides (exceptions) when a user action changes a single date.
+- Overrides win over generated defaults when building the week view.
+- Precomputed full occurrence tables are post-MVP.
 
 ## Tech Stack (Draft)
 - Frontend: Next.js + TypeScript.
