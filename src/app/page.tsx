@@ -33,18 +33,18 @@ export default function Home() {
   const [rangeEnd, setRangeEnd] = useState<string | null>(null);
   const baseDateRef = useRef<DateTime | null>(null);
   const lastRangeRef = useRef<string | null>(null);
-  const [chores, setChores] = useState<
-    Array<{
-      id: number;
-      title: string;
-      occurrence_date: string;
-      status: string;
-      closed_reason?: string | null;
-      undo_until?: string | null;
-      can_undo?: boolean;
-      notes?: string | null;
-    }>
-  >([]);
+  type ChoreItem = {
+    id: number;
+    title: string;
+    occurrence_date: string;
+    status: string;
+    closed_reason?: string | null;
+    undo_until?: string | null;
+    can_undo?: boolean;
+    notes?: string | null;
+  };
+
+  const [chores, setChores] = useState<ChoreItem[]>([]);
   const [loading, setLoading] = useState(true);
   const toastTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [nowMs, setNowMs] = useState(() => DateTime.utc().toMillis());

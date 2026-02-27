@@ -99,6 +99,20 @@ describe("generateOccurrences", () => {
     ]);
   });
 
+  it("returns biweekly occurrences", () => {
+    const occurrences = generateOccurrences({
+      startDate: "2026-02-23",
+      endDate: "2026-02-23",
+      rangeStart: "2026-03-09",
+      rangeEnd: "2026-03-15",
+      repeatRule: "biweek",
+      seriesEndDate: "2026-04-20",
+      timeZone,
+    });
+
+    expect(occurrences).toEqual(["2026-03-09"]);
+  });
+
   it("covers a later range for a multi-week span", () => {
     const occurrences = generateOccurrences({
       startDate: "2026-03-01",

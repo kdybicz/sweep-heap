@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 
+import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import { ensureChoresTable } from "@/lib/chores";
 import { pool } from "@/lib/db";
 import { generateOccurrences } from "@/lib/occurrences";
@@ -45,18 +46,6 @@ const normalizeNotes = (value: unknown) => {
     return null;
   }
   return trimmed.slice(0, 500);
-};
-
-const allowedRepeatRules = new Set(["none", "day", "week", "biweek", "month", "year"]);
-
-const normalizeRepeatRule = (value: string) => {
-  const normalized = value.toLowerCase();
-  if (normalized === "daily") return "day";
-  if (normalized === "weekly") return "week";
-  if (normalized === "biweekly") return "biweek";
-  if (normalized === "monthly") return "month";
-  if (normalized === "yearly") return "year";
-  return normalized;
 };
 
 export async function GET(request: Request) {
@@ -182,29 +171,13 @@ export async function PATCH(request: Request) {
     const type = "close_on_done";
 
     if (action === "create") {
-      const fieldErrors: Record<string, string> = {};
-
-      if (!title) {
-        fieldErrors.title = "Title is required";
-      }
-      if (!startDate) {
-        fieldErrors.startDate = "Start date is required";
-      }
-      if (!endDate) {
-        fieldErrors.endDate = "End date is required";
-      }
-      if (startDate && endDate && endDate < startDate) {
-        fieldErrors.endDate = "End date must be on or after start date";
-      }
-      if (!allowedRepeatRules.has(repeatRule)) {
-        fieldErrors.repeatRule = "Invalid repeat rule";
-      }
-      if (repeatRule === "none" && seriesEndDate) {
-        fieldErrors.repeatEnd = "Repeat end is only allowed when repeating";
-      }
-      if (seriesEndDate && startDate && seriesEndDate < startDate) {
-        fieldErrors.repeatEnd = "Repeat end must be on or after start date";
-      }
+      const fieldErrors = validateChoreCreate({
+        title,
+        startDate,
+        endDate,
+        repeatRule,
+        seriesEndDate,
+      });
 
       if (Object.keys(fieldErrors).length) {
         return Response.json(
