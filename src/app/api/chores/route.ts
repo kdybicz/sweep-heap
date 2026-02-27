@@ -83,34 +83,38 @@ const generateOccurrences = (
     return occurrences;
   }
 
-  let cursor = start;
-  while (cursor < clampStart) {
+  const advance = (value: DateTime) => {
     if (repeatRule === "day") {
-      cursor = cursor.plus({ days: 1 });
-    } else if (repeatRule === "week") {
-      cursor = cursor.plus({ weeks: 1 });
-    } else if (repeatRule === "month") {
-      cursor = cursor.plus({ months: 1 });
-    } else if (repeatRule === "year") {
-      cursor = cursor.plus({ years: 1 });
-    } else {
+      return value.plus({ days: 1 });
+    }
+    if (repeatRule === "week") {
+      return value.plus({ weeks: 1 });
+    }
+    if (repeatRule === "month") {
+      return value.plus({ months: 1 });
+    }
+    if (repeatRule === "year") {
+      return value.plus({ years: 1 });
+    }
+    return value;
+  };
+
+  let cursor = start;
+  while (true) {
+    const nextCursor = advance(cursor);
+    if (nextCursor > clampStart) {
       break;
     }
+    cursor = nextCursor;
   }
 
   while (cursor <= clampEnd) {
     addOccurrenceSpan(cursor);
-    if (repeatRule === "day") {
-      cursor = cursor.plus({ days: 1 });
-    } else if (repeatRule === "week") {
-      cursor = cursor.plus({ weeks: 1 });
-    } else if (repeatRule === "month") {
-      cursor = cursor.plus({ months: 1 });
-    } else if (repeatRule === "year") {
-      cursor = cursor.plus({ years: 1 });
-    } else {
+    const nextCursor = advance(cursor);
+    if (nextCursor === cursor) {
       break;
     }
+    cursor = nextCursor;
   }
 
   return occurrences;

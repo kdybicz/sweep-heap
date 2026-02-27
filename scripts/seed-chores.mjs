@@ -1,6 +1,6 @@
+import { DateTime } from "luxon";
 import fs from "node:fs";
 import path from "node:path";
-import { DateTime } from "luxon";
 import { Pool } from "pg";
 
 const loadEnvFile = (filePath) => {
@@ -40,7 +40,9 @@ const seed = async () => {
 
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error("DATABASE_URL is not set. Add it to .env.local or export it.");
+    throw new Error(
+      "DATABASE_URL is not set. Add it to .env.local or export it.",
+    );
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
@@ -62,6 +64,8 @@ const seed = async () => {
   const weekThursday = weekStart.plus({ days: 3 });
   const weekFriday = weekStart.plus({ days: 4 });
   const weekSaturday = weekStart.plus({ days: 5 });
+  const weekSunday = weekStart.plus({ days: 6 });
+  const weekNextMonday = weekStart.plus({ days: 7 });
 
   const householdResult = await pool.query(
     "insert into households (name, time_zone) values ($1, $2) returning id",
@@ -100,6 +104,14 @@ const seed = async () => {
       start_date: toDateString(weekFriday),
       end_date: toDateString(weekSaturday),
       series_end_date: toDateString(weekSaturday.plus({ days: 28 })),
+      repeat_rule: "week",
+    },
+    {
+      title: "Weekly planning",
+      type: "stay_open",
+      start_date: toDateString(weekSunday),
+      end_date: toDateString(weekNextMonday),
+      series_end_date: toDateString(weekNextMonday.plus({ days: 28 })),
       repeat_rule: "week",
     },
   ];
