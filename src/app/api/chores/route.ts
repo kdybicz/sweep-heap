@@ -1,3 +1,5 @@
+import { DateTime } from "luxon";
+
 import { ensureChoresTable } from "@/lib/chores";
 import { pool } from "@/lib/db";
 
@@ -5,80 +7,51 @@ const toDateString = (value: string | null) => {
   if (!value) {
     return null;
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  const parsed = DateTime.fromISO(value, { zone: "utc" });
+  if (!parsed.isValid) {
     return null;
   }
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const formatDateUtc = (date: Date) => {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return parsed.toISODate();
 };
 
 const normalizeDate = (value: unknown) => {
   if (!value) {
     return null;
   }
-  if (value instanceof Date) {
-    return formatDateUtc(value);
-  }
   if (typeof value === "string") {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       return value;
     }
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      return null;
-    }
-    return formatDateUtc(parsed);
+    const parsed = DateTime.fromISO(value, { zone: "utc" });
+    return parsed.isValid ? parsed.toISODate() : null;
+  }
+  if (value instanceof Date) {
+    const parsed = DateTime.fromJSDate(value);
+    return parsed.isValid ? parsed.toISODate() : null;
   }
   return null;
 };
 
-const addDays = (date: Date, days: number) => {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-};
-
-const addMonths = (date: Date, months: number) => {
-  const year = date.getFullYear();
-  const month = date.getMonth() + months;
-  const day = date.getDate();
-  const candidate = new Date(year, month, day);
-  if (candidate.getMonth() !== ((month % 12) + 12) % 12) {
-    return new Date(year, month + 1, 0);
-  }
-  return candidate;
-};
-
-const addYears = (date: Date, years: number) => {
-  const candidate = new Date(date.getFullYear() + years, date.getMonth(), date.getDate());
-  if (candidate.getMonth() !== date.getMonth()) {
-    return new Date(candidate.getFullYear(), candidate.getMonth() + 1, 0);
-  }
-  return candidate;
-};
-
 const generateOccurrences = (
-  startDate: Date,
-  endDate: Date,
-  rangeStart: Date,
-  rangeEnd: Date,
+  startDate: string,
+  endDate: string,
+  rangeStart: string,
+  rangeEnd: string,
   repeatRule: string,
+  timeZone: string,
 ) => {
   const occurrences: string[] = [];
-  const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-  const from = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
-  const to = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
+  const start = DateTime.fromISO(startDate, { zone: timeZone }).startOf("day");
+  const end = DateTime.fromISO(endDate, { zone: timeZone }).startOf("day");
+  const from = DateTime.fromISO(rangeStart, { zone: timeZone }).startOf("day");
+  const to = DateTime.fromISO(rangeEnd, { zone: timeZone }).startOf("day");
+
+  if (!start.isValid || !end.isValid || !from.isValid || !to.isValid) {
+    return occurrences;
+  }
 
   if (end < from || start > to) {
     return occurrences;
@@ -89,7 +62,7 @@ const generateOccurrences = (
 
   if (repeatRule === "none") {
     if (start >= clampStart && start <= clampEnd) {
-      occurrences.push(formatDateUtc(start));
+      occurrences.push(start.toISODate());
     }
     return occurrences;
   }
@@ -97,28 +70,28 @@ const generateOccurrences = (
   let cursor = start;
   while (cursor < clampStart) {
     if (repeatRule === "day") {
-      cursor = addDays(cursor, 1);
+      cursor = cursor.plus({ days: 1 });
     } else if (repeatRule === "week") {
-      cursor = addDays(cursor, 7);
+      cursor = cursor.plus({ weeks: 1 });
     } else if (repeatRule === "month") {
-      cursor = addMonths(cursor, 1);
+      cursor = cursor.plus({ months: 1 });
     } else if (repeatRule === "year") {
-      cursor = addYears(cursor, 1);
+      cursor = cursor.plus({ years: 1 });
     } else {
       break;
     }
   }
 
   while (cursor <= clampEnd) {
-    occurrences.push(formatDateUtc(cursor));
+    occurrences.push(cursor.toISODate());
     if (repeatRule === "day") {
-      cursor = addDays(cursor, 1);
+      cursor = cursor.plus({ days: 1 });
     } else if (repeatRule === "week") {
-      cursor = addDays(cursor, 7);
+      cursor = cursor.plus({ weeks: 1 });
     } else if (repeatRule === "month") {
-      cursor = addMonths(cursor, 1);
+      cursor = cursor.plus({ months: 1 });
     } else if (repeatRule === "year") {
-      cursor = addYears(cursor, 1);
+      cursor = cursor.plus({ years: 1 });
     } else {
       break;
     }
@@ -133,13 +106,22 @@ export async function GET(request: Request) {
     const requestUrl = new URL(request.url);
     const start = toDateString(requestUrl.searchParams.get("start"));
     const end = toDateString(requestUrl.searchParams.get("end"));
+    const householdId = requestUrl.searchParams.get("householdId") ?? "1";
+
+    const householdResult = await pool.query("select id, time_zone from households where id = $1", [
+      householdId,
+    ]);
+    const household = householdResult.rows[0];
+    const timeZone = household?.time_zone;
 
     const seriesResult = await pool.query(
-      "select id, title, type, start_date, end_date, repeat_rule, status from chores where status = 'active'",
+      "select id, title, type, start_date, end_date, repeat_rule, status from chores where status = 'active' and household_id = $1",
+      [householdId],
     );
 
     const overridesResult = await pool.query(
-      "select chore_id, occurrence_date, status, closed_reason from chore_occurrence_overrides",
+      "select o.chore_id, o.occurrence_date, o.status, o.closed_reason from chore_occurrence_overrides o join chores c on c.id = o.chore_id where c.household_id = $1",
+      [householdId],
     );
 
     const overrides = new Map<string, { status: string; closed_reason: string | null }>();
@@ -154,8 +136,9 @@ export async function GET(request: Request) {
       });
     }
 
-    const rangeStart = start ? new Date(start) : new Date();
-    const rangeEnd = end ? new Date(end) : new Date();
+    const todayKey = DateTime.now().setZone(timeZone).toISODate() ?? DateTime.now().toISODate();
+    const rangeStart = start ?? todayKey;
+    const rangeEnd = end ?? todayKey;
 
     const chores = seriesResult.rows.flatMap((row) => {
       const seriesStart = normalizeDate(row.start_date);
@@ -164,11 +147,12 @@ export async function GET(request: Request) {
         return [];
       }
       const occurrences = generateOccurrences(
-        new Date(seriesStart),
-        new Date(seriesEnd),
+        seriesStart,
+        seriesEnd,
         rangeStart,
         rangeEnd,
         row.repeat_rule,
+        timeZone,
       );
       return occurrences.map((occurrenceDate) => {
         const overrideKey = `${row.id}:${occurrenceDate}`;
@@ -185,6 +169,7 @@ export async function GET(request: Request) {
 
     return Response.json({
       ok: true,
+      timeZone,
       chores,
     });
   } catch (error) {

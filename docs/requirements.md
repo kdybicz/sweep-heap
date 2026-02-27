@@ -8,6 +8,7 @@
 - A chore is scheduled like a Google Calendar all-day event.
 - It has a start_date, end_date, and a repeat rule.
 - Dates are calendar dates only (no time-of-day).
+- All scheduling and display uses the Household time zone.
 
 ## Scheduling (MVP)
 - start_date: first scheduled date (required).
@@ -39,14 +40,21 @@
 - stay_open chores never close due to completion; only schedule end closes them.
 
 ## Data model (draft)
+Household
+- id
+- name
+- time_zone (IANA)
+- created_at
+
 Chore (series definition)
 - id
+- household_id
 - name
 - type: close_on_done | stay_open
 - start_date (date)
 - end_date (date)
 - repeat_rule (enum above)
-- time_zone (IANA; required for date math)
+- time_zone (remove; derived from Household)
 - status: active | closed
 - closed_reason: schedule_end | manual
 - created_at

@@ -1,73 +1,62 @@
 "use client";
 
+import { DateTime } from "luxon";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const weekDayFormatter = new Intl.DateTimeFormat("en-US", { weekday: "short" });
-const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
-const dayFormatter = new Intl.DateTimeFormat("en-US", { day: "numeric" });
-const yearFormatter = new Intl.DateTimeFormat("en-US", { year: "numeric" });
+const toDateKey = (date: DateTime) => date.toISODate();
 
-const startOfWeek = (date: Date) => {
-  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const weekDayIndex = (start.getDay() + 6) % 7;
-  start.setDate(start.getDate() - weekDayIndex);
-  return start;
-};
+const getHouseholdToday = (timeZone: string) => DateTime.now().setZone(timeZone).startOf("day");
 
-const addDays = (date: Date, days: number) => {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-};
+const startOfWeek = (date: DateTime) => date.minus({ days: date.weekday - 1 }).startOf("day");
 
-const toDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const formatRange = (start: Date, end: Date) => {
-  const sameMonth =
-    start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
-  const sameYear = start.getFullYear() === end.getFullYear();
-  const startLabel = `${monthFormatter.format(start)} ${dayFormatter.format(start)}`;
-  const endLabel = `${monthFormatter.format(end)} ${dayFormatter.format(end)}`;
+const formatRange = (start: DateTime, end: DateTime) => {
+  const sameMonth = start.hasSame(end, "month");
+  const sameYear = start.hasSame(end, "year");
+  const startLabel = `${start.toFormat("LLL d")}`;
+  const endLabel = `${end.toFormat("LLL d")}`;
 
   if (sameMonth) {
-    return `${monthFormatter.format(start)} ${dayFormatter.format(
-      start,
-    )}–${dayFormatter.format(end)}, ${yearFormatter.format(start)}`;
+    return `${start.toFormat("LLL d")}–${end.toFormat("d")}, ${start.toFormat("yyyy")}`;
   }
 
   if (sameYear) {
-    return `${startLabel}–${endLabel}, ${yearFormatter.format(start)}`;
+    return `${startLabel}–${endLabel}, ${start.toFormat("yyyy")}`;
   }
 
-  return `${startLabel}, ${yearFormatter.format(start)}–${endLabel}, ${yearFormatter.format(end)}`;
+  return `${startLabel}, ${start.toFormat("yyyy")}–${endLabel}, ${end.toFormat("yyyy")}`;
 };
 
 export default function Home() {
   const [weekOffset, setWeekOffset] = useState(0);
-  const baseDateRef = useRef(new Date());
+  const [timeZone, setTimeZone] = useState("UTC");
+  const baseDateRef = useRef<DateTime | null>(null);
   const lastRangeRef = useRef<string | null>(null);
   const [chores, setChores] = useState<
     Array<{ id: number; title: string; occurrence_date: string; status: string }>
   >([]);
   const [loading, setLoading] = useState(true);
 
-  const weekStart = useMemo(
-    () => addDays(startOfWeek(baseDateRef.current), weekOffset * 7),
-    [weekOffset],
-  );
+  if (!baseDateRef.current) {
+    baseDateRef.current = getHouseholdToday(timeZone);
+  }
 
-  const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
+  useEffect(() => {
+    baseDateRef.current = getHouseholdToday(timeZone);
+    lastRangeRef.current = null;
+  }, [timeZone]);
+
+  const weekStart = useMemo(() => {
+    const baseDate = baseDateRef.current ?? getHouseholdToday(timeZone);
+    return startOfWeek(baseDate).plus({ weeks: weekOffset });
+  }, [weekOffset, timeZone]);
+
+  const weekEnd = useMemo(() => weekStart.plus({ days: 6 }), [weekStart]);
   const startKey = useMemo(() => toDateKey(weekStart), [weekStart]);
   const endKey = useMemo(() => toDateKey(weekEnd), [weekEnd]);
   const rangeKey = useMemo(() => `${startKey}:${endKey}`, [startKey, endKey]);
 
   const days = useMemo(
-    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
+    () => Array.from({ length: 7 }, (_, index) => weekStart.plus({ days: index })),
     [weekStart],
   );
   const rangeLabel = formatRange(weekStart, weekEnd);
@@ -81,10 +70,13 @@ export default function Home() {
     const loadChores = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/chores?start=${startKey}&end=${endKey}`);
+        const response = await fetch(`/api/chores?start=${startKey}&end=${endKey}&householdId=1`);
         const data = await response.json();
         if (data?.ok) {
           setChores(data.chores ?? []);
+          if (data.timeZone && data.timeZone !== timeZone) {
+            setTimeZone(data.timeZone);
+          }
         }
       } catch (error) {
         console.error(error);
@@ -147,18 +139,16 @@ export default function Home() {
             <div className="grid min-w-[720px] grid-cols-7 gap-3">
               {days.map((day) => {
                 const dayKey = toDateKey(day);
-                const dayChores = chores.filter(
-                  (chore) => chore.occurrence_date === dayKey,
-                );
-                const isToday = day.toDateString() === new Date().toDateString();
+                const dayChores = chores.filter((chore) => chore.occurrence_date === dayKey);
+                const isToday = day.hasSame(getHouseholdToday(timeZone), "day");
                 return (
                   <div
-                    key={day.toISOString()}
+                    key={day.toISO()}
                     className="flex min-h-[420px] flex-col rounded-2xl border border-[var(--stroke)] bg-[var(--card)] p-4"
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium uppercase tracking-[0.25em] text-[var(--muted)]">
-                        {weekDayFormatter.format(day)}
+                        {day.toFormat("ccc")}
                       </span>
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -167,7 +157,7 @@ export default function Home() {
                             : "bg-[var(--surface-strong)] text-[var(--ink)]"
                         }`}
                       >
-                        {dayFormatter.format(day)}
+                        {day.toFormat("d")}
                       </span>
                     </div>
                     <div className="mt-6 flex-1 rounded-xl border border-dashed border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-3">
