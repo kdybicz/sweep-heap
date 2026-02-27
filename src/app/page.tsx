@@ -46,6 +46,7 @@ export default function Home() {
 
   const [chores, setChores] = useState<ChoreItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingToday, setLoadingToday] = useState(true);
   const toastTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [nowMs, setNowMs] = useState(() => DateTime.utc().toMillis());
   const [showAddModal, setShowAddModal] = useState(false);
@@ -58,6 +59,7 @@ export default function Home() {
   const [newEndDate, setNewEndDate] = useState(() => DateTime.utc().toISODate());
   const [newRepeatEnd, setNewRepeatEnd] = useState(() => DateTime.utc().toISODate());
   const [newNotes, setNewNotes] = useState("");
+  const [todayChores, setTodayChores] = useState<ChoreItem[]>([]);
 
   if (!baseDateRef.current) {
     baseDateRef.current = getHouseholdToday(timeZone);
@@ -180,10 +182,28 @@ export default function Home() {
 
   const today = useMemo(() => getHouseholdToday(timeZone), [timeZone]);
   const todayKey = useMemo(() => toDateKey(today), [today]);
-  const todayChores = useMemo(
-    () => chores.filter((chore) => chore.occurrence_date === todayKey),
-    [chores, todayKey],
-  );
+  const loadTodayChores = useCallback(async () => {
+    try {
+      setLoadingToday(true);
+      const response = await fetch(`/api/chores?start=${todayKey}&end=${todayKey}&householdId=1`, {
+        cache: "no-store",
+      });
+      const data = await response.json();
+      if (data?.ok) {
+        setTodayChores(data.chores ?? []);
+        if (data.timeZone) {
+          setTimeZone((current) => (data.timeZone !== current ? data.timeZone : current));
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingToday(false);
+    }
+  }, [todayKey]);
+  useEffect(() => {
+    loadTodayChores();
+  }, [loadTodayChores]);
   const doneChores = useMemo(
     () => chores.filter((chore) => chore.status === "closed").length,
     [chores],
@@ -238,13 +258,24 @@ export default function Home() {
         }
         resetAddChore();
         await loadChores({ force: true });
+        await loadTodayChores();
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to create chore";
         setSubmitError(message);
       }
       setSubmitting(false);
     },
-    [loadChores, newDate, newEndDate, newRepeat, newRepeatEnd, newTitle, newNotes, resetAddChore],
+    [
+      loadChores,
+      loadTodayChores,
+      newDate,
+      newEndDate,
+      newRepeat,
+      newRepeatEnd,
+      newTitle,
+      newNotes,
+      resetAddChore,
+    ],
   );
 
   const markChoreDone = async (choreId: number, occurrenceDate: string, title: string) => {
@@ -307,6 +338,8 @@ export default function Home() {
             : chore,
         ),
       );
+    } finally {
+      await loadTodayChores();
     }
   };
 
@@ -351,6 +384,8 @@ export default function Home() {
           ),
         );
       }
+    } finally {
+      await loadTodayChores();
     }
   };
 
@@ -429,7 +464,7 @@ export default function Home() {
               <span className="text-xs text-[var(--muted)]">{today.toFormat("ccc, LLL d")}</span>
             </div>
             <div className="mt-4 flex flex-col gap-2">
-              {loading ? (
+              {loadingToday ? (
                 <div className="text-xs text-[var(--muted)]">Loading chores...</div>
               ) : todayChores.length ? (
                 <>
