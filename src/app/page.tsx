@@ -29,6 +29,8 @@ const formatRange = (start: DateTime, end: DateTime) => {
 export default function Home() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [timeZone, setTimeZone] = useState("UTC");
+  const [rangeStart, setRangeStart] = useState<string | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<string | null>(null);
   const baseDateRef = useRef<DateTime | null>(null);
   const lastRangeRef = useRef<string | null>(null);
   const [chores, setChores] = useState<
@@ -48,8 +50,11 @@ export default function Home() {
     occurrenceDate: string;
     title: string;
     undoUntil: string;
+    startedAt?: string;
   } | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [undoProgress, setUndoProgress] = useState(0);
 
   if (!baseDateRef.current) {
     baseDateRef.current = getHouseholdToday(timeZone);
@@ -60,11 +65,19 @@ export default function Home() {
   }, [timeZone]);
 
   const weekStart = useMemo(() => {
+    if (rangeStart) {
+      return DateTime.fromISO(rangeStart, { zone: timeZone }).startOf("day");
+    }
     const baseDate = baseDateRef.current ?? getHouseholdToday(timeZone);
     return startOfWeek(baseDate).plus({ weeks: weekOffset });
-  }, [weekOffset, timeZone]);
+  }, [rangeStart, weekOffset, timeZone]);
 
-  const weekEnd = useMemo(() => weekStart.plus({ days: 6 }), [weekStart]);
+  const weekEnd = useMemo(() => {
+    if (rangeEnd) {
+      return DateTime.fromISO(rangeEnd, { zone: timeZone }).startOf("day");
+    }
+    return weekStart.plus({ days: 6 });
+  }, [rangeEnd, timeZone, weekStart]);
   const startKey = useMemo(() => toDateKey(weekStart), [weekStart]);
   const endKey = useMemo(() => toDateKey(weekEnd), [weekEnd]);
   const rangeKey = useMemo(() => `${startKey}:${endKey}`, [startKey, endKey]);
@@ -77,17 +90,16 @@ export default function Home() {
 
   useEffect(() => {
     const loadChores = async () => {
-      if (lastRangeRef.current === rangeKey) {
+      if (lastRangeRef.current === String(weekOffset)) {
         return;
       }
-      lastRangeRef.current = rangeKey;
+      lastRangeRef.current = String(weekOffset);
 
       try {
         setLoading(true);
-        const response = await fetch(
-          `/api/chores?start=${startKey}&end=${endKey}&weekOffset=${weekOffset}&householdId=1`,
-          { cache: "no-store" },
-        );
+        const response = await fetch(`/api/chores?weekOffset=${weekOffset}&householdId=1`, {
+          cache: "no-store",
+        });
         const data = await response.json();
         if (data?.ok) {
           setChores(data.chores ?? []);
@@ -95,7 +107,8 @@ export default function Home() {
             setTimeZone((current) => (data.timeZone !== current ? data.timeZone : current));
           }
           if (data.rangeStart && data.rangeEnd) {
-            lastRangeRef.current = `${data.rangeStart}:${data.rangeEnd}`;
+            setRangeStart(data.rangeStart);
+            setRangeEnd(data.rangeEnd);
           }
         }
       } catch (error) {
@@ -106,14 +119,14 @@ export default function Home() {
     };
 
     loadChores();
-  }, [rangeKey, startKey, endKey, weekOffset]);
+  }, [weekOffset]);
 
   useEffect(() => {
-    if (undoToast) {
-      return;
-    }
     const candidates = chores.filter((chore) => chore.can_undo && chore.undo_until);
     if (!candidates.length) {
+      if (undoToast) {
+        setUndoToast(null);
+      }
       return;
     }
     const next = candidates.sort(
@@ -121,20 +134,42 @@ export default function Home() {
         DateTime.fromISO(b.undo_until ?? "").toMillis() -
         DateTime.fromISO(a.undo_until ?? "").toMillis(),
     )[0];
-    if (next?.undo_until) {
-      setUndoToast({
+    const undoUntil = next?.undo_until;
+    if (!undoUntil) {
+      return;
+    }
+    setUndoToast((current) => {
+      if (
+        current &&
+        current.choreId === next.id &&
+        current.occurrenceDate === next.occurrence_date &&
+        current.undoUntil === undoUntil
+      ) {
+        return current;
+      }
+      return {
         choreId: next.id,
         occurrenceDate: next.occurrence_date,
         title: next.title,
-        undoUntil: next.undo_until,
-      });
-    }
+        undoUntil,
+        startedAt:
+          DateTime.fromISO(undoUntil).minus({ seconds: 5 }).toUTC().toISO() ??
+          DateTime.utc().minus({ seconds: 5 }).toISO(),
+      };
+    });
   }, [chores, undoToast]);
 
   const clearUndoTimeout = useCallback(() => {
     if (undoTimeoutRef.current) {
       clearTimeout(undoTimeoutRef.current);
       undoTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearToastTick = useCallback(() => {
+    if (toastTickRef.current) {
+      clearInterval(toastTickRef.current);
+      toastTickRef.current = null;
     }
   }, []);
 
@@ -153,16 +188,47 @@ export default function Home() {
     [clearUndoTimeout],
   );
 
+  const startToastCountdown = useCallback(
+    (undoUntil: string, startedAt: string) => {
+      clearToastTick();
+      const totalMs = Math.max(
+        0,
+        DateTime.fromISO(undoUntil).toMillis() - DateTime.fromISO(startedAt).toMillis(),
+      );
+      if (totalMs === 0) {
+        setUndoProgress(0);
+        return;
+      }
+      const tick = () => {
+        const now = DateTime.utc().toMillis();
+        const elapsedMs = now - DateTime.fromISO(startedAt).toMillis();
+        const remainingMs = Math.max(0, DateTime.fromISO(undoUntil).toMillis() - now);
+        const progress = Math.min(100, (remainingMs / totalMs) * 100);
+        setUndoProgress(progress);
+        if (elapsedMs >= totalMs) {
+          clearToastTick();
+        }
+      };
+      tick();
+      toastTickRef.current = setInterval(tick, 100);
+    },
+    [clearToastTick],
+  );
+
   useEffect(() => {
     if (!undoToast) {
       clearUndoTimeout();
+      clearToastTick();
+      setUndoProgress(0);
       return;
     }
     scheduleUndoTimeout(undoToast.undoUntil);
+    startToastCountdown(undoToast.undoUntil, undoToast.startedAt ?? DateTime.utc().toISO());
     return () => {
       clearUndoTimeout();
+      clearToastTick();
     };
-  }, [undoToast, clearUndoTimeout, scheduleUndoTimeout]);
+  }, [undoToast, clearUndoTimeout, scheduleUndoTimeout, startToastCountdown, clearToastTick]);
 
   const markChoreDone = async (choreId: number, occurrenceDate: string, title: string) => {
     const undoUntil = DateTime.utc().plus({ seconds: 5 }).toISO();
@@ -179,7 +245,7 @@ export default function Home() {
           : chore,
       ),
     );
-    setUndoToast({ choreId, occurrenceDate, title, undoUntil });
+    setUndoToast({ choreId, occurrenceDate, title, undoUntil, startedAt: DateTime.utc().toISO() });
     scheduleUndoTimeout(undoUntil);
 
     try {
@@ -211,7 +277,13 @@ export default function Home() {
               : chore,
           ),
         );
-        setUndoToast({ choreId, occurrenceDate, title, undoUntil: data.undo_until });
+        setUndoToast({
+          choreId,
+          occurrenceDate,
+          title,
+          undoUntil: data.undo_until,
+          startedAt: DateTime.utc().toISO(),
+        });
         scheduleUndoTimeout(data.undo_until);
       }
     } catch (error) {
@@ -281,7 +353,13 @@ export default function Home() {
             chore.id === choreId && chore.occurrence_date === occurrenceDate ? previous : chore,
           ),
         );
-        setUndoToast({ choreId, occurrenceDate, title, undoUntil });
+        setUndoToast({
+          choreId,
+          occurrenceDate,
+          title,
+          undoUntil,
+          startedAt: DateTime.utc().toISO(),
+        });
         if (undoUntil) {
           scheduleUndoTimeout(undoUntil);
         }
@@ -407,18 +485,26 @@ export default function Home() {
         </section>
       </main>
       {undoToast ? (
-        <div className="fixed bottom-6 left-6 right-6 z-50 mx-auto flex max-w-md items-center justify-between gap-4 rounded-2xl border border-[var(--stroke)] bg-white px-4 py-3 text-xs font-semibold text-[var(--ink)] shadow-[var(--shadow)]">
-          <div className="flex flex-col gap-1">
-            <span className="text-[var(--muted)]">Marked done</span>
-            <span>{undoToast.title}</span>
+        <div className="fixed bottom-6 left-6 right-6 z-50 mx-auto flex max-w-md flex-col gap-3 rounded-2xl border border-[var(--stroke)] bg-white px-4 py-3 text-xs font-semibold text-[var(--ink)] shadow-[var(--shadow)]">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-[var(--muted)]">Marked done</span>
+              <span>{undoToast.title}</span>
+            </div>
+            <button
+              className="rounded-full border border-[var(--stroke)] px-3 py-2 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+              onClick={undoChoreDone}
+              type="button"
+            >
+              Undo
+            </button>
           </div>
-          <button
-            className="rounded-full border border-[var(--stroke)] px-3 py-2 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-            onClick={undoChoreDone}
-            type="button"
-          >
-            Undo
-          </button>
+          <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--surface-strong)]">
+            <div
+              className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-100"
+              style={{ width: `${undoProgress}%` }}
+            />
+          </div>
         </div>
       ) : null}
     </div>

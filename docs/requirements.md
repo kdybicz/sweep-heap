@@ -9,6 +9,7 @@
 - It has a start_date, end_date, and a repeat rule.
 - Dates are calendar dates only (no time-of-day).
 - All scheduling and display uses the Household time zone.
+- Any short-lived reversible action must show a visible countdown bar.
 
 ## Scheduling (MVP)
 - start_date: first scheduled date (required).
