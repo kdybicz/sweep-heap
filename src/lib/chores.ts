@@ -2,7 +2,7 @@ import { pool } from "@/lib/db";
 
 export const ensureChoresTable = async () => {
   await pool.query(
-    "create table if not exists chores (id serial primary key, title text not null, occurrence_date date not null, status text not null default 'open', created_at timestamptz not null default now())",
+    "create table if not exists chores (id serial primary key, title text not null, type text not null, start_date date not null, end_date date not null, repeat_rule text not null, status text not null default 'active', created_at timestamptz not null default now())",
   );
 
   await pool.query(
