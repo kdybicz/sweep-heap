@@ -13,8 +13,8 @@ const oxanium = Oxanium({
 });
 
 export const metadata: Metadata = {
-  title: "Chores Week View",
-  description: "Weekly chore calendar view",
+  title: "The Sweep Heap",
+  description: "Weekly chores overview for The Sweep Heap",
 };
 
 export default function RootLayout({
