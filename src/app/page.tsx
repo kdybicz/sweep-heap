@@ -556,11 +556,17 @@ export default function Home() {
                         )}
                       </div>
                       <button
-                        className="mt-3 rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+                        className="mt-3 rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => {
                           setSubmitError(null);
                           setShowAddModal(true);
+                          if (dayKey) {
+                            setNewDate(dayKey);
+                            setNewEndDate(dayKey);
+                            setNewRepeatEnd(dayKey);
+                          }
                         }}
+                        disabled={day < today}
                         type="button"
                       >
                         Add chore

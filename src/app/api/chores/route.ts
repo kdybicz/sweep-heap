@@ -177,6 +177,7 @@ export async function PATCH(request: Request) {
         endDate,
         repeatRule,
         seriesEndDate,
+        today: DateTime.utc().toISODate() ?? undefined,
       });
 
       if (Object.keys(fieldErrors).length) {

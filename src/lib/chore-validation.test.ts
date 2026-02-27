@@ -46,6 +46,20 @@ describe("validateChoreCreate", () => {
     expect(errors.endDate).toBe("End date must be on or after start date");
   });
 
+  it("prevents past dates", () => {
+    const errors = validateChoreCreate({
+      title: "Sweep",
+      startDate: "2026-02-01",
+      endDate: "2026-02-02",
+      repeatRule: "week",
+      seriesEndDate: null,
+      today: "2026-02-10",
+    });
+
+    expect(errors.startDate).toBe("Start date cannot be in the past");
+    expect(errors.endDate).toBe("End date cannot be in the past");
+  });
+
   it("requires repeat end when repeating", () => {
     const errors = validateChoreCreate({
       title: "Sweep",
