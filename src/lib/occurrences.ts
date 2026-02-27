@@ -51,11 +51,11 @@ export const generateOccurrences = ({
   const seriesEnd = seriesEndDate ? toDate(seriesEndDate, timeZone) : to;
 
   if (!start.isValid || !end.isValid || !from.isValid || !to.isValid || !seriesEnd.isValid) {
-    return occurrences;
+    return [];
   }
 
   if (seriesEnd < from || start > to) {
-    return occurrences;
+    return [];
   }
 
   const clampStart = start > from ? start : from;
@@ -79,7 +79,7 @@ export const generateOccurrences = ({
     if (start >= clampStart && start <= clampEnd) {
       addOccurrenceSpan(start);
     }
-    return occurrences;
+    return Array.from(occurrenceSet).sort();
   }
 
   let cursor = start;

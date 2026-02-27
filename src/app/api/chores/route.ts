@@ -88,7 +88,7 @@ export async function GET(request: Request) {
         seriesEndDate: normalizeDate(row.series_end_date),
         timeZone,
       });
-      return occurrences.map((occurrenceDate) => {
+      return occurrences.map((occurrenceDate: string) => {
         const overrideKey = `${row.id}:${occurrenceDate}`;
         const override = overrides.get(overrideKey);
         return {
