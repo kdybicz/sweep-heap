@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 
 import { ensureChoresTable } from "@/lib/chores";
 import { pool } from "@/lib/db";
+import { generateOccurrences } from "@/lib/occurrences";
 
 const toDateString = (value: string | null) => {
   if (!value) {
@@ -11,10 +12,7 @@ const toDateString = (value: string | null) => {
     return value;
   }
   const parsed = DateTime.fromISO(value, { zone: "utc" });
-  if (!parsed.isValid) {
-    return null;
-  }
-  return parsed.toISODate();
+  return parsed.isValid ? parsed.toISODate() : null;
 };
 
 const normalizeDate = (value: unknown) => {
@@ -29,95 +27,10 @@ const normalizeDate = (value: unknown) => {
     return parsed.isValid ? parsed.toISODate() : null;
   }
   if (value instanceof Date) {
-    const parsed = DateTime.fromJSDate(value);
+    const parsed = DateTime.fromJSDate(value, { zone: "utc" });
     return parsed.isValid ? parsed.toISODate() : null;
   }
   return null;
-};
-
-const generateOccurrences = (
-  startDate: string,
-  endDate: string,
-  rangeStart: string,
-  rangeEnd: string,
-  repeatRule: string,
-  spanDays: number,
-  timeZone: string,
-) => {
-  const occurrences: string[] = [];
-  const start = DateTime.fromISO(startDate, { zone: timeZone }).startOf("day");
-  const end = DateTime.fromISO(endDate, { zone: timeZone }).startOf("day");
-  const from = DateTime.fromISO(rangeStart, { zone: timeZone }).startOf("day");
-  const to = DateTime.fromISO(rangeEnd, { zone: timeZone }).startOf("day");
-
-  if (!start.isValid || !end.isValid || !from.isValid || !to.isValid) {
-    return occurrences;
-  }
-
-  if (end < from || start > to) {
-    return occurrences;
-  }
-
-  const clampStart = start > from ? start : from;
-  const clampEnd = end < to ? end : to;
-
-  const addOccurrenceSpan = (occurrenceStart: DateTime) => {
-    const daySpan = Math.max(spanDays, 1);
-    for (let offset = 0; offset < daySpan; offset += 1) {
-      const day = occurrenceStart.plus({ days: offset });
-      if (day < clampStart || day > clampEnd) {
-        continue;
-      }
-      const isoDate = day.toISODate();
-      if (!isoDate) {
-        continue;
-      }
-      occurrences.push(isoDate);
-    }
-  };
-
-  if (repeatRule === "none") {
-    if (start >= clampStart && start <= clampEnd) {
-      addOccurrenceSpan(start);
-    }
-    return occurrences;
-  }
-
-  const advance = (value: DateTime) => {
-    if (repeatRule === "day") {
-      return value.plus({ days: 1 });
-    }
-    if (repeatRule === "week") {
-      return value.plus({ weeks: 1 });
-    }
-    if (repeatRule === "month") {
-      return value.plus({ months: 1 });
-    }
-    if (repeatRule === "year") {
-      return value.plus({ years: 1 });
-    }
-    return value;
-  };
-
-  let cursor = start;
-  while (true) {
-    const nextCursor = advance(cursor);
-    if (nextCursor > clampStart) {
-      break;
-    }
-    cursor = nextCursor;
-  }
-
-  while (cursor <= clampEnd) {
-    addOccurrenceSpan(cursor);
-    const nextCursor = advance(cursor);
-    if (nextCursor === cursor) {
-      break;
-    }
-    cursor = nextCursor;
-  }
-
-  return occurrences;
 };
 
 export async function GET(request: Request) {
@@ -132,10 +45,10 @@ export async function GET(request: Request) {
       householdId,
     ]);
     const household = householdResult.rows[0];
-    const timeZone = household?.time_zone;
+    const timeZone = household?.time_zone ?? "UTC";
 
     const seriesResult = await pool.query(
-      "select id, title, type, start_date, end_date, series_end_date, duration_days, repeat_rule, status from chores where status = 'active' and household_id = $1",
+      "select id, title, type, start_date, end_date, series_end_date, repeat_rule, status from chores where status = 'active' and household_id = $1",
       [householdId],
     );
 
@@ -156,29 +69,25 @@ export async function GET(request: Request) {
       });
     }
 
-    const todayKey = DateTime.now().setZone(timeZone).toISODate() ?? DateTime.now().toISODate();
-    const rangeStart = start ?? todayKey;
-    const rangeEnd = end ?? todayKey;
+    const todayKey = DateTime.now().setZone(timeZone).toISODate();
+    const rangeStart = start ?? todayKey ?? "";
+    const rangeEnd = end ?? todayKey ?? "";
 
     const chores = seriesResult.rows.flatMap((row) => {
       const seriesStart = normalizeDate(row.start_date);
       const occurrenceEnd = normalizeDate(row.end_date);
-      const seriesEnd = normalizeDate(row.series_end_date) ?? rangeEnd;
-      if (!seriesStart || !seriesEnd || !occurrenceEnd) {
+      if (!seriesStart || !occurrenceEnd) {
         return [];
       }
-      const startDate = DateTime.fromISO(seriesStart, { zone: timeZone });
-      const endDate = DateTime.fromISO(occurrenceEnd, { zone: timeZone });
-      const spanDays = Math.max(Math.round(endDate.diff(startDate, "days").days) + 1, 1);
-      const occurrences = generateOccurrences(
-        seriesStart,
-        seriesEnd,
+      const occurrences = generateOccurrences({
+        startDate: seriesStart,
+        endDate: occurrenceEnd,
         rangeStart,
         rangeEnd,
-        row.repeat_rule,
-        spanDays,
+        repeatRule: row.repeat_rule,
+        seriesEndDate: normalizeDate(row.series_end_date),
         timeZone,
-      );
+      });
       return occurrences.map((occurrenceDate) => {
         const overrideKey = `${row.id}:${occurrenceDate}`;
         const override = overrides.get(overrideKey);

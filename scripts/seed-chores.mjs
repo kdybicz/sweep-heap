@@ -1,6 +1,6 @@
-import { DateTime } from "luxon";
 import fs from "node:fs";
 import path from "node:path";
+import { DateTime } from "luxon";
 import { Pool } from "pg";
 
 const loadEnvFile = (filePath) => {
@@ -40,9 +40,7 @@ const seed = async () => {
 
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error(
-      "DATABASE_URL is not set. Add it to .env.local or export it.",
-    );
+    throw new Error("DATABASE_URL is not set. Add it to .env.local or export it.");
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
@@ -50,7 +48,7 @@ const seed = async () => {
     "create table if not exists households (id serial primary key, name text not null, time_zone text not null, created_at timestamptz not null default now())",
   );
   await pool.query(
-    "create table if not exists chores (id serial primary key, household_id integer not null references households(id) on delete cascade, title text not null, type text not null, start_date date not null, end_date date not null, series_end_date date, duration_days integer not null default 1, repeat_rule text not null, status text not null default 'active', created_at timestamptz not null default now())",
+    "create table if not exists chores (id serial primary key, household_id integer not null references households(id) on delete cascade, title text not null, type text not null, start_date date not null, end_date date not null, series_end_date date, repeat_rule text not null, status text not null default 'active', created_at timestamptz not null default now())",
   );
   await pool.query(
     "create table if not exists chore_occurrence_overrides (id serial primary key, chore_id integer not null references chores(id) on delete cascade, occurrence_date date not null, status text not null, closed_reason text, updated_at timestamptz not null default now(), unique(chore_id, occurrence_date))",
@@ -126,7 +124,7 @@ const seed = async () => {
 
   for (const chore of chores) {
     await pool.query(
-      "insert into chores (household_id, title, type, start_date, end_date, series_end_date, duration_days, repeat_rule) values ($1, $2, $3, $4, $5, $6, $7, $8)",
+      "insert into chores (household_id, title, type, start_date, end_date, series_end_date, repeat_rule) values ($1, $2, $3, $4, $5, $6, $7)",
       [
         householdId,
         chore.title,
@@ -134,7 +132,6 @@ const seed = async () => {
         chore.start_date,
         chore.end_date,
         chore.series_end_date ?? null,
-        chore.duration_days ?? 1,
         chore.repeat_rule,
       ],
     );

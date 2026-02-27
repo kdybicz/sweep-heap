@@ -53,8 +53,7 @@ Chore (series definition)
 - type: close_on_done | stay_open
 - start_date (date)
 - end_date (date; occurrence span end)
-- series_end_date (date; last occurrence date, inclusive; nullable for "no end")
-- duration_days (int; default 1; all-day span)
+- series_end_date (date; last occurrence start date, inclusive; nullable for "no end")
 - repeat_rule (enum above)
 - time_zone (remove; derived from Household)
 - status: active | closed

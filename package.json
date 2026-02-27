@@ -7,6 +7,8 @@
     "dev": "next dev",
     "seed:chores": "node scripts/seed-chores.mjs",
     "db:reset": "node scripts/reset-db.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "next build",
     "start": "next start",
     "lint": "biome check .",
@@ -30,6 +32,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.0"
   }
 }
