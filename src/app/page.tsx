@@ -42,11 +42,19 @@ export default function Home() {
       closed_reason?: string | null;
       undo_until?: string | null;
       can_undo?: boolean;
+      notes?: string | null;
     }>
   >([]);
   const [loading, setLoading] = useState(true);
   const toastTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [nowMs, setNowMs] = useState(() => DateTime.utc().toMillis());
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDate, setNewDate] = useState(() => DateTime.utc().toISODate());
+  const [newRepeat, setNewRepeat] = useState("none");
+  const [newEndDate, setNewEndDate] = useState(() => DateTime.utc().toISODate());
+  const [newRepeatEnd, setNewRepeatEnd] = useState(() => DateTime.utc().toISODate());
+  const [newNotes, setNewNotes] = useState("");
 
   if (!baseDateRef.current) {
     baseDateRef.current = getHouseholdToday(timeZone);
@@ -142,6 +150,12 @@ export default function Home() {
     };
   }, [chores, clearToastTick]);
 
+  useEffect(() => {
+    if (!newRepeatEnd) {
+      setNewRepeatEnd(newDate);
+    }
+  }, [newDate, newRepeatEnd]);
+
   const undoToasts = useMemo(() => {
     return chores
       .filter((chore) => chore.can_undo && chore.undo_until)
@@ -171,6 +185,60 @@ export default function Home() {
   const totalChores = chores.length;
   const openChores = totalChores - doneChores;
   const progress = totalChores ? Math.round((doneChores / totalChores) * 100) : 0;
+
+  const handleAddChore = useCallback((event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setShowAddModal(false);
+    setNewTitle("");
+    setNewDate(DateTime.utc().toISODate());
+    setNewRepeat("none");
+    setNewEndDate(DateTime.utc().toISODate());
+    setNewRepeatEnd(DateTime.utc().toISODate());
+    setNewNotes("");
+  }, []);
+
+  const submitAddChore = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const payload = {
+        action: "create",
+        title: newTitle,
+        startDate: newDate,
+        endDate: newEndDate,
+        repeatRule: newRepeat,
+        seriesEndDate: newRepeat !== "none" ? newRepeatEnd : null,
+        notes: newNotes,
+      };
+
+      try {
+        const response = await fetch("/api/chores", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!data?.ok) {
+          throw new Error(data?.error ?? "Failed to create chore");
+        }
+        setChores((prev) =>
+          prev.concat({
+            id: data.choreId,
+            title: data.title,
+            occurrence_date: data.startDate,
+            status: "open",
+            closed_reason: null,
+            undo_until: null,
+            can_undo: false,
+            notes: data.notes ?? null,
+          }),
+        );
+        handleAddChore(event);
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    [handleAddChore, newDate, newEndDate, newRepeat, newRepeatEnd, newTitle, newNotes],
+  );
 
   const markChoreDone = async (choreId: number, occurrenceDate: string, title: string) => {
     const undoUntil = DateTime.utc().plus({ seconds: 5 }).toISO();
@@ -302,6 +370,7 @@ export default function Home() {
               </button>
               <button
                 className="rounded-full border border-[var(--stroke)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
+                onClick={() => setShowAddModal(true)}
                 type="button"
               >
                 Add chore
@@ -414,8 +483,8 @@ export default function Home() {
           </header>
 
           <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-3 shadow-[var(--shadow)]">
-            <div className="overflow-x-auto">
-              <div className="grid min-w-[980px] grid-cols-7 gap-0 divide-x divide-[var(--stroke)]">
+            <div className="overflow-x-auto rounded-2xl border border-[var(--stroke)] bg-[var(--surface-weak)]">
+              <div className="grid min-w-[980px] grid-cols-7 gap-0 divide-x divide-[var(--stroke)] bg-[linear-gradient(180deg,_var(--grid-line)_1px,_transparent_1px)] [background-size:100%_64px]">
                 {days.map((day) => {
                   const dayKey = toDateKey(day);
                   const dayChores = chores.filter((chore) => chore.occurrence_date === dayKey);
@@ -478,6 +547,7 @@ export default function Home() {
                       </div>
                       <button
                         className="mt-3 rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+                        onClick={() => setShowAddModal(true)}
                         type="button"
                       >
                         Add chore
@@ -522,6 +592,107 @@ export default function Home() {
               </div>
             );
           })}
+        </div>
+      ) : null}
+      {showAddModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+          <button
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowAddModal(false)}
+            type="button"
+          />
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]">
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--stroke)] bg-[var(--surface-weak)] px-6 py-5">
+              <div>
+                <h3 className="text-xl font-semibold">Add a chore</h3>
+                <p className="text-xs text-[var(--muted)]">
+                  Quick details now, schedule tweaks later.
+                </p>
+              </div>
+            </div>
+            <form className="flex flex-col gap-4 px-6 py-5" onSubmit={submitAddChore}>
+              <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                Title
+                <input
+                  className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                  placeholder="Laundry, dishes, vacuum"
+                  required
+                  value={newTitle}
+                  onChange={(event) => setNewTitle(event.target.value)}
+                />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                  Start date
+                  <input
+                    className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                    type="date"
+                    value={newDate}
+                    onChange={(event) => setNewDate(event.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                  End date
+                  <input
+                    className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                    type="date"
+                    value={newEndDate}
+                    onChange={(event) => setNewEndDate(event.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                  Repeat
+                  <select
+                    className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                    value={newRepeat}
+                    onChange={(event) => setNewRepeat(event.target.value)}
+                  >
+                    <option value="none">Does not repeat</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Every 2 weeks</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </label>
+                {newRepeat !== "none" ? (
+                  <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                    Repeat ends
+                    <input
+                      className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                      type="date"
+                      value={newRepeatEnd}
+                      onChange={(event) => setNewRepeatEnd(event.target.value)}
+                    />
+                  </label>
+                ) : null}
+              </div>
+              <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                Notes
+                <textarea
+                  className="min-h-[90px] resize-none rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                  placeholder="Supplies, preferences, reminders"
+                  value={newNotes}
+                  onChange={(event) => setNewNotes(event.target.value)}
+                />
+              </label>
+              <div className="flex items-center justify-end gap-2 border-t border-[var(--stroke)] pt-4">
+                <button
+                  className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
+                  onClick={() => setShowAddModal(false)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
+                  type="submit"
+                >
+                  Save chore
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       ) : null}
     </div>

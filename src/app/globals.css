@@ -19,6 +19,7 @@
   --glow-1: rgba(210, 225, 255, 0.9);
   --glow-2: rgba(200, 214, 255, 0.7);
   --glow-3: rgba(255, 235, 210, 0.5);
+  --grid-line: rgba(38, 67, 130, 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -41,6 +42,7 @@
     --glow-1: rgba(28, 50, 96, 0.9);
     --glow-2: rgba(36, 72, 130, 0.6);
     --glow-3: rgba(72, 101, 160, 0.35);
+    --grid-line: rgba(150, 170, 220, 0.08);
   }
 }
 

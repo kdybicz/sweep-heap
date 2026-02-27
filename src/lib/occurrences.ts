@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 
-export type RepeatRule = "none" | "day" | "week" | "month" | "year";
+export type RepeatRule = "none" | "day" | "week" | "biweek" | "month" | "year";
 
 export type OccurrenceInput = {
   startDate: string;
@@ -24,6 +24,9 @@ const advance = (value: DateTime, repeatRule: RepeatRule) => {
   }
   if (repeatRule === "week") {
     return value.plus({ weeks: 1 });
+  }
+  if (repeatRule === "biweek") {
+    return value.plus({ weeks: 2 });
   }
   if (repeatRule === "month") {
     return value.plus({ months: 1 });

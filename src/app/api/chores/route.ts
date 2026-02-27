@@ -36,6 +36,29 @@ const normalizeDate = (value: unknown) => {
   return null;
 };
 
+const normalizeNotes = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.slice(0, 500);
+};
+
+const allowedRepeatRules = new Set(["none", "day", "week", "biweek", "month", "year"]);
+
+const normalizeRepeatRule = (value: string) => {
+  const normalized = value.toLowerCase();
+  if (normalized === "daily") return "day";
+  if (normalized === "weekly") return "week";
+  if (normalized === "biweekly") return "biweek";
+  if (normalized === "monthly") return "month";
+  if (normalized === "yearly") return "year";
+  return normalized;
+};
+
 export async function GET(request: Request) {
   try {
     await ensureChoresTable();
@@ -52,7 +75,7 @@ export async function GET(request: Request) {
     const timeZone = household?.time_zone ?? "UTC";
 
     const seriesResult = await pool.query(
-      "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, status from chores where status = 'active' and household_id = $1",
+      "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, status, notes from chores where status = 'active' and household_id = $1",
       [householdId],
     );
 
@@ -112,6 +135,7 @@ export async function GET(request: Request) {
         return {
           id: row.id,
           title: row.title,
+          notes: row.notes ?? null,
           status: override?.status ?? "open",
           closed_reason: override?.closed_reason ?? null,
           occurrence_date: occurrenceDate,
@@ -148,6 +172,63 @@ export async function PATCH(request: Request) {
     const occurrenceDate = normalizeDate(payload?.occurrenceDate);
     const status = payload?.status === "closed" ? "closed" : "open";
     const action = typeof payload?.action === "string" ? payload.action : "set";
+    const title = typeof payload?.title === "string" ? payload.title.trim() : "";
+    const startDate = normalizeDate(payload?.startDate);
+    const endDate = normalizeDate(payload?.endDate);
+    const seriesEndDate = normalizeDate(payload?.seriesEndDate);
+    const repeatRule =
+      typeof payload?.repeatRule === "string" ? normalizeRepeatRule(payload.repeatRule) : "none";
+    const notes = normalizeNotes(payload?.notes);
+    const type = "close_on_done";
+
+    if (action === "create") {
+      if (!title) {
+        return Response.json({ ok: false, error: "Title is required" }, { status: 400 });
+      }
+      if (!startDate || !endDate) {
+        return Response.json(
+          { ok: false, error: "Start date and end date are required" },
+          { status: 400 },
+        );
+      }
+      if (!allowedRepeatRules.has(repeatRule)) {
+        return Response.json({ ok: false, error: "Invalid repeat rule" }, { status: 400 });
+      }
+      if (endDate < startDate) {
+        return Response.json(
+          { ok: false, error: "End date must be on or after start date" },
+          { status: 400 },
+        );
+      }
+      if (seriesEndDate && seriesEndDate < startDate) {
+        return Response.json(
+          { ok: false, error: "Repeat end must be on or after start date" },
+          { status: 400 },
+        );
+      }
+      if (repeatRule === "none" && seriesEndDate) {
+        return Response.json(
+          { ok: false, error: "Repeat end is only allowed when repeating" },
+          { status: 400 },
+        );
+      }
+
+      const insertResult = await pool.query(
+        "insert into chores (household_id, title, type, start_date, end_date, series_end_date, repeat_rule, status, notes) values ($1, $2, $3, $4, $5, $6, $7, 'active', $8) returning id",
+        [1, title, type, startDate, endDate, seriesEndDate, repeatRule, notes],
+      );
+
+      return Response.json({
+        ok: true,
+        choreId: insertResult.rows[0]?.id,
+        title,
+        startDate,
+        endDate,
+        seriesEndDate,
+        repeatRule,
+        notes,
+      });
+    }
 
     if (!choreId || !occurrenceDate) {
       return Response.json(
