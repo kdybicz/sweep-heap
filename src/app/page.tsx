@@ -86,9 +86,6 @@ export default function Home() {
     }
     return weekStart.plus({ days: 6 });
   }, [rangeEnd, timeZone, weekStart]);
-  const startKey = useMemo(() => toDateKey(weekStart), [weekStart]);
-  const endKey = useMemo(() => toDateKey(weekEnd), [weekEnd]);
-  const rangeKey = useMemo(() => `${startKey}:${endKey}`, [startKey, endKey]);
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, index) => weekStart.plus({ days: index })),
@@ -282,7 +279,7 @@ export default function Home() {
     ],
   );
 
-  const markChoreDone = async (choreId: number, occurrenceDate: string, title: string) => {
+  const markChoreDone = async (choreId: number, occurrenceDate: string) => {
     const undoUntil = DateTime.utc().plus({ seconds: 5 }).toISO();
     setChores((prev) =>
       prev.map((chore) =>
@@ -834,11 +831,7 @@ export default function Home() {
                     selectedChore.occurrence_date < (todayKey ?? "")
                   }
                   onClick={() => {
-                    markChoreDone(
-                      selectedChore.id,
-                      selectedChore.occurrence_date,
-                      selectedChore.title,
-                    );
+                    markChoreDone(selectedChore.id, selectedChore.occurrence_date);
                     setSelectedChore(null);
                   }}
                   type="button"
