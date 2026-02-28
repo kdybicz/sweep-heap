@@ -2,6 +2,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Recommended Node.js version: 24 (see `.nvmrc`).
+
 First, start local dependencies (Postgres + Mailpit):
 
 ```bash
