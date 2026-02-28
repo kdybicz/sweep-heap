@@ -34,6 +34,7 @@ describe("validateChoreCreate", () => {
       title: "Title is required",
       startDate: "Start date is required",
       endDate: "End date is required",
+      today: "Missing household-local today value",
     });
   });
 
@@ -84,6 +85,18 @@ describe("validateChoreCreate", () => {
 
     expect(errors.startDate).toBeUndefined();
     expect(errors.endDate).toBeUndefined();
+  });
+
+  it("requires a household-local today value", () => {
+    const errors = validateChoreCreate({
+      title: "Sweep",
+      startDate: "2026-03-01",
+      endDate: "2026-03-01",
+      repeatRule: "none",
+      seriesEndDate: null,
+    });
+
+    expect(errors.today).toBe("Missing household-local today value");
   });
 
   it("requires repeat end when repeating", () => {

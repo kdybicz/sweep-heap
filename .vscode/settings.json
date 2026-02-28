@@ -3,7 +3,7 @@
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit",
-    "source.fixAll.biome": true
+    "source.fixAll.biome": "explicit"
   },
   "files.eol": "\n",
   "files.trimTrailingWhitespace": true,

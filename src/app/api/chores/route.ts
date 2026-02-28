@@ -9,18 +9,18 @@ import { generateOccurrences } from "@/lib/occurrences";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const toDateString = (value: string | null) => {
+const toDateString = (value: string | null, timeZone: string) => {
   if (!value) {
     return null;
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return value;
   }
-  const parsed = DateTime.fromISO(value, { zone: "utc" });
+  const parsed = DateTime.fromISO(value, { zone: timeZone });
   return parsed.isValid ? parsed.toISODate() : null;
 };
 
-const normalizeDate = (value: unknown) => {
+const normalizeDate = (value: unknown, timeZone: string) => {
   if (!value) {
     return null;
   }
@@ -28,11 +28,11 @@ const normalizeDate = (value: unknown) => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       return value;
     }
-    const parsed = DateTime.fromISO(value, { zone: "utc" });
+    const parsed = DateTime.fromISO(value, { zone: timeZone });
     return parsed.isValid ? parsed.toISODate() : null;
   }
   if (value instanceof Date) {
-    const parsed = DateTime.fromJSDate(value, { zone: "utc" });
+    const parsed = DateTime.fromJSDate(value, { zone: timeZone });
     return parsed.isValid ? parsed.toISODate() : null;
   }
   return null;
@@ -53,8 +53,6 @@ export async function GET(request: Request) {
   try {
     await ensureChoresTable();
     const requestUrl = new URL(request.url);
-    const start = toDateString(requestUrl.searchParams.get("start"));
-    const end = toDateString(requestUrl.searchParams.get("end"));
     const householdId = requestUrl.searchParams.get("householdId") ?? "1";
     const weekOffset = Number(requestUrl.searchParams.get("weekOffset") ?? "0");
 
@@ -63,6 +61,9 @@ export async function GET(request: Request) {
     ]);
     const household = householdResult.rows[0];
     const timeZone = household?.time_zone ?? "UTC";
+
+    const start = toDateString(requestUrl.searchParams.get("start"), timeZone);
+    const end = toDateString(requestUrl.searchParams.get("end"), timeZone);
 
     const seriesResult = await pool.query(
       "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, status, notes from chores where status = 'active' and household_id = $1",
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
       { status: string; closed_reason: string | null; undo_until: string | null }
     >();
     for (const row of overridesResult.rows) {
-      const dateKey = normalizeDate(row.occurrence_date);
+      const dateKey = normalizeDate(row.occurrence_date, timeZone);
       if (!dateKey) {
         continue;
       }
@@ -98,8 +99,8 @@ export async function GET(request: Request) {
     const rangeEnd = end ?? defaultWeekEnd.toISODate() ?? "";
 
     const chores = seriesResult.rows.flatMap((row) => {
-      const seriesStart = normalizeDate(row.start_date);
-      const occurrenceEnd = normalizeDate(row.end_date);
+      const seriesStart = normalizeDate(row.start_date, timeZone);
+      const occurrenceEnd = normalizeDate(row.end_date, timeZone);
       if (!seriesStart || !occurrenceEnd) {
         return [];
       }
@@ -109,7 +110,7 @@ export async function GET(request: Request) {
         rangeStart,
         rangeEnd,
         repeatRule: row.repeat_rule,
-        seriesEndDate: normalizeDate(row.series_end_date),
+        seriesEndDate: normalizeDate(row.series_end_date, timeZone),
         timeZone,
       });
       return occurrences.map((occurrenceDate: string) => {
@@ -159,13 +160,13 @@ export async function PATCH(request: Request) {
     await ensureChoresTable();
     const payload = await request.json();
     const choreId = Number(payload?.choreId);
-    const occurrenceDate = normalizeDate(payload?.occurrenceDate);
+    const occurrenceDate = normalizeDate(payload?.occurrenceDate, "UTC");
     const status = payload?.status === "closed" ? "closed" : "open";
     const action = typeof payload?.action === "string" ? payload.action : "set";
     const title = typeof payload?.title === "string" ? payload.title.trim() : "";
-    const startDate = normalizeDate(payload?.startDate);
-    const endDate = normalizeDate(payload?.endDate);
-    const seriesEndDate = normalizeDate(payload?.seriesEndDate);
+    let startDate = normalizeDate(payload?.startDate, "UTC");
+    let endDate = normalizeDate(payload?.endDate, "UTC");
+    let seriesEndDate = normalizeDate(payload?.seriesEndDate, "UTC");
     const repeatRule =
       typeof payload?.repeatRule === "string" ? normalizeRepeatRule(payload.repeatRule) : "none";
     const notes = normalizeNotes(payload?.notes);
@@ -178,12 +179,18 @@ export async function PATCH(request: Request) {
       );
       const timeZone = householdResult.rows[0]?.time_zone ?? "UTC";
       const today = toISODateOrThrow(DateTime.now().setZone(timeZone));
+      const startDateLocal = normalizeDate(payload?.startDate, timeZone);
+      const endDateLocal = normalizeDate(payload?.endDate, timeZone);
+      const seriesEndDateLocal = normalizeDate(payload?.seriesEndDate, timeZone);
+      startDate = startDateLocal;
+      endDate = endDateLocal;
+      seriesEndDate = seriesEndDateLocal;
       const fieldErrors = validateChoreCreate({
         title,
-        startDate,
-        endDate,
+        startDate: startDateLocal,
+        endDate: endDateLocal,
         repeatRule,
-        seriesEndDate,
+        seriesEndDate: seriesEndDateLocal,
         today,
       });
 

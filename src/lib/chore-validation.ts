@@ -28,7 +28,11 @@ export const validateChoreCreate = ({
   today,
 }: CreateChoreInput) => {
   const fieldErrors: Record<string, string> = {};
-  const todayValue = today ?? new Date().toISOString().slice(0, 10);
+  const todayValue = today ?? null;
+
+  if (!todayValue) {
+    fieldErrors.today = "Missing household-local today value";
+  }
 
   if (!title) {
     fieldErrors.title = "Title is required";
@@ -39,10 +43,10 @@ export const validateChoreCreate = ({
   if (!endDate) {
     fieldErrors.endDate = "End date is required";
   }
-  if (startDate && startDate < todayValue) {
+  if (todayValue && startDate && startDate < todayValue) {
     fieldErrors.startDate = "Start date cannot be in the past";
   }
-  if (endDate && endDate < todayValue) {
+  if (todayValue && endDate && endDate < todayValue) {
     fieldErrors.endDate = "End date cannot be in the past";
   }
   if (startDate && endDate && endDate < startDate) {

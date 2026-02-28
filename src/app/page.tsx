@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const toDateKey = (date: DateTime) => date.toISODate();
 
 const getHouseholdToday = (timeZone: string) => DateTime.now().setZone(timeZone).startOf("day");
+const getHouseholdTodayKey = (timeZone: string) =>
+  toDateKey(getHouseholdToday(timeZone)) ?? DateTime.utc().toISODate() ?? "";
 
 const startOfWeek = (date: DateTime) => date.minus({ days: date.weekday - 1 }).startOf("day");
 
@@ -54,10 +56,10 @@ export default function Home() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newDate, setNewDate] = useState(() => DateTime.utc().toISODate());
+  const [newDate, setNewDate] = useState(() => getHouseholdTodayKey(timeZone));
   const [newRepeat, setNewRepeat] = useState("none");
-  const [newEndDate, setNewEndDate] = useState(() => DateTime.utc().toISODate());
-  const [newRepeatEnd, setNewRepeatEnd] = useState(() => DateTime.utc().toISODate());
+  const [newEndDate, setNewEndDate] = useState(() => getHouseholdTodayKey(timeZone));
+  const [newRepeatEnd, setNewRepeatEnd] = useState(() => getHouseholdTodayKey(timeZone));
   const [newNotes, setNewNotes] = useState("");
   const [todayChores, setTodayChores] = useState<ChoreItem[]>([]);
   const [selectedChore, setSelectedChore] = useState<ChoreItem | null>(null);
@@ -216,14 +218,15 @@ export default function Home() {
   const resetAddChore = useCallback(() => {
     setShowAddModal(false);
     setNewTitle("");
-    setNewDate(DateTime.utc().toISODate());
+    const todayKey = getHouseholdTodayKey(timeZone);
+    setNewDate(todayKey);
     setNewRepeat("none");
-    setNewEndDate(DateTime.utc().toISODate());
-    setNewRepeatEnd(DateTime.utc().toISODate());
+    setNewEndDate(todayKey);
+    setNewRepeatEnd(todayKey);
     setNewNotes("");
     setSubmitError(null);
     setFieldErrors({});
-  }, []);
+  }, [timeZone]);
 
   const submitAddChore = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
