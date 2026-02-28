@@ -826,7 +826,10 @@ export default function Home() {
               <div className="flex flex-col gap-2">
                 <button
                   className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={selectedChore.status === "closed"}
+                  disabled={
+                    selectedChore.status === "closed" ||
+                    selectedChore.occurrence_date < (todayKey ?? "")
+                  }
                   onClick={() => {
                     markChoreDone(
                       selectedChore.id,
@@ -841,13 +844,15 @@ export default function Home() {
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
+                    className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={selectedChore.occurrence_date < (todayKey ?? "")}
                     type="button"
                   >
                     Skip
                   </button>
                   <button
-                    className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
+                    className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={selectedChore.occurrence_date < (todayKey ?? "")}
                     type="button"
                   >
                     Snooze
