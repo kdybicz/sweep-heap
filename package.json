@@ -15,7 +15,9 @@
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
     "format": "biome format .",
-    "format:write": "biome format . --write"
+    "format:write": "biome format . --write",
+    "dev:check": "yarn format && yarn lint && yarn test && yarn typecheck",
+    "dev:fix": "yarn format:write && yarn lint:fix && yarn test && yarn typecheck"
   },
   "dependencies": {
     "luxon": "^3.5.0",
