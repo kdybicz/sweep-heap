@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import { ensureChoresTable } from "@/lib/chores";
+import { toISODateOrThrow } from "@/lib/date";
 import { pool } from "@/lib/db";
 import { generateOccurrences } from "@/lib/occurrences";
 
@@ -171,13 +172,19 @@ export async function PATCH(request: Request) {
     const type = "close_on_done";
 
     if (action === "create") {
+      const householdResult = await pool.query(
+        "select time_zone from households where id = $1",
+        [1],
+      );
+      const timeZone = householdResult.rows[0]?.time_zone ?? "UTC";
+      const today = toISODateOrThrow(DateTime.now().setZone(timeZone));
       const fieldErrors = validateChoreCreate({
         title,
         startDate,
         endDate,
         repeatRule,
         seriesEndDate,
-        today: DateTime.utc().toISODate() ?? undefined,
+        today,
       });
 
       if (Object.keys(fieldErrors).length) {

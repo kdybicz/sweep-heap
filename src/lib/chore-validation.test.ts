@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { DateTime } from "luxon";
+
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
+import { toISODateOrThrow } from "@/lib/date";
 
 describe("normalizeRepeatRule", () => {
   it("maps human-friendly values", () => {
@@ -58,6 +61,29 @@ describe("validateChoreCreate", () => {
 
     expect(errors.startDate).toBe("Start date cannot be in the past");
     expect(errors.endDate).toBe("End date cannot be in the past");
+  });
+
+  it("accepts household-local today when UTC is ahead", () => {
+    const laToday = DateTime.fromISO("2026-02-10T23:30:00", {
+      zone: "America/Los_Angeles",
+    });
+    const utcToday = toISODateOrThrow(laToday.toUTC());
+    const householdToday = toISODateOrThrow(laToday);
+
+    expect(utcToday).toBe("2026-02-11");
+    expect(householdToday).toBe("2026-02-10");
+
+    const errors = validateChoreCreate({
+      title: "Sweep",
+      startDate: householdToday,
+      endDate: householdToday,
+      repeatRule: "none",
+      seriesEndDate: null,
+      today: householdToday,
+    });
+
+    expect(errors.startDate).toBeUndefined();
+    expect(errors.endDate).toBeUndefined();
   });
 
   it("requires repeat end when repeating", () => {
