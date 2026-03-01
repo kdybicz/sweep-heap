@@ -1,9 +1,11 @@
 import { DateTime } from "luxon";
 
+import { auth } from "@/auth";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import { ensureChoresTable } from "@/lib/chores";
 import { toISODateOrThrow } from "@/lib/date";
 import { pool } from "@/lib/db";
+import { getActiveHouseholdId } from "@/lib/households";
 import { generateOccurrences } from "@/lib/occurrences";
 
 export const dynamic = "force-dynamic";
@@ -51,9 +53,20 @@ const normalizeNotes = (value: unknown) => {
 
 export async function GET(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
     await ensureChoresTable();
+    const userId = Number(session.user.id);
+    if (!Number.isFinite(userId)) {
+      return Response.json({ ok: false, error: "Invalid user" }, { status: 400 });
+    }
     const requestUrl = new URL(request.url);
-    const householdId = requestUrl.searchParams.get("householdId") ?? "1";
+    const householdId = await getActiveHouseholdId(userId);
+    if (!householdId) {
+      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
+    }
     const weekOffset = Number(requestUrl.searchParams.get("weekOffset") ?? "0");
 
     const householdResult = await pool.query("select id, time_zone from households where id = $1", [
@@ -157,7 +170,19 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
     await ensureChoresTable();
+    const userId = Number(session.user.id);
+    if (!Number.isFinite(userId)) {
+      return Response.json({ ok: false, error: "Invalid user" }, { status: 400 });
+    }
+    const householdId = await getActiveHouseholdId(userId);
+    if (!householdId) {
+      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
+    }
     const payload = await request.json();
     const choreId = Number(payload?.choreId);
     const occurrenceDate = normalizeDate(payload?.occurrenceDate, "UTC");
@@ -173,10 +198,9 @@ export async function PATCH(request: Request) {
     const type = "close_on_done";
 
     if (action === "create") {
-      const householdResult = await pool.query(
-        "select time_zone from households where id = $1",
-        [1],
-      );
+      const householdResult = await pool.query("select time_zone from households where id = $1", [
+        householdId,
+      ]);
       const timeZone = householdResult.rows[0]?.time_zone ?? "UTC";
       const today = toISODateOrThrow(DateTime.now().setZone(timeZone));
       const startDateLocal = normalizeDate(payload?.startDate, timeZone);
@@ -203,7 +227,7 @@ export async function PATCH(request: Request) {
 
       const insertResult = await pool.query(
         "insert into chores (household_id, title, type, start_date, end_date, series_end_date, repeat_rule, status, notes) values ($1, $2, $3, $4, $5, $6, $7, 'active', $8) returning id",
-        [1, title, type, startDate, endDate, seriesEndDate, repeatRule, notes],
+        [householdId, title, type, startDate, endDate, seriesEndDate, repeatRule, notes],
       );
 
       return Response.json({
@@ -228,7 +252,10 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const choreResult = await pool.query("select id from chores where id = $1", [choreId]);
+    const choreResult = await pool.query(
+      "select id from chores where id = $1 and household_id = $2",
+      [choreId, householdId],
+    );
     if (!choreResult.rowCount) {
       return Response.json(
         {

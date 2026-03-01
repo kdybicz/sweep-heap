@@ -3,6 +3,8 @@
 import { DateTime } from "luxon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import SignOutButton from "@/app/heap/SignOutButton";
+
 const toDateKey = (date: DateTime) => date.toISODate();
 
 const getHouseholdToday = (timeZone: string) => DateTime.now().setZone(timeZone).startOf("day");
@@ -102,7 +104,7 @@ export default function Home() {
 
       try {
         setLoading(true);
-        const response = await fetch(`/api/chores?weekOffset=${weekOffset}&householdId=1`, {
+        const response = await fetch(`/api/chores?weekOffset=${weekOffset}`, {
           cache: "no-store",
         });
         const data = await response.json();
@@ -115,6 +117,9 @@ export default function Home() {
             setRangeStart(data.rangeStart);
             setRangeEnd(data.rangeEnd);
           }
+        } else if (data?.error === "Household required") {
+          window.location.assign("/household/setup");
+          return;
         }
       } catch (error) {
         console.error(error);
@@ -185,15 +190,22 @@ export default function Home() {
   const loadTodayChores = useCallback(async () => {
     try {
       setLoadingToday(true);
-      const response = await fetch(`/api/chores?start=${todayKey}&end=${todayKey}&householdId=1`, {
+      const response = await fetch(`/api/chores?start=${todayKey}&end=${todayKey}`, {
         cache: "no-store",
       });
       const data = await response.json();
+      if (data?.error === "Household required") {
+        window.location.assign("/household/setup");
+        return;
+      }
       if (data?.ok) {
         setTodayChores(data.chores ?? []);
         if (data.timeZone) {
           setTimeZone((current) => (data.timeZone !== current ? data.timeZone : current));
         }
+      } else if (data?.error === "Household required") {
+        window.location.assign("/household/setup");
+        return;
       }
     } catch (error) {
       console.error(error);
@@ -248,6 +260,10 @@ export default function Home() {
           body: JSON.stringify(payload),
         });
         const data = await response.json();
+        if (data?.error === "Household required") {
+          window.location.assign("/household/setup");
+          return;
+        }
         if (!data?.ok) {
           if (data?.fieldErrors) {
             setFieldErrors(data.fieldErrors);
@@ -306,6 +322,10 @@ export default function Home() {
         }),
       });
       const data = await response.json();
+      if (data?.error === "Household required") {
+        window.location.assign("/household/setup");
+        return;
+      }
       if (!data?.ok) {
         throw new Error(data?.error ?? "Failed to update chore");
       }
@@ -373,6 +393,10 @@ export default function Home() {
         }),
       });
       const data = await response.json();
+      if (data?.error === "Household required") {
+        window.location.assign("/household/setup");
+        return;
+      }
       if (!data?.ok) {
         throw new Error(data?.error ?? "Failed to undo chore");
       }
@@ -396,10 +420,15 @@ export default function Home() {
       <main className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-6 px-4 pb-10 pt-8 lg:grid-cols-[260px_1fr]">
         <aside className="flex flex-col gap-6">
           <div className="flex flex-col gap-3 rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]">
-            <span className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">
-              The Sweep Heap
-            </span>
-            <h1 className="text-3xl font-semibold tracking-tight">Weekly Choreboard</h1>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">
+                  The Sweep Heap
+                </span>
+                <h1 className="text-3xl font-semibold tracking-tight">Weekly Choreboard</h1>
+              </div>
+              <SignOutButton />
+            </div>
             <p className="text-sm text-[var(--muted)]">
               Make the week feel lighter with a focused, all-day view.
             </p>

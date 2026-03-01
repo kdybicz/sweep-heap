@@ -41,6 +41,16 @@
 - stay_open chores never close due to completion; only schedule end closes them.
 
 ## Data model (draft)
+Auth (implementation detail)
+- Auth.js (NextAuth v5) with Postgres adapter and magic-link email provider.
+- Tables managed by Auth.js adapter:
+  - users (id, email, name, emailVerified, image, created_at)
+  - accounts (provider, providerAccountId, tokens)
+  - sessions (sessionToken, expires, userId)
+  - verification_token (identifier, token, expires)
+  - accounts.provider + providerAccountId unique
+  - sessions.sessionToken unique
+
 Household
 - id
 - name
@@ -49,9 +59,19 @@ Household
 
 User
 - id
-- household_id
 - email
+- name (optional)
+- emailVerified (timestamp set by magic link)
+- image (optional)
 - created_at
+
+HouseholdMembership
+- id
+- household_id
+- user_id
+- role (admin or member)
+- status (active)
+- joined_at
 
 Chore (series definition)
 - id

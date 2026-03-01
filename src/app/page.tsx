@@ -65,9 +65,9 @@ export default function LandingPage() {
         </nav>
         <Link
           className="rounded-full border border-[var(--stroke)] bg-[var(--surface)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-          href="/heap"
+          href="/auth"
         >
-          Open the board
+          Sign in
         </Link>
       </header>
 
@@ -87,9 +87,9 @@ export default function LandingPage() {
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
-                href="/heap"
+                href="/auth"
               >
-                Enter the heap
+                Get started
               </Link>
               <a
                 className="rounded-full border border-[var(--stroke)] bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
@@ -211,9 +211,9 @@ export default function LandingPage() {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
               className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
-              href="/heap"
+              href="/auth"
             >
-              Launch the heap
+              Start with email
             </Link>
             <button
               className="rounded-full border border-[var(--stroke)] bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
