@@ -1,6 +1,6 @@
 import { pool } from "@/lib/db";
 
-type MembershipSummary = {
+export type MembershipSummary = {
   householdId: number;
   role: string;
   status: string;
@@ -54,4 +54,12 @@ export const createHouseholdWithOwner = async ({
   } finally {
     client.release();
   }
+};
+
+export const getHouseholdTimeZoneById = async (householdId: number) => {
+  const result = await pool.query<{ time_zone: string }>(
+    "select time_zone from households where id = $1",
+    [householdId],
+  );
+  return result.rows[0]?.time_zone ?? "UTC";
 };

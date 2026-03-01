@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 
 import { auth } from "@/auth";
-import { createHouseholdWithOwner, getUserMemberships } from "@/lib/households";
+import { createHouseholdWithOwner, getUserMemberships } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 

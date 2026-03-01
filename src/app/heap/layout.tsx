@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { getUserMemberships } from "@/lib/households";
+import { getUserMemberships } from "@/lib/repositories";
 
 export default async function HeapLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();

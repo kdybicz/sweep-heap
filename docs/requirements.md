@@ -168,6 +168,25 @@ Example D: Yearly on Feb 29
 - Overrides win over generated defaults when building the week view.
 - Precomputed full occurrence tables are post-MVP.
 
+## Code organization best practices
+- Keep API route files focused on transport concerns only: auth checks, request parsing, and HTTP response mapping.
+- Keep all SQL in repository modules under `src/lib/repositories/`.
+- Keep domain/use-case logic in service modules under `src/lib/services/`.
+- Use barrel exports for stable imports:
+  - `@/lib/repositories` for DB access functions
+  - `@/lib/services` for application service functions
+- Keep schema/bootstrap setup separate from repositories in `src/lib/schema.ts` (`ensureDatabaseSchema`).
+- Use explicit naming conventions:
+  - Repositories: `*-repository.ts`
+  - Services: `*-service.ts`
+  - Barrel files: `index.ts`
+
+## Testing conventions
+- Add focused unit tests for service-layer behavior (success paths, validation failures, not-found branches, and special actions like undo).
+- Mock repositories in service tests; avoid hitting the real DB in unit tests.
+- Keep repository behavior testable independently from route handlers.
+- Run `yarn dev:fix` after code changes; treat formatting/linting, tests, and typecheck as required gates.
+
 ## Tech Stack (Draft)
 - Frontend: Next.js + TypeScript.
 - UI: Tailwind CSS.

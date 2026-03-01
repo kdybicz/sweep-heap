@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { createHouseholdWithOwner } from "@/lib/households";
+import { createHouseholdWithOwner } from "@/lib/repositories";
 
 describe("createHouseholdWithOwner", () => {
   beforeEach(() => {

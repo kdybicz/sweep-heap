@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import HouseholdSetupForm from "@/app/household/setup/HouseholdSetupForm";
 import { auth } from "@/auth";
-import { getUserMemberships } from "@/lib/households";
+import { getUserMemberships } from "@/lib/repositories";
 
 export default async function HouseholdSetupPage() {
   const session = await auth();

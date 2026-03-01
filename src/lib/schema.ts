@@ -1,6 +1,6 @@
 import { pool } from "@/lib/db";
 
-export const ensureChoresTable = async () => {
+export const ensureDatabaseSchema = async () => {
   await pool.query(
     "create table if not exists households (id serial primary key, name text not null, time_zone text not null default 'UTC', created_at timestamptz not null default now())",
   );

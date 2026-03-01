@@ -1,0 +1,283 @@
+import { DateTime } from "luxon";
+
+import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
+import { toISODateOrThrow } from "@/lib/date";
+import type { RepeatRule } from "@/lib/occurrences";
+import { generateOccurrences } from "@/lib/occurrences";
+import {
+  deleteChoreOccurrenceOverride,
+  getHouseholdTimeZoneById,
+  insertChore,
+  isChoreInHousehold,
+  listActiveChoreSeriesByHousehold,
+  listChoreOverridesByHousehold,
+  upsertChoreOccurrenceOverride,
+} from "@/lib/repositories";
+
+const toDateString = (value: string | null, timeZone: string) => {
+  if (!value) {
+    return null;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  const parsed = DateTime.fromISO(value, { zone: timeZone });
+  return parsed.isValid ? parsed.toISODate() : null;
+};
+
+const normalizeDate = (value: unknown, timeZone: string) => {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string") {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+    const parsed = DateTime.fromISO(value, { zone: timeZone });
+    return parsed.isValid ? parsed.toISODate() : null;
+  }
+  if (value instanceof Date) {
+    const parsed = DateTime.fromJSDate(value, { zone: timeZone });
+    return parsed.isValid ? parsed.toISODate() : null;
+  }
+  return null;
+};
+
+const normalizeNotes = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.slice(0, 500);
+};
+
+export const listChores = async ({
+  householdId,
+  weekOffset,
+  start,
+  end,
+}: {
+  householdId: number;
+  weekOffset: number;
+  start: string | null;
+  end: string | null;
+}) => {
+  const timeZone = await getHouseholdTimeZoneById(householdId);
+  const rangeStartInput = toDateString(start, timeZone);
+  const rangeEndInput = toDateString(end, timeZone);
+
+  const [seriesRows, overrideRows] = await Promise.all([
+    listActiveChoreSeriesByHousehold(householdId),
+    listChoreOverridesByHousehold(householdId),
+  ]);
+
+  const overrides = new Map<
+    string,
+    { status: string; closed_reason: string | null; undo_until: string | null }
+  >();
+
+  for (const row of overrideRows) {
+    const dateKey = normalizeDate(row.occurrence_date, timeZone);
+    if (!dateKey) {
+      continue;
+    }
+    const undoUntil = row.undo_until ? DateTime.fromJSDate(row.undo_until).toUTC().toISO() : null;
+    overrides.set(`${row.chore_id}:${dateKey}`, {
+      status: row.status,
+      closed_reason: row.closed_reason ?? null,
+      undo_until: undoUntil,
+    });
+  }
+
+  const today = DateTime.now().setZone(timeZone).startOf("day");
+  const defaultWeekStart = today.minus({ days: today.weekday - 1 }).plus({ weeks: weekOffset });
+  const defaultWeekEnd = defaultWeekStart.plus({ days: 6 });
+  const rangeStart = rangeStartInput ?? defaultWeekStart.toISODate() ?? "";
+  const rangeEnd = rangeEndInput ?? defaultWeekEnd.toISODate() ?? "";
+
+  const chores = seriesRows.flatMap((row) => {
+    const seriesStart = normalizeDate(row.start_date, timeZone);
+    const occurrenceEnd = normalizeDate(row.end_date, timeZone);
+    if (!seriesStart || !occurrenceEnd) {
+      return [];
+    }
+    const occurrences = generateOccurrences({
+      startDate: seriesStart,
+      endDate: occurrenceEnd,
+      rangeStart,
+      rangeEnd,
+      repeatRule: normalizeRepeatRule(row.repeat_rule) as RepeatRule,
+      seriesEndDate: normalizeDate(row.series_end_date, timeZone),
+      timeZone,
+    });
+
+    return occurrences.map((occurrenceDate: string) => {
+      const overrideKey = `${row.id}:${occurrenceDate}`;
+      const override = overrides.get(overrideKey);
+      const nowUtc = DateTime.utc();
+      const undoUntil = override?.undo_until ? DateTime.fromISO(override.undo_until) : null;
+      const isUndoWindowActive =
+        override?.status === "closed" &&
+        override?.closed_reason === "done" &&
+        !!undoUntil &&
+        undoUntil > nowUtc;
+
+      return {
+        id: row.id,
+        title: row.title,
+        notes: row.notes ?? null,
+        status: override?.status ?? "open",
+        closed_reason: override?.closed_reason ?? null,
+        occurrence_date: occurrenceDate,
+        undo_until: override?.undo_until ?? null,
+        can_undo: isUndoWindowActive,
+      };
+    });
+  });
+
+  return {
+    timeZone,
+    rangeStart,
+    rangeEnd,
+    chores,
+  };
+};
+
+type ChoreMutationFailure = {
+  ok: false;
+  status: number;
+  body: Record<string, unknown>;
+};
+
+type ChoreMutationSuccess = {
+  ok: true;
+  body: Record<string, unknown>;
+};
+
+export const mutateChore = async ({
+  householdId,
+  payload,
+}: {
+  householdId: number;
+  payload: unknown;
+}): Promise<ChoreMutationSuccess | ChoreMutationFailure> => {
+  const input = (payload ?? {}) as Record<string, unknown>;
+  const choreId = Number(input.choreId);
+  const occurrenceDate = normalizeDate(input.occurrenceDate, "UTC");
+  const status = input.status === "closed" ? "closed" : "open";
+  const action = typeof input.action === "string" ? input.action : "set";
+  const title = typeof input.title === "string" ? input.title.trim() : "";
+  let startDate = normalizeDate(input.startDate, "UTC");
+  let endDate = normalizeDate(input.endDate, "UTC");
+  let seriesEndDate = normalizeDate(input.seriesEndDate, "UTC");
+  const repeatRule =
+    typeof input.repeatRule === "string" ? normalizeRepeatRule(input.repeatRule) : "none";
+  const notes = normalizeNotes(input.notes);
+  const type = "close_on_done";
+
+  if (action === "create") {
+    const timeZone = await getHouseholdTimeZoneById(householdId);
+    const today = toISODateOrThrow(DateTime.now().setZone(timeZone));
+    const startDateLocal = normalizeDate(input.startDate, timeZone);
+    const endDateLocal = normalizeDate(input.endDate, timeZone);
+    const seriesEndDateLocal = normalizeDate(input.seriesEndDate, timeZone);
+    startDate = startDateLocal;
+    endDate = endDateLocal;
+    seriesEndDate = seriesEndDateLocal;
+
+    const fieldErrors = validateChoreCreate({
+      title,
+      startDate: startDateLocal,
+      endDate: endDateLocal,
+      repeatRule,
+      seriesEndDate: seriesEndDateLocal,
+      today,
+    });
+
+    if (Object.keys(fieldErrors).length) {
+      return {
+        ok: false,
+        status: 400,
+        body: { ok: false, error: "Validation failed", fieldErrors },
+      };
+    }
+
+    const choreIdCreated = await insertChore({
+      householdId,
+      title,
+      type,
+      startDate,
+      endDate,
+      seriesEndDate,
+      repeatRule,
+      notes,
+    });
+
+    return {
+      ok: true,
+      body: {
+        ok: true,
+        choreId: choreIdCreated,
+        title,
+        startDate,
+        endDate,
+        seriesEndDate,
+        repeatRule,
+        notes,
+      },
+    };
+  }
+
+  if (!choreId || !occurrenceDate) {
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        ok: false,
+        error: "Missing choreId or occurrenceDate",
+      },
+    };
+  }
+
+  const choreExists = await isChoreInHousehold({ choreId, householdId });
+  if (!choreExists) {
+    return {
+      ok: false,
+      status: 404,
+      body: {
+        ok: false,
+        error: "Chore not found",
+      },
+    };
+  }
+
+  const closedReason = status === "closed" ? "done" : null;
+  const undoUntil = status === "closed" ? DateTime.utc().plus({ seconds: 5 }).toISO() : null;
+
+  if (action === "undo") {
+    await deleteChoreOccurrenceOverride({ choreId, occurrenceDate });
+  } else {
+    await upsertChoreOccurrenceOverride({
+      choreId,
+      occurrenceDate,
+      status,
+      closedReason,
+      undoUntil,
+    });
+  }
+
+  return {
+    ok: true,
+    body: {
+      ok: true,
+      choreId,
+      occurrenceDate,
+      status,
+      closed_reason: closedReason,
+      undo_until: undoUntil,
+    },
+  };
+};

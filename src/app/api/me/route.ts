@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { getActiveHouseholdId, getUserMemberships } from "@/lib/households";
+import { getActiveHouseholdId, getUserMemberships } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 

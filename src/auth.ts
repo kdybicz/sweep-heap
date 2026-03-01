@@ -1,8 +1,8 @@
 import PostgresAdapter from "@auth/pg-adapter";
 import NextAuth from "next-auth";
 import Nodemailer from "next-auth/providers/nodemailer";
-import { ensureChoresTable } from "@/lib/chores";
 import { pool } from "@/lib/db";
+import { ensureDatabaseSchema } from "@/lib/schema";
 
 declare module "next-auth" {
   interface Session {
@@ -16,7 +16,7 @@ declare module "next-auth" {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
-  await ensureChoresTable();
+  await ensureDatabaseSchema();
   const smtpHost = process.env.SMTP_HOST;
   const smtpPort = process.env.SMTP_PORT;
   const smtpUser = process.env.SMTP_USER;
