@@ -10,7 +10,7 @@
     "dev": "next dev",
     "seed:chores": "node scripts/seed-chores.mjs",
     "db:reset": "node scripts/reset-db.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && echo \"Type check passed!\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "next build",
