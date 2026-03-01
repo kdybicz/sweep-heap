@@ -4,3 +4,4 @@ surprises you, please alert the developer working with you and indicate that thi
 in the AGENTS.md file to help prevent future agents from having the same issue.
 
 - After any code changes, run `yarn dev:fix` and report the results. This repo uses Yarn (not npm or pnpm).
+- Surprise to watch for: Drizzle migration bookkeeping can persist outside `public` (e.g. in `drizzle` schema). If `db:reset` only recreates `public`, `drizzle-kit migrate` may report success without recreating app tables, and seed scripts can fail with `relation "households" does not exist`.

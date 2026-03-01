@@ -42,6 +42,7 @@ const reset = async () => {
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
+  await pool.query("drop schema if exists drizzle cascade");
   await pool.query("drop schema if exists public cascade");
   await pool.query("create schema public");
   await pool.end();
