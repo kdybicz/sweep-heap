@@ -31,17 +31,27 @@ export const createHouseholdWithOwner = async ({
   name: string;
   timeZone: string;
 }) => {
-  const householdResult = await pool.query(
-    "insert into households (name, time_zone) values ($1, $2) returning id",
-    [name.trim(), timeZone],
-  );
-  const householdId = householdResult.rows[0]?.id as number | undefined;
-  if (!householdId) {
-    throw new Error("Failed to create household");
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    const householdResult = await client.query(
+      "insert into households (name, time_zone) values ($1, $2) returning id",
+      [name.trim(), timeZone],
+    );
+    const householdId = householdResult.rows[0]?.id as number | undefined;
+    if (!householdId) {
+      throw new Error("Failed to create household");
+    }
+    await client.query(
+      "insert into household_memberships (household_id, user_id, role) values ($1, $2, $3)",
+      [householdId, userId, "admin"],
+    );
+    await client.query("commit");
+    return householdId;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
   }
-  await pool.query(
-    "insert into household_memberships (household_id, user_id, role) values ($1, $2, $3)",
-    [householdId, userId, "admin"],
-  );
-  return householdId;
 };
