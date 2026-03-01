@@ -1,6 +1,5 @@
 import { auth } from "@/auth";
 import { getActiveHouseholdId } from "@/lib/repositories";
-import { ensureDatabaseSchema } from "@/lib/schema";
 import { listChores, mutateChore } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +11,6 @@ export async function GET(request: Request) {
     if (!session?.user?.id) {
       return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
-    await ensureDatabaseSchema();
     const userId = Number(session.user.id);
     if (!Number.isFinite(userId)) {
       return Response.json({ ok: false, error: "Invalid user" }, { status: 400 });
@@ -55,7 +53,6 @@ export async function PATCH(request: Request) {
     if (!session?.user?.id) {
       return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
-    await ensureDatabaseSchema();
     const userId = Number(session.user.id);
     if (!Number.isFinite(userId)) {
       return Response.json({ ok: false, error: "Invalid user" }, { status: 400 });

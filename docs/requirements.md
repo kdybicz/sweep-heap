@@ -175,7 +175,9 @@ Example D: Yearly on Feb 29
 - Use barrel exports for stable imports:
   - `@/lib/repositories` for DB access functions
   - `@/lib/services` for application service functions
-- Keep schema/bootstrap setup separate from repositories in `src/lib/schema.ts` (`ensureDatabaseSchema`).
+- Manage schema changes with Drizzle migrations (`drizzle.config.ts`, `src/lib/drizzle/schema.ts`, and generated files under `drizzle/`).
+- Run migrations via `yarn db:migrate` during reset/seed and before app startup in any deployed environment.
+- Do not run table-creation DDL in API route handlers or auth initialization.
 - Use explicit naming conventions:
   - Repositories: `*-repository.ts`
   - Services: `*-service.ts`

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { Pool } from "pg";
@@ -41,15 +42,14 @@ const reset = async () => {
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
-  await pool.query("drop table if exists chore_occurrence_overrides");
-  await pool.query("drop table if exists chores");
-  await pool.query("drop table if exists household_memberships");
-  await pool.query("drop table if exists accounts");
-  await pool.query("drop table if exists sessions");
-  await pool.query("drop table if exists verification_token");
-  await pool.query("drop table if exists users");
-  await pool.query("drop table if exists households");
+  await pool.query("drop schema if exists public cascade");
+  await pool.query("create schema public");
   await pool.end();
+
+  execFileSync("yarn", ["db:migrate"], {
+    stdio: "inherit",
+    env: process.env,
+  });
 };
 
 reset().catch((error) => {
