@@ -1,4 +1,5 @@
 import type { DateTime } from "luxon";
+import Link from "next/link";
 import { StateIcon } from "@/app/heap/components/ChoreIcons";
 import SignOutButton from "@/app/heap/SignOutButton";
 import type { ChoreItem } from "@/app/heap/types";
@@ -57,6 +58,12 @@ export default function HeapSidebar({
           >
             Add chore
           </button>
+          <Link
+            className="rounded-full border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+            href="/household/edit"
+          >
+            Edit household
+          </Link>
         </div>
       </div>
 

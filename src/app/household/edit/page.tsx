@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import HouseholdSetupForm from "@/app/household/setup/HouseholdSetupForm";
+import HouseholdEditForm from "@/app/household/edit/HouseholdEditForm";
 import { auth } from "@/auth";
-import { getUserMemberships } from "@/lib/repositories";
+import { getActiveHouseholdSummary } from "@/lib/repositories";
 
-export default async function HouseholdSetupPage() {
+export default async function HouseholdEditPage() {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/auth");
@@ -14,9 +14,9 @@ export default async function HouseholdSetupPage() {
     redirect("/auth");
   }
 
-  const memberships = await getUserMemberships(userId);
-  if (memberships.length) {
-    redirect("/heap");
+  const household = await getActiveHouseholdSummary(userId);
+  if (!household) {
+    redirect("/household/setup");
   }
 
   return (
@@ -24,14 +24,18 @@ export default async function HouseholdSetupPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,_var(--glow-1),_transparent_55%),radial-gradient(circle_at_80%_10%,_var(--glow-3),_transparent_45%),linear-gradient(180deg,_var(--glow-2),_transparent_55%)]" />
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 pb-20 pt-16">
         <header className="flex flex-col gap-3">
-          <div className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">Setup</div>
-          <h1 className="text-3xl font-semibold">Create your household.</h1>
+          <div className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">Settings</div>
+          <h1 className="text-3xl font-semibold">Edit household</h1>
           <p className="text-sm text-[var(--muted)]">
-            Give your household a name, icon, and time zone to anchor weekly chores.
+            Update the household name, icon, and time zone for your choreboard.
           </p>
         </header>
         <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">
-          <HouseholdSetupForm />
+          <HouseholdEditForm
+            initialIcon={household.icon ?? ""}
+            initialName={household.name}
+            initialTimeZone={household.timeZone}
+          />
         </div>
       </div>
     </main>

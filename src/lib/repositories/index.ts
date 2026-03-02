@@ -10,6 +10,8 @@ export {
 export {
   createHouseholdWithOwner,
   getActiveHouseholdId,
+  getActiveHouseholdSummary,
   getHouseholdTimeZoneById,
   getUserMemberships,
+  updateHouseholdById,
 } from "@/lib/repositories/household-repository";

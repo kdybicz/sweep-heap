@@ -14,6 +14,7 @@ export const households = pgTable("households", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   timeZone: text("time_zone").notNull().default("UTC"),
+  icon: text("icon"),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
 

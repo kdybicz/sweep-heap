@@ -35,15 +35,16 @@ describe("createHouseholdWithOwner", () => {
       userId: 9,
       name: "  Home  ",
       timeZone: "UTC",
+      icon: "🏡",
     });
 
     expect(householdId).toBe(42);
     expect(connectMock).toHaveBeenCalledTimes(1);
     expect(client.query.mock.calls[0]?.[0]).toBe("begin");
     expect(client.query.mock.calls[1]?.[0]).toBe(
-      "insert into households (name, time_zone) values ($1, $2) returning id",
+      "insert into households (name, time_zone, icon) values ($1, $2, $3) returning id",
     );
-    expect(client.query.mock.calls[1]?.[1]).toEqual(["Home", "UTC"]);
+    expect(client.query.mock.calls[1]?.[1]).toEqual(["Home", "UTC", "🏡"]);
     expect(client.query.mock.calls[2]?.[0]).toBe(
       "insert into household_memberships (household_id, user_id, role) values ($1, $2, $3)",
     );
@@ -68,12 +69,12 @@ describe("createHouseholdWithOwner", () => {
       .mockResolvedValueOnce({});
 
     await expect(
-      createHouseholdWithOwner({ userId: 3, name: "Home", timeZone: "UTC" }),
+      createHouseholdWithOwner({ userId: 3, name: "Home", timeZone: "UTC", icon: null }),
     ).rejects.toThrow("insert failed");
 
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
-      "insert into households (name, time_zone) values ($1, $2) returning id",
+      "insert into households (name, time_zone, icon) values ($1, $2, $3) returning id",
       "insert into household_memberships (household_id, user_id, role) values ($1, $2, $3)",
       "rollback",
     ]);
