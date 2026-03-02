@@ -21,7 +21,7 @@ The app expects these variables:
 - `DATABASE_URL` (Postgres connection string)
 - `AUTH_URL` (local app URL, usually `http://localhost:3000`)
 - `AUTH_SECRET` (required by NextAuth; generate a strong random value)
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (email transport; defaults target local Mailpit)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (email transport; defaults target local Mailpit on port `1125`)
 
 For local Mailpit, leave `SMTP_USER` and `SMTP_PASS` empty (omit credentials).
 

@@ -14,7 +14,7 @@ services:
     image: axllent/mailpit:latest
     ports:
       - "8025:8025"
-      - "1025:1025"
+      - "1125:1025"
 
 volumes:
   postgres_data:
