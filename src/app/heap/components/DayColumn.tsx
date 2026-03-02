@@ -1,7 +1,6 @@
 import type { DateTime } from "luxon";
 
 import { StateIcon } from "@/app/heap/components/ChoreIcons";
-import { formatWeekdayLabel } from "@/app/heap/date-utils";
 import type { ChoreItem } from "@/app/heap/types";
 import { getChoreStateLabel, isChoreCompleted } from "@/lib/chore-ui-state";
 
@@ -27,19 +26,19 @@ export default function DayColumn({
   const isToday = day.hasSame(today, "day");
 
   return (
-    <div className="group flex min-h-[480px] flex-col border-y border-[var(--stroke)] bg-[var(--card)] p-3 shadow-[var(--shadow-soft)] first:rounded-l-2xl last:rounded-r-2xl first:border-l last:border-r">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-[var(--ink)]">{formatWeekdayLabel(day)}</span>
-        </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            isToday
-              ? "bg-[var(--accent)] text-white"
-              : "bg-[var(--surface-strong)] text-[var(--ink)]"
-          }`}
-        >
-          {dayChores.length}
+    <div className="group flex min-h-[480px] flex-col border-y border-[var(--stroke)] bg-[var(--card)] p-3 shadow-[var(--shadow-soft)] first:rounded-bl-2xl last:rounded-br-2xl first:border-l last:border-r">
+      <div className="flex items-center justify-center">
+        <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
+          <span>{day.toFormat("ccc")}</span>
+          <span
+            className={
+              isToday
+                ? "inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-white"
+                : ""
+            }
+          >
+            {day.toFormat("d")}
+          </span>
         </span>
       </div>
       <div className="mt-4 flex-1 rounded-xl border border-dashed border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-2.5">
