@@ -10,6 +10,7 @@ type DayColumnProps = {
   dayChores: ChoreItem[];
   loading: boolean;
   today: DateTime;
+  showLeftDivider: boolean;
   onSelectChore: (chore: ChoreItem) => void;
   onAddChoreForDate: (dayKey: string | null) => void;
 };
@@ -20,28 +21,31 @@ export default function DayColumn({
   dayChores,
   loading,
   today,
+  showLeftDivider,
   onSelectChore,
   onAddChoreForDate,
 }: DayColumnProps) {
   const isToday = day.hasSame(today, "day");
 
   return (
-    <div className="group flex min-h-[480px] flex-col border-y border-[var(--stroke)] bg-[var(--card)] p-3 shadow-[var(--shadow-soft)] first:rounded-bl-2xl last:rounded-br-2xl first:border-l last:border-r">
-      <div className="flex items-center justify-center">
+    <div className="group flex min-h-[480px] flex-col bg-[var(--surface)] pt-1">
+      <div className="flex items-center justify-center px-1 pb-1">
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
           <span>{day.toFormat("ccc")}</span>
           <span
-            className={
-              isToday
-                ? "inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-white"
-                : ""
-            }
+            className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${
+              isToday ? "bg-[var(--accent)] text-white" : "text-[var(--ink)]"
+            }`}
           >
             {day.toFormat("d")}
           </span>
         </span>
       </div>
-      <div className="mt-4 flex-1 rounded-xl border border-dashed border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-2.5">
+      <div
+        className={`mt-1 flex-1 rounded-sm bg-[var(--card)] p-2 ${
+          showLeftDivider ? "border-l border-[var(--stroke-soft)]" : ""
+        }`}
+      >
         {loading ? (
           <div className="text-xs text-[var(--muted)]">Loading chores...</div>
         ) : dayChores.length ? (
@@ -82,7 +86,7 @@ export default function DayColumn({
         )}
       </div>
       <button
-        className="mt-3 rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+        className="mx-2 mt-2 rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
         onClick={() => onAddChoreForDate(dayKey)}
         disabled={day < today}
         type="button"

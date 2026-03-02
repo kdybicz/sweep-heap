@@ -20,6 +20,7 @@ const buildProps = ({
   dayKey: day.toISODate(),
   dayChores,
   loading: false,
+  showLeftDivider: false,
   today,
   onSelectChore: noop,
   onAddChoreForDate: noop,
