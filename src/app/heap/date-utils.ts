@@ -12,19 +12,6 @@ export const getHouseholdTodayKey = (timeZone: string) =>
 export const startOfWeek = (date: DateTime) =>
   date.minus({ days: date.weekday - 1 }).startOf("day");
 
-export const formatRange = (start: DateTime, end: DateTime) => {
-  const sameMonth = start.hasSame(end, "month");
-  const sameYear = start.hasSame(end, "year");
-  const startLabel = `${start.toFormat("LLL d")}`;
-  const endLabel = `${end.toFormat("LLL d")}`;
+export const formatRange = (start: DateTime, _end?: DateTime) => start.toFormat("LLLL yyyy");
 
-  if (sameMonth) {
-    return `${start.toFormat("LLL d")}–${end.toFormat("d")}, ${start.toFormat("yyyy")}`;
-  }
-
-  if (sameYear) {
-    return `${startLabel}–${endLabel}, ${start.toFormat("yyyy")}`;
-  }
-
-  return `${startLabel}, ${start.toFormat("yyyy")}–${endLabel}, ${end.toFormat("yyyy")}`;
-};
+export const formatWeekdayLabel = (date: DateTime) => date.toFormat("ccc d");

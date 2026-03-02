@@ -1,6 +1,7 @@
 import type { DateTime } from "luxon";
 
 import { StateIcon } from "@/app/heap/components/ChoreIcons";
+import { formatWeekdayLabel } from "@/app/heap/date-utils";
 import type { ChoreItem } from "@/app/heap/types";
 import { getChoreStateLabel, isChoreCompleted } from "@/lib/chore-ui-state";
 
@@ -29,10 +30,7 @@ export default function DayColumn({
     <div className="group flex min-h-[480px] flex-col border-y border-[var(--stroke)] bg-[var(--card)] p-3 shadow-[var(--shadow-soft)] first:rounded-l-2xl last:rounded-r-2xl first:border-l last:border-r">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium uppercase tracking-[0.25em] text-[var(--muted)]">
-            {day.toFormat("ccc")}
-          </span>
-          <span className="text-sm font-semibold text-[var(--ink)]">{day.toFormat("LLL d")}</span>
+          <span className="text-sm font-semibold text-[var(--ink)]">{formatWeekdayLabel(day)}</span>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${
