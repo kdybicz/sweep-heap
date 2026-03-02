@@ -7,6 +7,7 @@
   --surface-strong: #dbe6fb;
   --surface-weak: #ffffff;
   --card: #ffffff;
+  --weekend-column-bg: #f6f8ff;
   --ink: #1b2340;
   --muted: #5a647c;
   --stroke: #c8d3ee;
@@ -34,6 +35,7 @@
     --surface-strong: #1a2746;
     --surface-weak: #0f172b;
     --card: #121c33;
+    --weekend-column-bg: #14203a;
     --ink: #eef2ff;
     --muted: #9fb0d0;
     --stroke: #1f2e52;

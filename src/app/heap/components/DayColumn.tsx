@@ -26,6 +26,8 @@ export default function DayColumn({
   onAddChoreForDate,
 }: DayColumnProps) {
   const isToday = day.hasSame(today, "day");
+  const isWeekend = day.weekday >= 6;
+  const cardBackgroundClass = isWeekend ? "bg-[var(--weekend-column-bg)]" : "bg-[var(--card)]";
 
   return (
     <div className="group flex min-h-[480px] flex-col bg-[var(--surface)] pt-1">
@@ -42,7 +44,7 @@ export default function DayColumn({
         </span>
       </div>
       <div
-        className={`mt-1 flex-1 rounded-sm bg-[var(--card)] p-2 ${
+        className={`mt-1 flex-1 rounded-sm p-2 ${cardBackgroundClass} ${
           showLeftDivider ? "border-l border-[var(--stroke-soft)]" : ""
         }`}
       >

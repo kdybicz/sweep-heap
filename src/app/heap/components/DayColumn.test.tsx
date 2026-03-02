@@ -48,6 +48,23 @@ describe("DayColumn", () => {
     expect(markup).toContain(">3</span>");
   });
 
+  it("uses weekend background class for weekend days", () => {
+    const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
+    const saturday = LuxonDateTime.fromISO("2026-03-07", { zone: "UTC" });
+    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ day: saturday, today })} />);
+
+    expect(markup).toContain("bg-[var(--weekend-column-bg)]");
+  });
+
+  it("keeps weekday background class for weekday days", () => {
+    const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
+    const weekday = LuxonDateTime.fromISO("2026-03-04", { zone: "UTC" });
+    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ day: weekday, today })} />);
+
+    expect(markup).not.toContain("bg-[var(--weekend-column-bg)]");
+    expect(markup).toContain("bg-[var(--card)]");
+  });
+
   it("disables add chore for days before today", () => {
     const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
     const day = LuxonDateTime.fromISO("2026-03-01", { zone: "UTC" });
