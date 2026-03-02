@@ -3,15 +3,19 @@ import { describe, expect, it } from "vitest";
 import { getAccountShortcuts } from "@/lib/account-menu";
 
 describe("getAccountShortcuts", () => {
-  it("includes profile, household edit, and sign out for admins", () => {
+  it("includes profile, household, settings, and sign out for admins", () => {
     expect(getAccountShortcuts(true)).toEqual([
       {
         href: "/user/edit",
-        label: "Edit profile",
+        label: "Profile",
       },
       {
         href: "/household/edit",
-        label: "Edit household",
+        label: "Household",
+      },
+      {
+        href: "/settings",
+        label: "Settings",
       },
       {
         href: "/signout",
@@ -20,11 +24,15 @@ describe("getAccountShortcuts", () => {
     ]);
   });
 
-  it("includes profile and sign out for non-admin members", () => {
+  it("includes profile, settings, and sign out for non-admin members", () => {
     expect(getAccountShortcuts(false)).toEqual([
       {
         href: "/user/edit",
-        label: "Edit profile",
+        label: "Profile",
+      },
+      {
+        href: "/settings",
+        label: "Settings",
       },
       {
         href: "/signout",

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Oxanium } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -17,14 +18,35 @@ export const metadata: Metadata = {
   description: "Weekly chores overview for The Sweep Heap",
 };
 
+const themePreferenceScript = `
+(() => {
+  try {
+    const storedTheme = window.localStorage.getItem("sweep-heap-theme");
+    if (storedTheme === "light" || storedTheme === "dark") {
+      document.documentElement.dataset.theme = storedTheme;
+      return;
+    }
+
+    document.documentElement.removeAttribute("data-theme");
+  } catch {
+    document.documentElement.removeAttribute("data-theme");
+  }
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${oxanium.variable} ${geistMono.variable} antialiased`}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${oxanium.variable} ${geistMono.variable} antialiased`}>
+        <Script id="theme-preference" strategy="beforeInteractive">
+          {themePreferenceScript}
+        </Script>
+        {children}
+      </body>
     </html>
   );
 }
