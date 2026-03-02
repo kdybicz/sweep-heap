@@ -1,22 +1,22 @@
 import { useMemo } from "react";
-import type { UseHeapBoardModel } from "@/app/heap/useHeapBoard.types";
-import useHeapChoreActions from "@/app/heap/useHeapChoreActions";
-import useHeapChoresData from "@/app/heap/useHeapChoresData";
-import useHeapWeek from "@/app/heap/useHeapWeek";
+import type { UseHouseholdBoardModel } from "@/app/household/board/useHouseholdBoard.types";
+import useHouseholdChoreActions from "@/app/household/board/useHouseholdChoreActions";
+import useHouseholdChoresData from "@/app/household/board/useHouseholdChoresData";
+import useHouseholdWeek from "@/app/household/board/useHouseholdWeek";
 import { isChoreCompleted } from "@/lib/chore-ui-state";
 
-export type { UseHeapBoardModel } from "@/app/heap/useHeapBoard.types";
+export type { UseHouseholdBoardModel } from "@/app/household/board/useHouseholdBoard.types";
 
-export default function useHeapBoard(): UseHeapBoardModel {
-  const week = useHeapWeek();
-  const choresData = useHeapChoresData({
+export default function useHouseholdBoard(): UseHouseholdBoardModel {
+  const week = useHouseholdWeek();
+  const choresData = useHouseholdChoresData({
     weekOffset: week.weekOffset,
     todayKey: week.todayKey,
     setTimeZone: week.setTimeZone,
     setRangeStart: week.setRangeStart,
     setRangeEnd: week.setRangeEnd,
   });
-  const actions = useHeapChoreActions({
+  const actions = useHouseholdChoreActions({
     chores: choresData.chores,
     setChores: choresData.setChores,
     loadChores: choresData.loadChores,

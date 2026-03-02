@@ -1,4 +1,4 @@
-import AccountDropdown from "@/app/heap/components/AccountDropdown";
+import AccountDropdown from "@/app/household/board/components/AccountDropdown";
 
 type AccountHeaderProps = {
   canEditHousehold: boolean;

@@ -47,7 +47,7 @@ export default function HouseholdEditForm({
         setLoading(false);
         return;
       }
-      router.push("/heap");
+      router.push("/household");
       router.refresh();
     } catch (submitError) {
       const message =
@@ -106,7 +106,7 @@ export default function HouseholdEditForm({
         </button>
         <Link
           className="rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-          href="/heap"
+          href="/household"
         >
           Cancel
         </Link>

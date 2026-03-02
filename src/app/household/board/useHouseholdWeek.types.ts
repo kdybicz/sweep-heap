@@ -1,7 +1,7 @@
 import type { DateTime } from "luxon";
 import type { Dispatch, SetStateAction } from "react";
 
-export type UseHeapWeekModel = {
+export type UseHouseholdWeekModel = {
   weekOffset: number;
   timeZone: string;
   setTimeZone: Dispatch<SetStateAction<string>>;

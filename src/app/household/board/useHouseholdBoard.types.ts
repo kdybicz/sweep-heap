@@ -1,7 +1,7 @@
 import type { DateTime } from "luxon";
 import type { FormEvent } from "react";
 
-import type { ChoreItem, UndoToast } from "@/app/heap/types";
+import type { ChoreItem, UndoToast } from "@/app/household/board/types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
 export type SidebarModel = {
@@ -63,7 +63,7 @@ export type ChoreDetailsModalModel = {
   onPrimaryAction: (chore: ChoreItem) => void;
 };
 
-export type UseHeapBoardModel = {
+export type UseHouseholdBoardModel = {
   sidebar: SidebarModel;
   week: WeekModel;
   undo: UndoModel;

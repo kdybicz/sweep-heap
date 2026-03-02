@@ -1,7 +1,7 @@
 import type { DateTime } from "luxon";
 
-import { StateIcon } from "@/app/heap/components/ChoreIcons";
-import type { ChoreItem } from "@/app/heap/types";
+import { StateIcon } from "@/app/household/board/components/ChoreIcons";
+import type { ChoreItem } from "@/app/household/board/types";
 import { getChoreStateLabel, isChoreCompleted } from "@/lib/chore-ui-state";
 
 type DayColumnProps = {

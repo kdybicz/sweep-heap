@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 
-import { StateIcon } from "@/app/heap/components/ChoreIcons";
-import type { UndoToast } from "@/app/heap/types";
+import { StateIcon } from "@/app/household/board/components/ChoreIcons";
+import type { UndoToast } from "@/app/household/board/types";
 
 type UndoToastStackProps = {
   undoToasts: UndoToast[];

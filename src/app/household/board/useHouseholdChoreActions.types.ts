@@ -1,10 +1,10 @@
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 
-import type { ChoreItem, UndoToast } from "@/app/heap/types";
-import type { LoadChoresFn } from "@/app/heap/useHeapChoresData.types";
+import type { ChoreItem, UndoToast } from "@/app/household/board/types";
+import type { LoadChoresFn } from "@/app/household/board/useHouseholdChoresData.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
-export type UseHeapChoreActionsParams = {
+export type UseHouseholdChoreActionsParams = {
   chores: ChoreItem[];
   setChores: Dispatch<SetStateAction<ChoreItem[]>>;
   loadChores: LoadChoresFn;
@@ -12,7 +12,7 @@ export type UseHeapChoreActionsParams = {
   timeZone: string;
 };
 
-export type UseHeapChoreActionsModel = {
+export type UseHouseholdChoreActionsModel = {
   nowMs: number;
   undoToasts: UndoToast[];
   undoChoreDone: (choreId: number, occurrenceDate: string) => Promise<void>;

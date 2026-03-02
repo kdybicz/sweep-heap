@@ -2,8 +2,8 @@ import { DateTime as LuxonDateTime } from "luxon";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import DayColumn from "@/app/heap/components/DayColumn";
-import type { ChoreItem } from "@/app/heap/types";
+import DayColumn from "@/app/household/board/components/DayColumn";
+import type { ChoreItem } from "@/app/household/board/types";
 
 const noop = () => undefined;
 

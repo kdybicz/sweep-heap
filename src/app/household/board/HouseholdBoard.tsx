@@ -1,23 +1,23 @@
 "use client";
 
-import AccountHeader from "@/app/heap/components/AccountHeader";
-import AddChoreModal from "@/app/heap/components/AddChoreModal";
-import ChoreDetailsModal from "@/app/heap/components/ChoreDetailsModal";
-import HeapSidebar from "@/app/heap/components/HeapSidebar";
-import UndoToastStack from "@/app/heap/components/UndoToastStack";
-import WeekGrid from "@/app/heap/components/WeekGrid";
-import { useHeapViewer } from "@/app/heap/HeapViewerContext";
-import useHeapBoard from "@/app/heap/useHeapBoard";
+import AccountHeader from "@/app/household/board/components/AccountHeader";
+import AddChoreModal from "@/app/household/board/components/AddChoreModal";
+import ChoreDetailsModal from "@/app/household/board/components/ChoreDetailsModal";
+import HouseholdSidebar from "@/app/household/board/components/HouseholdSidebar";
+import UndoToastStack from "@/app/household/board/components/UndoToastStack";
+import WeekGrid from "@/app/household/board/components/WeekGrid";
+import { useHouseholdViewer } from "@/app/household/board/HouseholdViewerContext";
+import useHouseholdBoard from "@/app/household/board/useHouseholdBoard";
 
-export default function Home() {
-  const board = useHeapBoard();
-  const { isHouseholdAdmin } = useHeapViewer();
+export default function HouseholdBoard() {
+  const board = useHouseholdBoard();
+  const { isHouseholdAdmin } = useHouseholdViewer();
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_10%_10%,_var(--glow-1),_transparent_55%),radial-gradient(circle_at_85%_5%,_var(--glow-3),_transparent_45%),linear-gradient(180deg,_var(--glow-2),_transparent_45%)]" />
       <main className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-6 px-4 pb-10 pt-8 lg:grid-cols-[260px_1fr]">
-        <HeapSidebar
+        <HouseholdSidebar
           doneChores={board.sidebar.doneChores}
           loadingToday={board.sidebar.loadingToday}
           openChores={board.sidebar.openChores}

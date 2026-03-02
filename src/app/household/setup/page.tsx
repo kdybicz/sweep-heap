@@ -16,7 +16,7 @@ export default async function HouseholdSetupPage() {
 
   const memberships = await getUserMemberships(userId);
   if (memberships.length) {
-    redirect("/heap");
+    redirect("/household");
   }
 
   return (

@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ChoreItem } from "@/app/heap/types";
-import { loadWeekChoresRequest } from "@/app/heap/useHeapChoresData";
-import type { LoadWeekChoresRequestParams, RefValue } from "@/app/heap/useHeapChoresData.types";
+import type { ChoreItem } from "@/app/household/board/types";
+import { loadWeekChoresRequest } from "@/app/household/board/useHouseholdChoresData";
+import type {
+  LoadWeekChoresRequestParams,
+  RefValue,
+} from "@/app/household/board/useHouseholdChoresData.types";
 
 const deferred = <T>() => {
   let resolve!: (value: T) => void;

@@ -15,7 +15,7 @@ export default function AuthForm() {
     try {
       await signIn("nodemailer", {
         email,
-        callbackUrl: "/heap",
+        callbackUrl: "/household",
       });
     } catch (submitError) {
       const message = submitError instanceof Error ? submitError.message : "Sign in failed";

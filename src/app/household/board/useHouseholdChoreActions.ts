@@ -2,26 +2,26 @@ import { DateTime } from "luxon";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getHouseholdTodayKey } from "@/app/heap/date-utils";
-import type { ChoreItem, UndoToast } from "@/app/heap/types";
+import { getHouseholdTodayKey } from "@/app/household/board/date-utils";
+import type { ChoreItem, UndoToast } from "@/app/household/board/types";
 import type {
-  UseHeapChoreActionsModel,
-  UseHeapChoreActionsParams,
-} from "@/app/heap/useHeapChoreActions.types";
+  UseHouseholdChoreActionsModel,
+  UseHouseholdChoreActionsParams,
+} from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
 export type {
-  UseHeapChoreActionsModel,
-  UseHeapChoreActionsParams,
-} from "@/app/heap/useHeapChoreActions.types";
+  UseHouseholdChoreActionsModel,
+  UseHouseholdChoreActionsParams,
+} from "@/app/household/board/useHouseholdChoreActions.types";
 
-export default function useHeapChoreActions({
+export default function useHouseholdChoreActions({
   chores,
   setChores,
   loadChores,
   loadTodayChores,
   timeZone,
-}: UseHeapChoreActionsParams): UseHeapChoreActionsModel {
+}: UseHouseholdChoreActionsParams): UseHouseholdChoreActionsModel {
   const toastTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [nowMs, setNowMs] = useState(() => DateTime.utc().toMillis());
   const [showAddModal, setShowAddModal] = useState(false);

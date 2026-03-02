@@ -1,8 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { ChoreItem } from "@/app/heap/types";
+import type { ChoreItem } from "@/app/household/board/types";
 
-export type UseHeapChoresDataParams = {
+export type UseHouseholdChoresDataParams = {
   weekOffset: number;
   todayKey: string;
   setTimeZone: Dispatch<SetStateAction<string>>;
@@ -37,7 +37,7 @@ export type LoadWeekChoresRequestParams = {
   onError: (error: unknown) => void;
 };
 
-export type UseHeapChoresDataModel = {
+export type UseHouseholdChoresDataModel = {
   chores: ChoreItem[];
   setChores: Dispatch<SetStateAction<ChoreItem[]>>;
   loading: boolean;

@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 
-import { StateIcon, TypeIcon } from "@/app/heap/components/ChoreIcons";
-import type { ChoreItem } from "@/app/heap/types";
+import { StateIcon, TypeIcon } from "@/app/household/board/components/ChoreIcons";
+import type { ChoreItem } from "@/app/household/board/types";
 import {
   getChoreStateLabel,
   getChoreTypeLabel,

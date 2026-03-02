@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-
-import { HeapViewerProvider } from "@/app/heap/HeapViewerContext";
+import HouseholdBoard from "@/app/household/board/HouseholdBoard";
+import { HouseholdViewerProvider } from "@/app/household/board/HouseholdViewerContext";
 import { auth } from "@/auth";
 import { getUserMemberships } from "@/lib/repositories";
 
-export default async function HeapLayout({ children }: { children: React.ReactNode }) {
+export default async function HouseholdPage() {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/auth");
@@ -22,5 +22,9 @@ export default async function HeapLayout({ children }: { children: React.ReactNo
 
   const isHouseholdAdmin = memberships[0]?.role === "admin";
 
-  return <HeapViewerProvider isHouseholdAdmin={isHouseholdAdmin}>{children}</HeapViewerProvider>;
+  return (
+    <HouseholdViewerProvider isHouseholdAdmin={isHouseholdAdmin}>
+      <HouseholdBoard />
+    </HouseholdViewerProvider>
+  );
 }

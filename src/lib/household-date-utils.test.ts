@@ -1,9 +1,9 @@
 import { DateTime as LuxonDateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 
-import { formatRange, formatWeekdayLabel, startOfWeek } from "@/app/heap/date-utils";
+import { formatRange, formatWeekdayLabel, startOfWeek } from "@/app/household/board/date-utils";
 
-describe("heap date formatting", () => {
+describe("household date formatting", () => {
   it("formats the week header with full month and year from week start", () => {
     const selectedDay = LuxonDateTime.fromISO("2026-03-05", { zone: "UTC" });
     const weekStart = startOfWeek(selectedDay);

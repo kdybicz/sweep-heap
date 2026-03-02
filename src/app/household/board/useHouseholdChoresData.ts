@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { ChoreItem } from "@/app/heap/types";
+import type { ChoreItem } from "@/app/household/board/types";
 import type {
   FetchChoresFn,
   LoadChoresFn,
   LoadWeekChoresRequestParams,
-  UseHeapChoresDataModel,
-  UseHeapChoresDataParams,
-} from "@/app/heap/useHeapChoresData.types";
+  UseHouseholdChoresDataModel,
+  UseHouseholdChoresDataParams,
+} from "@/app/household/board/useHouseholdChoresData.types";
 
 export type {
   FetchChoresFn,
   LoadChoresFn,
   LoadWeekChoresRequestParams,
-  UseHeapChoresDataModel,
-  UseHeapChoresDataParams,
-} from "@/app/heap/useHeapChoresData.types";
+  UseHouseholdChoresDataModel,
+  UseHouseholdChoresDataParams,
+} from "@/app/household/board/useHouseholdChoresData.types";
 
 type LoadWeekChoresResponse = {
   ok?: boolean;
@@ -110,13 +110,13 @@ export async function loadWeekChoresRequest({
   }
 }
 
-export default function useHeapChoresData({
+export default function useHouseholdChoresData({
   weekOffset,
   todayKey,
   setTimeZone,
   setRangeStart,
   setRangeEnd,
-}: UseHeapChoresDataParams): UseHeapChoresDataModel {
+}: UseHouseholdChoresDataParams): UseHouseholdChoresDataModel {
   const [chores, setChores] = useState<ChoreItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [todayChores, setTodayChores] = useState<ChoreItem[]>([]);

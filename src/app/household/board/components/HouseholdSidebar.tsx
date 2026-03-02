@@ -1,9 +1,9 @@
 import type { DateTime } from "luxon";
-import { StateIcon } from "@/app/heap/components/ChoreIcons";
-import type { ChoreItem } from "@/app/heap/types";
+import { StateIcon } from "@/app/household/board/components/ChoreIcons";
+import type { ChoreItem } from "@/app/household/board/types";
 import { getChoreStateLabel, isChoreCompleted } from "@/lib/chore-ui-state";
 
-type HeapSidebarProps = {
+type HouseholdSidebarProps = {
   doneChores: number;
   totalChores: number;
   openChores: number;
@@ -13,7 +13,7 @@ type HeapSidebarProps = {
   todayChores: ChoreItem[];
 };
 
-export default function HeapSidebar({
+export default function HouseholdSidebar({
   doneChores,
   totalChores,
   openChores,
@@ -21,7 +21,7 @@ export default function HeapSidebar({
   today,
   loadingToday,
   todayChores,
-}: HeapSidebarProps) {
+}: HouseholdSidebarProps) {
   return (
     <aside className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]">

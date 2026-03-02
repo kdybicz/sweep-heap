@@ -1,7 +1,7 @@
 import type { DateTime } from "luxon";
 
-import DayColumn from "@/app/heap/components/DayColumn";
-import type { ChoreItem } from "@/app/heap/types";
+import DayColumn from "@/app/household/board/components/DayColumn";
+import type { ChoreItem } from "@/app/household/board/types";
 
 type WeekGridProps = {
   rangeLabel: string;

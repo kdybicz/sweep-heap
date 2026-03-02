@@ -2,12 +2,17 @@ import type { DateTime } from "luxon";
 import { DateTime as LuxonDateTime } from "luxon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { formatRange, getHouseholdToday, startOfWeek, toDateKey } from "@/app/heap/date-utils";
-import type { UseHeapWeekModel } from "@/app/heap/useHeapWeek.types";
+import {
+  formatRange,
+  getHouseholdToday,
+  startOfWeek,
+  toDateKey,
+} from "@/app/household/board/date-utils";
+import type { UseHouseholdWeekModel } from "@/app/household/board/useHouseholdWeek.types";
 
-export type { UseHeapWeekModel } from "@/app/heap/useHeapWeek.types";
+export type { UseHouseholdWeekModel } from "@/app/household/board/useHouseholdWeek.types";
 
-export default function useHeapWeek(): UseHeapWeekModel {
+export default function useHouseholdWeek(): UseHouseholdWeekModel {
   const [weekOffset, setWeekOffset] = useState(0);
   const [timeZone, setTimeZone] = useState("UTC");
   const [rangeStart, setRangeStart] = useState<string | null>(null);

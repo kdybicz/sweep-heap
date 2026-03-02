@@ -43,7 +43,7 @@ export default function HouseholdSetupForm() {
         setLoading(false);
         return;
       }
-      router.push("/heap");
+      router.push("/household");
     } catch (submitError) {
       const message = submitError instanceof Error ? submitError.message : "Failed to create";
       setError(message);
