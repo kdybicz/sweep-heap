@@ -4,6 +4,15 @@ import { DateTime } from "luxon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import SignOutButton from "@/app/heap/SignOutButton";
+import type { ChoreStateInput, ChoreType } from "@/lib/chore-ui-state";
+import {
+  getChoreStateLabel,
+  getChoreTypeLabel,
+  getChoreVisualState,
+  getPrimaryActionLabel,
+  isChoreCompleted,
+  isPrimaryActionDisabled,
+} from "@/lib/chore-ui-state";
 
 const toDateKey = (date: DateTime) => date.toISODate();
 
@@ -30,6 +39,104 @@ const formatRange = (start: DateTime, end: DateTime) => {
   return `${startLabel}, ${start.toFormat("yyyy")}–${endLabel}, ${end.toFormat("yyyy")}`;
 };
 
+const TypeIcon = ({ type, className }: { type: ChoreType; className?: string }) => {
+  if (type === "stay_open") {
+    return (
+      <svg
+        aria-hidden="true"
+        className={className}
+        fill="none"
+        viewBox="0 0 20 20"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M4 7h9m0 0-2.5-2.5M13 7l-2.5 2.5M16 13H7m0 0 2.5-2.5M7 13l2.5 2.5"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.8"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 20 20"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="10" cy="10" r="7.25" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="m6.5 10 2.2 2.2 4.8-4.8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+};
+
+const StateIcon = ({ chore, className }: { chore: ChoreStateInput; className?: string }) => {
+  const state = getChoreVisualState(chore);
+  if (state === "completed") {
+    return (
+      <svg
+        aria-hidden="true"
+        className={className}
+        fill="none"
+        viewBox="0 0 20 20"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle cx="10" cy="10" r="7.25" stroke="currentColor" strokeWidth="1.8" />
+        <path
+          d="m6.5 10 2.2 2.2 4.8-4.8"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.8"
+        />
+      </svg>
+    );
+  }
+  if (state === "logged") {
+    return (
+      <svg
+        aria-hidden="true"
+        className={className}
+        fill="none"
+        viewBox="0 0 20 20"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle cx="10" cy="10" r="7.25" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="10" cy="10" fill="currentColor" r="2.2" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 20 20"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="10" cy="10" r="7.25" stroke="currentColor" strokeWidth="1.8" />
+      {state === "closed" ? (
+        <path
+          d="m7.3 7.3 5.4 5.4m0-5.4-5.4 5.4"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.8"
+        />
+      ) : null}
+    </svg>
+  );
+};
+
 export default function Home() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [timeZone, setTimeZone] = useState("UTC");
@@ -40,6 +147,7 @@ export default function Home() {
   type ChoreItem = {
     id: number;
     title: string;
+    type: ChoreType;
     occurrence_date: string;
     status: string;
     closed_reason?: string | null;
@@ -58,6 +166,7 @@ export default function Home() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newType, setNewType] = useState<ChoreType>("close_on_done");
   const [newDate, setNewDate] = useState(() => getHouseholdTodayKey(timeZone));
   const [newRepeat, setNewRepeat] = useState("none");
   const [newEndDate, setNewEndDate] = useState(() => getHouseholdTodayKey(timeZone));
@@ -176,6 +285,7 @@ export default function Home() {
         choreId: chore.id,
         occurrenceDate: chore.occurrence_date,
         title: chore.title,
+        type: chore.type,
         undoUntil: chore.undo_until as string,
       }))
       .filter((toast) => DateTime.fromISO(toast.undoUntil).toMillis() > nowMs)
@@ -217,7 +327,7 @@ export default function Home() {
     loadTodayChores();
   }, [loadTodayChores]);
   const doneChores = useMemo(
-    () => chores.filter((chore) => chore.status === "closed").length,
+    () => chores.filter((chore) => isChoreCompleted(chore)).length,
     [chores],
   );
   const totalChores = chores.length;
@@ -227,6 +337,7 @@ export default function Home() {
   const resetAddChore = useCallback(() => {
     setShowAddModal(false);
     setNewTitle("");
+    setNewType("close_on_done");
     const todayKey = getHouseholdTodayKey(timeZone);
     setNewDate(todayKey);
     setNewRepeat("none");
@@ -246,6 +357,7 @@ export default function Home() {
       const payload = {
         action: "create",
         title: newTitle,
+        type: newType,
         startDate: newDate,
         endDate: newEndDate,
         repeatRule: newRepeat,
@@ -290,19 +402,26 @@ export default function Home() {
       newRepeat,
       newRepeatEnd,
       newTitle,
+      newType,
       newNotes,
       resetAddChore,
     ],
   );
 
-  const markChoreDone = async (choreId: number, occurrenceDate: string) => {
+  const markChoreDone = async (targetChore: ChoreItem) => {
+    const choreId = targetChore.id;
+    const occurrenceDate = targetChore.occurrence_date;
+    const optimisticStatus = targetChore.type === "stay_open" ? "open" : "closed";
     const undoUntil = DateTime.utc().plus({ seconds: 5 }).toISO();
+    const previous = chores.find(
+      (chore) => chore.id === choreId && chore.occurrence_date === occurrenceDate,
+    );
     setChores((prev) =>
       prev.map((chore) =>
         chore.id === choreId && chore.occurrence_date === occurrenceDate
           ? {
               ...chore,
-              status: "closed",
+              status: optimisticStatus,
               closed_reason: "done",
               undo_until: undoUntil,
               can_undo: true,
@@ -335,8 +454,9 @@ export default function Home() {
             chore.id === choreId && chore.occurrence_date === occurrenceDate
               ? {
                   ...chore,
-                  status: "closed",
-                  closed_reason: "done",
+                  status: typeof data.status === "string" ? data.status : optimisticStatus,
+                  closed_reason:
+                    typeof data.closed_reason === "string" ? data.closed_reason : "done",
                   undo_until: data.undo_until,
                   can_undo: true,
                 }
@@ -346,19 +466,13 @@ export default function Home() {
       }
     } catch (error) {
       console.error(error);
-      setChores((prev) =>
-        prev.map((chore) =>
-          chore.id === choreId && chore.occurrence_date === occurrenceDate
-            ? {
-                ...chore,
-                status: "open",
-                closed_reason: null,
-                undo_until: null,
-                can_undo: false,
-              }
-            : chore,
-        ),
-      );
+      if (previous) {
+        setChores((prev) =>
+          prev.map((chore) =>
+            chore.id === choreId && chore.occurrence_date === occurrenceDate ? previous : chore,
+          ),
+        );
+      }
     } finally {
       await loadTodayChores();
     }
@@ -444,6 +558,7 @@ export default function Home() {
                 className="rounded-full border border-[var(--stroke)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
                 onClick={() => {
                   setSubmitError(null);
+                  setNewType("close_on_done");
                   setShowAddModal(true);
                 }}
                 type="button"
@@ -503,16 +618,23 @@ export default function Home() {
                       key={`${chore.id}-${chore.occurrence_date}-today`}
                       className="flex items-center justify-between rounded-xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-3 py-2 text-xs font-semibold"
                     >
-                      <span
-                        className={
-                          chore.status === "closed" ? "text-[var(--muted)] line-through" : ""
-                        }
-                      >
-                        {chore.title}
-                      </span>
-                      <span className="text-[0.6rem] uppercase tracking-[0.2em] text-[var(--muted)]">
-                        {chore.status === "closed" ? "Done" : "Open"}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={
+                            isChoreCompleted(chore) && chore.type === "close_on_done"
+                              ? "text-[var(--muted)] line-through"
+                              : ""
+                          }
+                        >
+                          {chore.title}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2 text-[0.55rem] uppercase tracking-[0.12em] text-[var(--muted)]">
+                          <span className="inline-flex items-center gap-1">
+                            <StateIcon className="h-3 w-3" chore={chore} />
+                            {getChoreStateLabel(chore)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                   {todayChores.length > 3 ? (
@@ -593,22 +715,40 @@ export default function Home() {
                           <div className="text-xs text-[var(--muted)]">Loading chores...</div>
                         ) : dayChores.length ? (
                           <div className="flex flex-col gap-1.5">
-                            {dayChores.map((chore) => (
-                              <button
-                                key={`${chore.id}-${chore.occurrence_date}`}
-                                className={`flex items-center justify-between rounded-lg border px-2.5 py-2 text-left text-[0.7rem] font-semibold transition ${
-                                  chore.status === "closed"
-                                    ? "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--muted)] line-through"
-                                    : "border-[var(--stroke)] bg-[var(--card)] text-[var(--ink)] hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-                                }`}
-                                onClick={() => {
-                                  setSelectedChore(chore);
-                                }}
-                                type="button"
-                              >
-                                <span>{chore.title}</span>
-                              </button>
-                            ))}
+                            {dayChores.map((chore) => {
+                              const completed = isChoreCompleted(chore);
+                              const isClosed = chore.status === "closed";
+                              const showLineThrough = completed && chore.type === "close_on_done";
+                              const isLogged = completed && chore.type === "stay_open";
+                              return (
+                                <button
+                                  key={`${chore.id}-${chore.occurrence_date}`}
+                                  className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-left text-[0.7rem] font-semibold transition ${
+                                    showLineThrough || isClosed
+                                      ? "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--muted)]"
+                                      : isLogged
+                                        ? "border-[var(--accent-soft)] bg-[var(--surface-strong)] text-[var(--ink)]"
+                                        : "border-[var(--stroke)] bg-[var(--card)] text-[var(--ink)] hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+                                  }`}
+                                  onClick={() => {
+                                    setSelectedChore(chore);
+                                  }}
+                                  type="button"
+                                >
+                                  <div className="flex min-w-0 flex-col gap-1">
+                                    <span className={showLineThrough ? "line-through" : ""}>
+                                      {chore.title}
+                                    </span>
+                                    <div className="flex flex-wrap items-center gap-2 text-[0.55rem] uppercase tracking-[0.12em] text-[var(--muted)]">
+                                      <span className="inline-flex items-center gap-1">
+                                        <StateIcon className="h-3 w-3" chore={chore} />
+                                        {getChoreStateLabel(chore)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="text-xs text-[var(--muted)]">No chores scheduled</div>
@@ -618,6 +758,7 @@ export default function Home() {
                         className="mt-3 rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => {
                           setSubmitError(null);
+                          setNewType("close_on_done");
                           setShowAddModal(true);
                           if (dayKey) {
                             setNewDate(dayKey);
@@ -650,7 +791,17 @@ export default function Home() {
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[var(--muted)]">Marked done</span>
+                    <span className="inline-flex items-center gap-1 text-[var(--muted)]">
+                      <StateIcon
+                        chore={{
+                          type: toast.type,
+                          status: "open",
+                          closed_reason: "done",
+                        }}
+                        className="h-3 w-3"
+                      />
+                      {toast.type === "stay_open" ? "Logged completion" : "Marked done"}
+                    </span>
                     <span>{toast.title}</span>
                   </div>
                   <button
@@ -713,6 +864,60 @@ export default function Home() {
                   </span>
                 ) : null}
               </label>
+              <div className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                Chore type
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label
+                    className={`cursor-pointer rounded-xl border px-3 py-3 text-left transition ${
+                      newType === "close_on_done"
+                        ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                        : "border-[var(--stroke)] bg-[var(--card)]"
+                    }`}
+                  >
+                    <input
+                      checked={newType === "close_on_done"}
+                      className="sr-only"
+                      name="chore-type"
+                      onChange={() => setNewType("close_on_done")}
+                      type="radio"
+                      value="close_on_done"
+                    />
+                    <div className="text-sm font-semibold normal-case tracking-normal text-[var(--ink)]">
+                      Close on done
+                    </div>
+                    <div className="mt-1 text-[0.65rem] font-semibold normal-case tracking-normal text-[var(--muted)]">
+                      Marking done closes the task for this day.
+                    </div>
+                  </label>
+                  <label
+                    className={`cursor-pointer rounded-xl border px-3 py-3 text-left transition ${
+                      newType === "stay_open"
+                        ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                        : "border-[var(--stroke)] bg-[var(--card)]"
+                    }`}
+                  >
+                    <input
+                      checked={newType === "stay_open"}
+                      className="sr-only"
+                      name="chore-type"
+                      onChange={() => setNewType("stay_open")}
+                      type="radio"
+                      value="stay_open"
+                    />
+                    <div className="text-sm font-semibold normal-case tracking-normal text-[var(--ink)]">
+                      Stays open
+                    </div>
+                    <div className="mt-1 text-[0.65rem] font-semibold normal-case tracking-normal text-[var(--muted)]">
+                      Marking done logs progress but keeps it visible.
+                    </div>
+                  </label>
+                </div>
+                {fieldErrors.type ? (
+                  <span className="text-[0.65rem] font-semibold normal-case tracking-normal text-[var(--danger-ink)]">
+                    {fieldErrors.type}
+                  </span>
+                ) : null}
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
                   Start date
@@ -838,11 +1043,18 @@ export default function Home() {
               <p className="text-xs text-[var(--muted)]">
                 {DateTime.fromISO(selectedChore.occurrence_date).toFormat("cccc, LLL d")}
               </p>
+              <span className="mt-2 inline-flex items-center gap-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                <TypeIcon className="h-3.5 w-3.5" type={selectedChore.type} />
+                {getChoreTypeLabel(selectedChore.type)}
+              </span>
             </div>
             <div className="flex flex-col gap-4 px-6 py-5">
               <div className="flex items-center justify-between rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold">
                 <span className="text-[var(--muted)]">Status</span>
-                <span>{selectedChore.status === "closed" ? "Completed" : "Open"}</span>
+                <span className="inline-flex items-center gap-1">
+                  <StateIcon chore={selectedChore} className="h-3.5 w-3.5" />
+                  {getChoreStateLabel(selectedChore)}
+                </span>
               </div>
               {selectedChore.notes ? (
                 <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold">
@@ -855,17 +1067,17 @@ export default function Home() {
               <div className="flex flex-col gap-2">
                 <button
                   className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={
-                    selectedChore.status === "closed" ||
-                    selectedChore.occurrence_date < (todayKey ?? "")
-                  }
+                  disabled={isPrimaryActionDisabled({
+                    chore: selectedChore,
+                    todayKey: todayKey ?? "",
+                  })}
                   onClick={() => {
-                    markChoreDone(selectedChore.id, selectedChore.occurrence_date);
+                    markChoreDone(selectedChore);
                     setSelectedChore(null);
                   }}
                   type="button"
                 >
-                  Complete
+                  {getPrimaryActionLabel(selectedChore)}
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button

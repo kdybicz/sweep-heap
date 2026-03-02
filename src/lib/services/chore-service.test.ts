@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   deleteChoreOccurrenceOverrideMock,
+  getChoreInHouseholdMock,
   insertChoreMock,
-  isChoreInHouseholdMock,
   listActiveChoreSeriesByHouseholdMock,
   listChoreOverridesByHouseholdMock,
   upsertChoreOccurrenceOverrideMock,
@@ -13,8 +13,8 @@ const {
   toISODateOrThrowMock,
 } = vi.hoisted(() => ({
   deleteChoreOccurrenceOverrideMock: vi.fn(),
+  getChoreInHouseholdMock: vi.fn(),
   insertChoreMock: vi.fn(),
-  isChoreInHouseholdMock: vi.fn(),
   listActiveChoreSeriesByHouseholdMock: vi.fn(),
   listChoreOverridesByHouseholdMock: vi.fn(),
   upsertChoreOccurrenceOverrideMock: vi.fn(),
@@ -26,8 +26,8 @@ const {
 
 vi.mock("@/lib/repositories", () => ({
   deleteChoreOccurrenceOverride: deleteChoreOccurrenceOverrideMock,
+  getChoreInHousehold: getChoreInHouseholdMock,
   insertChore: insertChoreMock,
-  isChoreInHousehold: isChoreInHouseholdMock,
   listActiveChoreSeriesByHousehold: listActiveChoreSeriesByHouseholdMock,
   listChoreOverridesByHousehold: listChoreOverridesByHouseholdMock,
   upsertChoreOccurrenceOverride: upsertChoreOccurrenceOverrideMock,
@@ -43,13 +43,13 @@ vi.mock("@/lib/date", () => ({
   toISODateOrThrow: toISODateOrThrowMock,
 }));
 
-import { mutateChore } from "@/lib/services";
+import { listChores, mutateChore } from "@/lib/services";
 
 describe("mutateChore", () => {
   beforeEach(() => {
     deleteChoreOccurrenceOverrideMock.mockReset();
+    getChoreInHouseholdMock.mockReset();
     insertChoreMock.mockReset();
-    isChoreInHouseholdMock.mockReset();
     listActiveChoreSeriesByHouseholdMock.mockReset();
     listChoreOverridesByHouseholdMock.mockReset();
     upsertChoreOccurrenceOverrideMock.mockReset();
@@ -112,6 +112,30 @@ describe("mutateChore", () => {
         householdId: 11,
         title: "Kitchen",
         repeatRule: "week",
+        type: "close_on_done",
+      }),
+    );
+  });
+
+  it("creates stay-open chore when requested", async () => {
+    insertChoreMock.mockResolvedValue(92);
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "create",
+        title: "Water plants",
+        type: "stay_open",
+        startDate: "2026-01-02",
+        endDate: "2026-01-03",
+        repeatRule: "week",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(insertChoreMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "stay_open",
       }),
     );
   });
@@ -136,7 +160,7 @@ describe("mutateChore", () => {
   });
 
   it("returns 404 when chore does not belong to household", async () => {
-    isChoreInHouseholdMock.mockResolvedValue(false);
+    getChoreInHouseholdMock.mockResolvedValue(null);
 
     const result = await mutateChore({
       householdId: 11,
@@ -159,7 +183,7 @@ describe("mutateChore", () => {
   });
 
   it("deletes override on undo action", async () => {
-    isChoreInHouseholdMock.mockResolvedValue(true);
+    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "close_on_done" });
 
     const result = await mutateChore({
       householdId: 11,
@@ -176,5 +200,159 @@ describe("mutateChore", () => {
       occurrenceDate: "2026-01-03",
     });
     expect(upsertChoreOccurrenceOverrideMock).not.toHaveBeenCalled();
+  });
+
+  it("closes close-on-done chore occurrence on completion", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "close_on_done" });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "set",
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+        status: "closed",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(upsertChoreOccurrenceOverrideMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+        status: "closed",
+        closedReason: "done",
+      }),
+    );
+  });
+
+  it("keeps stay-open chore occurrence open when logging completion", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "stay_open" });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "set",
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+        status: "closed",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(upsertChoreOccurrenceOverrideMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+        status: "open",
+        closedReason: "done",
+      }),
+    );
+  });
+
+  it("allows repeated completion logs for stay-open chores", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "stay_open" });
+
+    const first = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "set",
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+        status: "closed",
+      },
+    });
+    const second = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "set",
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+        status: "closed",
+      },
+    });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    expect(upsertChoreOccurrenceOverrideMock).toHaveBeenCalledTimes(2);
+    expect(upsertChoreOccurrenceOverrideMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+        status: "open",
+        closedReason: "done",
+      }),
+    );
+    expect(upsertChoreOccurrenceOverrideMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+        status: "open",
+        closedReason: "done",
+      }),
+    );
+  });
+});
+
+describe("listChores", () => {
+  beforeEach(() => {
+    deleteChoreOccurrenceOverrideMock.mockReset();
+    getChoreInHouseholdMock.mockReset();
+    insertChoreMock.mockReset();
+    listActiveChoreSeriesByHouseholdMock.mockReset();
+    listChoreOverridesByHouseholdMock.mockReset();
+    upsertChoreOccurrenceOverrideMock.mockReset();
+    getHouseholdTimeZoneByIdMock.mockReset();
+    normalizeRepeatRuleMock.mockReset();
+    validateChoreCreateMock.mockReset();
+    toISODateOrThrowMock.mockReset();
+
+    normalizeRepeatRuleMock.mockImplementation((value: string) => value);
+    getHouseholdTimeZoneByIdMock.mockResolvedValue("UTC");
+  });
+
+  it("keeps undo active for stay-open completion overrides", async () => {
+    listActiveChoreSeriesByHouseholdMock.mockResolvedValue([
+      {
+        id: 7,
+        title: "Water plants",
+        type: "stay_open",
+        start_date: "2026-01-03",
+        end_date: "2026-01-03",
+        series_end_date: null,
+        repeat_rule: "none",
+        status: "active",
+        notes: null,
+      },
+    ]);
+    listChoreOverridesByHouseholdMock.mockResolvedValue([
+      {
+        chore_id: 7,
+        occurrence_date: "2026-01-03",
+        status: "open",
+        closed_reason: "done",
+        undo_until: new Date(Date.now() + 10_000),
+      },
+    ]);
+
+    const result = await listChores({
+      householdId: 11,
+      weekOffset: 0,
+      start: "2026-01-03",
+      end: "2026-01-03",
+    });
+
+    expect(result.chores).toHaveLength(1);
+    expect(result.chores[0]).toEqual(
+      expect.objectContaining({
+        id: 7,
+        type: "stay_open",
+        status: "open",
+        closed_reason: "done",
+        can_undo: true,
+      }),
+    );
   });
 });

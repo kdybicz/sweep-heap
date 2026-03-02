@@ -6,9 +6,9 @@ import type { RepeatRule } from "@/lib/occurrences";
 import { generateOccurrences } from "@/lib/occurrences";
 import {
   deleteChoreOccurrenceOverride,
+  getChoreInHousehold,
   getHouseholdTimeZoneById,
   insertChore,
-  isChoreInHousehold,
   listActiveChoreSeriesByHousehold,
   listChoreOverridesByHousehold,
   upsertChoreOccurrenceOverride,
@@ -120,14 +120,12 @@ export const listChores = async ({
       const nowUtc = DateTime.utc();
       const undoUntil = override?.undo_until ? DateTime.fromISO(override.undo_until) : null;
       const isUndoWindowActive =
-        override?.status === "closed" &&
-        override?.closed_reason === "done" &&
-        !!undoUntil &&
-        undoUntil > nowUtc;
+        override?.closed_reason === "done" && !!undoUntil && undoUntil > nowUtc;
 
       return {
         id: row.id,
         title: row.title,
+        type: row.type,
         notes: row.notes ?? null,
         status: override?.status ?? "open",
         closed_reason: override?.closed_reason ?? null,
@@ -170,13 +168,14 @@ export const mutateChore = async ({
   const status = input.status === "closed" ? "closed" : "open";
   const action = typeof input.action === "string" ? input.action : "set";
   const title = typeof input.title === "string" ? input.title.trim() : "";
+  const inputType =
+    typeof input.type === "string" ? input.type.trim().toLowerCase() : "close_on_done";
   let startDate = normalizeDate(input.startDate, "UTC");
   let endDate = normalizeDate(input.endDate, "UTC");
   let seriesEndDate = normalizeDate(input.seriesEndDate, "UTC");
   const repeatRule =
     typeof input.repeatRule === "string" ? normalizeRepeatRule(input.repeatRule) : "none";
   const notes = normalizeNotes(input.notes);
-  const type = "close_on_done";
 
   if (action === "create") {
     const timeZone = await getHouseholdTimeZoneById(householdId);
@@ -190,6 +189,7 @@ export const mutateChore = async ({
 
     const fieldErrors = validateChoreCreate({
       title,
+      type: inputType,
       startDate: startDateLocal,
       endDate: endDateLocal,
       repeatRule,
@@ -204,6 +204,8 @@ export const mutateChore = async ({
         body: { ok: false, error: "Validation failed", fieldErrors },
       };
     }
+
+    const type = inputType === "stay_open" ? "stay_open" : "close_on_done";
 
     const choreIdCreated = await insertChore({
       householdId,
@@ -226,6 +228,7 @@ export const mutateChore = async ({
         endDate,
         seriesEndDate,
         repeatRule,
+        type,
         notes,
       },
     };
@@ -242,8 +245,8 @@ export const mutateChore = async ({
     };
   }
 
-  const choreExists = await isChoreInHousehold({ choreId, householdId });
-  if (!choreExists) {
+  const chore = await getChoreInHousehold({ choreId, householdId });
+  if (!chore) {
     return {
       ok: false,
       status: 404,
@@ -254,8 +257,16 @@ export const mutateChore = async ({
     };
   }
 
-  const closedReason = status === "closed" ? "done" : null;
-  const undoUntil = status === "closed" ? DateTime.utc().plus({ seconds: 5 }).toISO() : null;
+  const choreType = chore.type === "stay_open" ? "stay_open" : "close_on_done";
+
+  const shouldRecordCompletion = status === "closed";
+  const closedReason = shouldRecordCompletion ? "done" : null;
+  const undoUntil = shouldRecordCompletion ? DateTime.utc().plus({ seconds: 5 }).toISO() : null;
+  const overrideStatus = shouldRecordCompletion
+    ? choreType === "stay_open"
+      ? "open"
+      : "closed"
+    : "open";
 
   if (action === "undo") {
     await deleteChoreOccurrenceOverride({ choreId, occurrenceDate });
@@ -263,7 +274,7 @@ export const mutateChore = async ({
     await upsertChoreOccurrenceOverride({
       choreId,
       occurrenceDate,
-      status,
+      status: overrideStatus,
       closedReason,
       undoUntil,
     });
@@ -275,7 +286,8 @@ export const mutateChore = async ({
       ok: true,
       choreId,
       occurrenceDate,
-      status,
+      type: choreType,
+      status: overrideStatus,
       closed_reason: closedReason,
       undo_until: undoUntil,
     },

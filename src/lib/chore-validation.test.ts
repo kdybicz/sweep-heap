@@ -24,6 +24,7 @@ describe("validateChoreCreate", () => {
   it("requires core fields", () => {
     const errors = validateChoreCreate({
       title: "",
+      type: "close_on_done",
       startDate: null,
       endDate: null,
       repeatRule: "none",
@@ -41,6 +42,7 @@ describe("validateChoreCreate", () => {
   it("enforces date ordering", () => {
     const errors = validateChoreCreate({
       title: "Sweep",
+      type: "close_on_done",
       startDate: "2026-03-10",
       endDate: "2026-03-02",
       repeatRule: "week",
@@ -53,6 +55,7 @@ describe("validateChoreCreate", () => {
   it("prevents past dates", () => {
     const errors = validateChoreCreate({
       title: "Sweep",
+      type: "close_on_done",
       startDate: "2026-02-01",
       endDate: "2026-02-02",
       repeatRule: "week",
@@ -76,6 +79,7 @@ describe("validateChoreCreate", () => {
 
     const errors = validateChoreCreate({
       title: "Sweep",
+      type: "close_on_done",
       startDate: householdToday,
       endDate: householdToday,
       repeatRule: "none",
@@ -90,6 +94,7 @@ describe("validateChoreCreate", () => {
   it("requires a household-local today value", () => {
     const errors = validateChoreCreate({
       title: "Sweep",
+      type: "close_on_done",
       startDate: "2026-03-01",
       endDate: "2026-03-01",
       repeatRule: "none",
@@ -102,6 +107,7 @@ describe("validateChoreCreate", () => {
   it("requires repeat end when repeating", () => {
     const errors = validateChoreCreate({
       title: "Sweep",
+      type: "close_on_done",
       startDate: "2026-03-02",
       endDate: "2026-03-02",
       repeatRule: "none",
@@ -114,6 +120,7 @@ describe("validateChoreCreate", () => {
   it("validates repeat end against start date", () => {
     const errors = validateChoreCreate({
       title: "Sweep",
+      type: "close_on_done",
       startDate: "2026-03-10",
       endDate: "2026-03-10",
       repeatRule: "week",
@@ -121,5 +128,19 @@ describe("validateChoreCreate", () => {
     });
 
     expect(errors.repeatEnd).toBe("Repeat end must be on or after start date");
+  });
+
+  it("requires a valid chore type", () => {
+    const errors = validateChoreCreate({
+      title: "Sweep",
+      type: "something_else",
+      startDate: "2026-03-10",
+      endDate: "2026-03-10",
+      repeatRule: "none",
+      seriesEndDate: null,
+      today: "2026-03-01",
+    });
+
+    expect(errors.type).toBe("Invalid chore type");
   });
 });

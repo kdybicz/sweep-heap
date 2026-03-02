@@ -1,5 +1,6 @@
 export type CreateChoreInput = {
   title: string;
+  type: string;
   startDate: string | null;
   endDate: string | null;
   repeatRule: string;
@@ -8,6 +9,7 @@ export type CreateChoreInput = {
 };
 
 const allowedRepeatRules = new Set(["none", "day", "week", "biweek", "month", "year"]);
+const allowedChoreTypes = new Set(["close_on_done", "stay_open"]);
 
 export const normalizeRepeatRule = (value: string) => {
   const normalized = value.trim().toLowerCase();
@@ -21,6 +23,7 @@ export const normalizeRepeatRule = (value: string) => {
 
 export const validateChoreCreate = ({
   title,
+  type,
   startDate,
   endDate,
   repeatRule,
@@ -36,6 +39,9 @@ export const validateChoreCreate = ({
 
   if (!title) {
     fieldErrors.title = "Title is required";
+  }
+  if (!allowedChoreTypes.has(type)) {
+    fieldErrors.type = "Invalid chore type";
   }
   if (!startDate) {
     fieldErrors.startDate = "Start date is required";
