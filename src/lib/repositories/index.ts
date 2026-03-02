@@ -15,3 +15,4 @@ export {
   getUserMemberships,
   updateHouseholdById,
 } from "@/lib/repositories/household-repository";
+export { updateUserNameById } from "@/lib/repositories/user-repository";

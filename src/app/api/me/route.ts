@@ -1,30 +1,87 @@
 import { auth } from "@/auth";
-import { getActiveHouseholdId, getUserMemberships } from "@/lib/repositories";
+import { getActiveHouseholdId, getUserMemberships, updateUserNameById } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+const getSessionContext = async () => {
   const session = await auth();
   if (!session?.user?.id) {
-    return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    return {
+      session,
+      userId: null,
+      status: 401,
+      error: "Unauthorized",
+    };
   }
 
   const userId = Number(session.user.id);
   if (!Number.isFinite(userId)) {
-    return Response.json({ ok: false, error: "Invalid user" }, { status: 400 });
+    return {
+      session,
+      userId: null,
+      status: 400,
+      error: "Invalid user",
+    };
   }
 
-  const memberships = await getUserMemberships(userId);
-  const activeHouseholdId = await getActiveHouseholdId(userId);
+  return {
+    session,
+    userId,
+    status: 200,
+    error: null,
+  };
+};
+
+export async function GET() {
+  const sessionContext = await getSessionContext();
+  if (sessionContext.error || sessionContext.userId === null || !sessionContext.session?.user?.id) {
+    return Response.json(
+      { ok: false, error: sessionContext.error ?? "Unauthorized" },
+      { status: sessionContext.status },
+    );
+  }
+
+  const memberships = await getUserMemberships(sessionContext.userId);
+  const activeHouseholdId = await getActiveHouseholdId(sessionContext.userId);
 
   return Response.json({
     ok: true,
     user: {
-      id: session.user.id,
-      email: session.user.email ?? null,
-      name: session.user.name ?? null,
+      id: sessionContext.session.user.id,
+      email: sessionContext.session.user.email ?? null,
+      name: sessionContext.session.user.name ?? null,
     },
     memberships,
     activeHouseholdId,
   });
+}
+
+export async function PATCH(request: Request) {
+  const sessionContext = await getSessionContext();
+  if (sessionContext.error || sessionContext.userId === null) {
+    return Response.json(
+      { ok: false, error: sessionContext.error ?? "Unauthorized" },
+      { status: sessionContext.status },
+    );
+  }
+
+  let payload: Record<string, unknown> = {};
+  try {
+    const parsed = await request.json();
+    payload = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const name = typeof payload?.name === "string" ? payload.name.trim() : "";
+  if (!name) {
+    return Response.json({ ok: false, error: "Name is required" }, { status: 400 });
+  }
+
+  const user = await updateUserNameById({ userId: sessionContext.userId, name });
+  if (!user) {
+    return Response.json({ ok: false, error: "User not found" }, { status: 404 });
+  }
+
+  return Response.json({ ok: true, user });
 }
