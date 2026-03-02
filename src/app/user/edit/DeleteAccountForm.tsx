@@ -9,13 +9,6 @@ export default function DeleteAccountForm() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const confirmed = window.confirm(
-      "We will email you a delete confirmation link. Deleting your account cannot be undone.",
-    );
-
-    if (!confirmed) {
-      return;
-    }
 
     setLoading(true);
     setError(null);
@@ -47,7 +40,9 @@ export default function DeleteAccountForm() {
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
       {confirmationSent ? (
         <div className="rounded-2xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-xs font-semibold text-[var(--ink)]">
-          Check your email for the confirmation link. This deletion cannot be undone.
+          Please check your email. We just sent a confirmation link to continue account deletion.
+          Open that link only if you want to permanently delete your account. The link expires in 30
+          minutes.
         </div>
       ) : null}
       {error ? (

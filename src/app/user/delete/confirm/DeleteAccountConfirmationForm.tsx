@@ -8,18 +8,17 @@ export default function DeleteAccountConfirmationForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [confirmationText, setConfirmationText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const identifier = searchParams.get("identifier") ?? "";
   const token = searchParams.get("token") ?? "";
   const hasToken = Boolean(identifier && token);
+  const isConfirmationValid = confirmationText.trim().toLowerCase() === "delete";
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const confirmed = window.confirm(
-      "Are you sure you want to permanently delete your account? This action cannot be undone.",
-    );
-    if (!confirmed) {
+    if (!isConfirmationValid) {
       return;
     }
 
@@ -78,6 +77,25 @@ export default function DeleteAccountConfirmationForm() {
         This action cannot be undone. If you are the last member of your household, the household
         will be deleted too.
       </p>
+      <p className="text-sm text-[var(--muted)]">
+        Please type 'delete' into the text field below to confirm you want to delete your account
+        permanently.
+      </p>
+      <label className="sr-only" htmlFor="delete-confirmation">
+        Type delete
+      </label>
+      <input
+        autoComplete="off"
+        autoCapitalize="none"
+        autoCorrect="off"
+        className="rounded-xl border border-[var(--danger-stroke)] bg-[var(--card)] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[var(--ink)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--danger)]"
+        id="delete-confirmation"
+        onChange={(event) => setConfirmationText(event.target.value)}
+        placeholder="delete"
+        spellCheck={false}
+        type="text"
+        value={confirmationText}
+      />
       {error ? (
         <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
           {error}
@@ -86,7 +104,7 @@ export default function DeleteAccountConfirmationForm() {
       <button
         className="rounded-full border border-[var(--danger)] bg-[var(--danger)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--danger-ink)] disabled:cursor-not-allowed disabled:opacity-60"
         type="submit"
-        disabled={loading}
+        disabled={loading || !isConfirmationValid}
       >
         {loading ? "Deleting..." : "Delete account"}
       </button>
