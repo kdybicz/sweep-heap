@@ -15,4 +15,11 @@ export {
   getUserMemberships,
   updateHouseholdById,
 } from "@/lib/repositories/household-repository";
-export { updateUserNameById } from "@/lib/repositories/user-repository";
+export {
+  buildDeleteAccountTokenIdentifier,
+  consumeDeleteAccountToken,
+  createDeleteAccountToken,
+  deleteUserById,
+  extractUserIdFromDeleteAccountTokenIdentifier,
+  updateUserNameById,
+} from "@/lib/repositories/user-repository";

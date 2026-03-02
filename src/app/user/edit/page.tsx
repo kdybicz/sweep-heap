@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import DeleteAccountForm from "@/app/user/edit/DeleteAccountForm";
 import UserDetailsEditForm from "@/app/user/edit/UserDetailsEditForm";
 import { auth } from "@/auth";
 import { getActiveHouseholdSummary } from "@/lib/repositories";
@@ -36,6 +37,9 @@ export default async function UserEditPage() {
             householdTimeZone={household.timeZone}
             initialName={session.user.name ?? ""}
           />
+        </div>
+        <div className="rounded-3xl border border-[var(--danger-stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">
+          <DeleteAccountForm />
         </div>
       </div>
     </main>
