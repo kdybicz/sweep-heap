@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { HeapViewerProvider } from "@/app/heap/HeapViewerContext";
 import { auth } from "@/auth";
 import { getUserMemberships } from "@/lib/repositories";
 
@@ -19,5 +20,7 @@ export default async function HeapLayout({ children }: { children: React.ReactNo
     redirect("/household/setup");
   }
 
-  return <>{children}</>;
+  const isHouseholdAdmin = memberships[0]?.role === "admin";
+
+  return <HeapViewerProvider isHouseholdAdmin={isHouseholdAdmin}>{children}</HeapViewerProvider>;
 }

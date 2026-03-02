@@ -6,10 +6,12 @@ import HeapSidebar from "@/app/heap/components/HeapSidebar";
 import UndoToastStack from "@/app/heap/components/UndoToastStack";
 import WeekGrid from "@/app/heap/components/WeekGrid";
 import WeekHeader from "@/app/heap/components/WeekHeader";
+import { useHeapViewer } from "@/app/heap/HeapViewerContext";
 import useHeapBoard from "@/app/heap/useHeapBoard";
 
 export default function Home() {
   const board = useHeapBoard();
+  const { isHouseholdAdmin } = useHeapViewer();
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -18,8 +20,6 @@ export default function Home() {
         <HeapSidebar
           doneChores={board.sidebar.doneChores}
           loadingToday={board.sidebar.loadingToday}
-          onOpenAddChoreModal={board.sidebar.onOpenAddChoreModal}
-          onResetWeek={board.sidebar.onResetWeek}
           openChores={board.sidebar.openChores}
           progress={board.sidebar.progress}
           today={board.sidebar.today}
@@ -29,8 +29,10 @@ export default function Home() {
 
         <section className="flex flex-col gap-6">
           <WeekHeader
+            canEditHousehold={isHouseholdAdmin}
             onNextWeek={board.week.onNextWeek}
             onPreviousWeek={board.week.onPreviousWeek}
+            onResetWeek={board.sidebar.onResetWeek}
             rangeLabel={board.week.rangeLabel}
           />
           <WeekGrid

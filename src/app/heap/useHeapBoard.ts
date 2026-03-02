@@ -42,7 +42,6 @@ export default function useHeapBoard(): UseHeapBoardModel {
       loadingToday: choresData.loadingToday,
       todayChores: choresData.todayChores,
       onResetWeek: week.onResetWeek,
-      onOpenAddChoreModal: actions.onOpenAddChoreModal,
     },
     week: {
       rangeLabel: week.rangeLabel,

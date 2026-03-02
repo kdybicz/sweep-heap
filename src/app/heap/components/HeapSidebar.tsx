@@ -1,7 +1,5 @@
 import type { DateTime } from "luxon";
-import Link from "next/link";
 import { StateIcon } from "@/app/heap/components/ChoreIcons";
-import SignOutButton from "@/app/heap/SignOutButton";
 import type { ChoreItem } from "@/app/heap/types";
 import { getChoreStateLabel, isChoreCompleted } from "@/lib/chore-ui-state";
 
@@ -13,8 +11,6 @@ type HeapSidebarProps = {
   today: DateTime;
   loadingToday: boolean;
   todayChores: ChoreItem[];
-  onResetWeek: () => void;
-  onOpenAddChoreModal: () => void;
 };
 
 export default function HeapSidebar({
@@ -25,46 +21,21 @@ export default function HeapSidebar({
   today,
   loadingToday,
   todayChores,
-  onResetWeek,
-  onOpenAddChoreModal,
 }: HeapSidebarProps) {
   return (
     <aside className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
           <div>
             <span className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">
               The Sweep Heap
             </span>
             <h1 className="text-3xl font-semibold tracking-tight">Weekly Choreboard</h1>
           </div>
-          <SignOutButton />
         </div>
         <p className="text-sm text-[var(--muted)]">
           Make the week feel lighter with a focused, all-day view.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            className="rounded-full border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-            onClick={onResetWeek}
-            type="button"
-          >
-            Today
-          </button>
-          <button
-            className="rounded-full border border-[var(--stroke)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
-            onClick={onOpenAddChoreModal}
-            type="button"
-          >
-            Add chore
-          </button>
-          <Link
-            className="rounded-full border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-            href="/household/edit"
-          >
-            Edit household
-          </Link>
-        </div>
       </div>
 
       <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">

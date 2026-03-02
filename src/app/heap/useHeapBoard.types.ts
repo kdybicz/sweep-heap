@@ -13,7 +13,6 @@ export type SidebarModel = {
   loadingToday: boolean;
   todayChores: ChoreItem[];
   onResetWeek: () => void;
-  onOpenAddChoreModal: () => void;
 };
 
 export type WeekModel = {
