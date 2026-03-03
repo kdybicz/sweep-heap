@@ -1,4 +1,5 @@
 import { getSession } from "@/auth";
+import { parseJsonObjectBody } from "@/lib/http";
 import { getActiveHouseholdId } from "@/lib/repositories";
 import { listChores, mutateChore } from "@/lib/services";
 
@@ -20,7 +21,8 @@ export async function GET(request: Request) {
     if (!householdId) {
       return Response.json({ ok: false, error: "Household required" }, { status: 403 });
     }
-    const weekOffset = Number(requestUrl.searchParams.get("weekOffset") ?? "0");
+    const rawWeekOffset = Number(requestUrl.searchParams.get("weekOffset") ?? "0");
+    const weekOffset = Number.isFinite(rawWeekOffset) ? rawWeekOffset : 0;
     const listResult = await listChores({
       householdId,
       weekOffset,
@@ -36,11 +38,11 @@ export async function GET(request: Request) {
       chores: listResult.chores,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to load chores", error);
     return Response.json(
       {
         ok: false,
-        error: message,
+        error: "Failed to load chores",
       },
       { status: 500 },
     );
@@ -57,11 +59,16 @@ export async function PATCH(request: Request) {
     if (!Number.isFinite(userId)) {
       return Response.json({ ok: false, error: "Invalid user" }, { status: 400 });
     }
+
     const householdId = await getActiveHouseholdId(userId);
     if (!householdId) {
       return Response.json({ ok: false, error: "Household required" }, { status: 403 });
     }
-    const payload = await request.json();
+    const payload = await parseJsonObjectBody(request);
+    if (payload === null) {
+      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+    }
+
     const result = await mutateChore({ householdId, payload });
     if (!result.ok) {
       return Response.json(result.body, { status: result.status });
@@ -69,11 +76,11 @@ export async function PATCH(request: Request) {
 
     return Response.json(result.body);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to update chore", error);
     return Response.json(
       {
         ok: false,
-        error: message,
+        error: "Failed to update chore",
       },
       { status: 500 },
     );

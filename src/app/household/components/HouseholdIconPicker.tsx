@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
+import { useDialogFocusTrap } from "@/lib/use-dialog-focus-trap";
 
 const householdIcons = [
   "🏡",
@@ -41,7 +42,15 @@ export default function HouseholdIconPicker({
   showEmptyIconPreview = false,
 }: HouseholdIconPickerProps) {
   const [open, setOpen] = useState(false);
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const selectedIcon = value.trim();
+
+  useDialogFocusTrap({
+    active: open,
+    dialogRef,
+    onEscape: () => setOpen(false),
+  });
 
   return (
     <div className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
@@ -62,13 +71,24 @@ export default function HouseholdIconPicker({
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
           <button
+            aria-label="Close icon picker dialog"
             className="absolute inset-0 bg-black/40"
             onClick={() => setOpen(false)}
             type="button"
           />
-          <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]">
+          <div
+            aria-labelledby={titleId}
+            aria-modal="true"
+            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
+            ref={dialogRef}
+            role="dialog"
+            tabIndex={-1}
+          >
             <div className="border-b border-[var(--stroke)] bg-[var(--surface-weak)] px-6 py-5">
-              <h3 className="text-xl font-semibold normal-case tracking-normal text-[var(--ink)]">
+              <h3
+                className="text-xl font-semibold normal-case tracking-normal text-[var(--ink)]"
+                id={titleId}
+              >
                 Choose an icon
               </h3>
             </div>

@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getSession } from "@/auth";
 import { sendDeleteAccountConfirmationEmail } from "@/lib/delete-account-email";
+import { getAppOrigin } from "@/lib/http";
 import { buildDeleteAccountTokenIdentifier, createDeleteAccountToken } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,8 @@ export async function POST(request: Request) {
     );
   }
 
+  const appOrigin = getAppOrigin(request);
+
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const identifier = buildDeleteAccountTokenIdentifier({
@@ -41,7 +44,7 @@ export async function POST(request: Request) {
     expiresAt,
   });
 
-  const confirmationUrl = new URL("/user/delete/confirm", request.url);
+  const confirmationUrl = new URL("/user/delete/confirm", appOrigin);
   confirmationUrl.searchParams.set("identifier", identifier);
   confirmationUrl.searchParams.set("token", token);
 

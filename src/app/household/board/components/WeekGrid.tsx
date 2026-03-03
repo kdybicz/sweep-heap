@@ -1,4 +1,5 @@
 import type { DateTime } from "luxon";
+import { useMemo } from "react";
 
 import DayColumn from "@/app/household/board/components/DayColumn";
 import type { ChoreItem } from "@/app/household/board/types";
@@ -28,6 +29,19 @@ export default function WeekGrid({
   onSelectChore,
   onAddChoreForDate,
 }: WeekGridProps) {
+  const choresByDay = useMemo(() => {
+    const grouped = new Map<string, ChoreItem[]>();
+    for (const chore of chores) {
+      const dayChores = grouped.get(chore.occurrence_date);
+      if (dayChores) {
+        dayChores.push(chore);
+      } else {
+        grouped.set(chore.occurrence_date, [chore]);
+      }
+    }
+    return grouped;
+  }, [chores]);
+
   return (
     <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow)]">
       <div className="overflow-hidden rounded-2xl bg-[var(--card)]">
@@ -64,7 +78,7 @@ export default function WeekGrid({
             <div className="grid grid-cols-7 gap-0 bg-[var(--surface)]">
               {days.map((day, dayIndex) => {
                 const dayKey = day.toISODate();
-                const dayChores = chores.filter((chore) => chore.occurrence_date === dayKey);
+                const dayChores = dayKey ? (choresByDay.get(dayKey) ?? []) : [];
                 return (
                   <DayColumn
                     day={day}

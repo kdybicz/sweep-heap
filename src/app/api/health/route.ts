@@ -8,11 +8,11 @@ export async function GET() {
       now: result.rows[0]?.now ?? null,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Health check failed", error);
     return Response.json(
       {
         ok: false,
-        error: message,
+        error: "Health check failed",
       },
       { status: 500 },
     );

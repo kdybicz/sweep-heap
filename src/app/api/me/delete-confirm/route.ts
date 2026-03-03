@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { parseJsonObjectBody } from "@/lib/http";
 import {
   consumeDeleteAccountToken,
   deleteUserById,
@@ -8,11 +9,8 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  let payload: Record<string, unknown> = {};
-  try {
-    const parsed = await request.json();
-    payload = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
-  } catch {
+  const payload = await parseJsonObjectBody(request);
+  if (payload === null) {
     return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
 

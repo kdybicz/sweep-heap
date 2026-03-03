@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { useId, useRef } from "react";
 
 import { StateIcon, TypeIcon } from "@/app/household/board/components/ChoreIcons";
 import type { ChoreItem } from "@/app/household/board/types";
@@ -8,6 +9,7 @@ import {
   getPrimaryActionLabel,
   isPrimaryActionDisabled,
 } from "@/lib/chore-ui-state";
+import { useDialogFocusTrap } from "@/lib/use-dialog-focus-trap";
 
 type ChoreDetailsModalProps = {
   chore: ChoreItem | null;
@@ -22,17 +24,40 @@ export default function ChoreDetailsModal({
   onClose,
   onPrimaryAction,
 }: ChoreDetailsModalProps) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useDialogFocusTrap({
+    active: Boolean(chore),
+    dialogRef,
+    onEscape: onClose,
+  });
+
   if (!chore) {
     return null;
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
-      <button className="absolute inset-0 bg-black/40" onClick={onClose} type="button" />
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]">
+      <button
+        aria-label="Close chore details dialog"
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+        type="button"
+      />
+      <div
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
         <div className="border-b border-[var(--stroke)] bg-[var(--surface-weak)] px-6 py-5">
           <div className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Chore</div>
-          <h3 className="text-xl font-semibold">{chore.title}</h3>
+          <h3 className="text-xl font-semibold" id={titleId}>
+            {chore.title}
+          </h3>
           <p className="text-xs text-[var(--muted)]">
             {DateTime.fromISO(chore.occurrence_date).toFormat("cccc, LLL d")}
           </p>

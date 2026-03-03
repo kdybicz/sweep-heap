@@ -1,4 +1,5 @@
 import { getSession } from "@/auth";
+import { parseJsonObjectBody } from "@/lib/http";
 import { getActiveHouseholdId, getUserMemberships, updateUserNameById } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
@@ -65,11 +66,8 @@ export async function PATCH(request: Request) {
     );
   }
 
-  let payload: Record<string, unknown> = {};
-  try {
-    const parsed = await request.json();
-    payload = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
-  } catch {
+  const payload = await parseJsonObjectBody(request);
+  if (payload === null) {
     return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
 

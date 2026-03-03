@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 
 import { getSession } from "@/auth";
+import { parseJsonObjectBody } from "@/lib/http";
 import {
   createHouseholdWithOwner,
   getActiveHouseholdSummary,
@@ -64,7 +65,11 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const payload = await request.json();
+  const payload = await parseJsonObjectBody(request);
+  if (payload === null) {
+    return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+  }
+
   const name = typeof payload?.name === "string" ? payload.name.trim() : "";
   if (!name) {
     return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
@@ -99,13 +104,11 @@ export async function PATCH(request: Request) {
     return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
-  let payload: Record<string, unknown> = {};
-  try {
-    const parsed = await request.json();
-    payload = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
-  } catch {
+  const payload = await parseJsonObjectBody(request);
+  if (payload === null) {
     return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
+
   const name = typeof payload?.name === "string" ? payload.name.trim() : "";
   if (!name) {
     return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });

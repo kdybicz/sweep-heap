@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const originalAuthUrl = process.env.AUTH_URL;
 
 const { getSessionMock, createDeleteAccountTokenMock, sendDeleteAccountConfirmationEmailMock } =
   vi.hoisted(() => ({
@@ -23,16 +25,25 @@ vi.mock("@/lib/delete-account-email", () => ({
 
 import { POST } from "@/app/api/me/delete-request/route";
 
-const request = () =>
-  new Request("http://localhost/api/me/delete-request", {
+const request = (url = "http://localhost/api/me/delete-request") =>
+  new Request(url, {
     method: "POST",
   });
 
 describe("/api/me/delete-request route", () => {
   beforeEach(() => {
+    process.env.AUTH_URL = "http://localhost";
     getSessionMock.mockReset();
     createDeleteAccountTokenMock.mockReset();
     sendDeleteAccountConfirmationEmailMock.mockReset();
+  });
+
+  afterEach(() => {
+    if (originalAuthUrl === undefined) {
+      delete process.env.AUTH_URL;
+    } else {
+      process.env.AUTH_URL = originalAuthUrl;
+    }
   });
 
   it("rejects unauthenticated requests", async () => {
@@ -98,6 +109,21 @@ describe("/api/me/delete-request route", () => {
     expect(confirmationUrl.pathname).toBe("/user/delete/confirm");
     expect(confirmationUrl.searchParams.get("identifier")).toBe(createTokenArgs.identifier);
     expect(confirmationUrl.searchParams.get("token")).toBeTruthy();
+  });
+
+  it("falls back to request origin when AUTH_URL is missing", async () => {
+    delete process.env.AUTH_URL;
+    getSessionMock.mockResolvedValue({ user: { id: "4", email: "alex@example.com" } });
+
+    const response = await POST(request("https://preview.example.com/api/me/delete-request"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ ok: true });
+    expect(sendDeleteAccountConfirmationEmailMock).toHaveBeenCalledTimes(1);
+    const emailArgs = sendDeleteAccountConfirmationEmailMock.mock.calls[0]?.[0];
+    const confirmationUrl = new URL(emailArgs.confirmationUrl);
+    expect(confirmationUrl.origin).toBe("https://preview.example.com");
   });
 
   it("returns server error when email delivery fails", async () => {

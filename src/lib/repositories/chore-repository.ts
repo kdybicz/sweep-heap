@@ -25,18 +25,32 @@ type ChoreInHouseholdRow = {
   type: "close_on_done" | "stay_open";
 };
 
-export const listActiveChoreSeriesByHousehold = async (householdId: number) => {
+type HouseholdDateRange = {
+  householdId: number;
+  rangeStart: string;
+  rangeEnd: string;
+};
+
+export const listActiveChoreSeriesByHousehold = async ({
+  householdId,
+  rangeStart,
+  rangeEnd,
+}: HouseholdDateRange) => {
   const result = await pool.query<ChoreSeriesRow>(
-    "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, status, notes from chores where status = 'active' and household_id = $1",
-    [householdId],
+    "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, status, notes from chores where status = 'active' and household_id = $1 and start_date <= $3::date and (coalesce(series_end_date, $3::date) + (end_date - start_date)) >= $2::date",
+    [householdId, rangeStart, rangeEnd],
   );
   return result.rows;
 };
 
-export const listChoreOverridesByHousehold = async (householdId: number) => {
+export const listChoreOverridesByHousehold = async ({
+  householdId,
+  rangeStart,
+  rangeEnd,
+}: HouseholdDateRange) => {
   const result = await pool.query<ChoreOverrideRow>(
-    "select o.chore_id, to_char(o.occurrence_date, 'YYYY-MM-DD') as occurrence_date, o.status, o.closed_reason, o.undo_until from chore_occurrence_overrides o join chores c on c.id = o.chore_id where c.household_id = $1",
-    [householdId],
+    "select o.chore_id, to_char(o.occurrence_date, 'YYYY-MM-DD') as occurrence_date, o.status, o.closed_reason, o.undo_until from chore_occurrence_overrides o join chores c on c.id = o.chore_id where c.household_id = $1 and c.status = 'active' and o.occurrence_date between $2::date and $3::date",
+    [householdId, rangeStart, rangeEnd],
   );
   return result.rows;
 };

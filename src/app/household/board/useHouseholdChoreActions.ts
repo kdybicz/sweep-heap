@@ -22,7 +22,7 @@ export default function useHouseholdChoreActions({
   loadTodayChores,
   timeZone,
 }: UseHouseholdChoreActionsParams): UseHouseholdChoreActionsModel {
-  const toastTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const toastTickRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [nowMs, setNowMs] = useState(() => DateTime.utc().toMillis());
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -39,28 +39,47 @@ export default function useHouseholdChoreActions({
 
   const clearToastTick = useCallback(() => {
     if (toastTickRef.current) {
-      clearInterval(toastTickRef.current);
+      clearTimeout(toastTickRef.current);
       toastTickRef.current = null;
     }
   }, []);
 
   useEffect(() => {
-    const hasActiveUndo = chores.some((chore) => {
-      if (!chore.can_undo || !chore.undo_until) {
-        return false;
+    const scheduleNextUndoExpiryTick = () => {
+      const currentNowMs = DateTime.utc().toMillis();
+      setNowMs(currentNowMs);
+
+      let nextUndoExpiryMs: number | null = null;
+
+      for (const chore of chores) {
+        if (!chore.can_undo || !chore.undo_until) {
+          continue;
+        }
+
+        const undoExpiryMs = DateTime.fromISO(chore.undo_until).toMillis();
+        if (undoExpiryMs <= currentNowMs) {
+          continue;
+        }
+
+        if (nextUndoExpiryMs === null || undoExpiryMs < nextUndoExpiryMs) {
+          nextUndoExpiryMs = undoExpiryMs;
+        }
       }
-      return DateTime.fromISO(chore.undo_until).toMillis() > DateTime.utc().toMillis();
-    });
-    if (!hasActiveUndo) {
+
+      if (nextUndoExpiryMs === null) {
+        clearToastTick();
+        return;
+      }
+
       clearToastTick();
-      return;
-    }
-    if (toastTickRef.current) {
-      return;
-    }
-    toastTickRef.current = setInterval(() => {
-      setNowMs(DateTime.utc().toMillis());
-    }, 100);
+      toastTickRef.current = setTimeout(
+        scheduleNextUndoExpiryTick,
+        Math.max(0, nextUndoExpiryMs - currentNowMs + 16),
+      );
+    };
+
+    scheduleNextUndoExpiryTick();
+
     return () => {
       clearToastTick();
     };

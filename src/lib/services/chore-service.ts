@@ -69,9 +69,15 @@ export const listChores = async ({
   const rangeStartInput = toDateString(start, timeZone);
   const rangeEndInput = toDateString(end, timeZone);
 
+  const today = DateTime.now().setZone(timeZone).startOf("day");
+  const defaultWeekStart = today.minus({ days: today.weekday - 1 }).plus({ weeks: weekOffset });
+  const defaultWeekEnd = defaultWeekStart.plus({ days: 6 });
+  const rangeStart = rangeStartInput ?? defaultWeekStart.toISODate() ?? "";
+  const rangeEnd = rangeEndInput ?? defaultWeekEnd.toISODate() ?? "";
+
   const [seriesRows, overrideRows] = await Promise.all([
-    listActiveChoreSeriesByHousehold(householdId),
-    listChoreOverridesByHousehold(householdId),
+    listActiveChoreSeriesByHousehold({ householdId, rangeStart, rangeEnd }),
+    listChoreOverridesByHousehold({ householdId, rangeStart, rangeEnd }),
   ]);
 
   const overrides = new Map<
@@ -91,12 +97,6 @@ export const listChores = async ({
       undo_until: undoUntil,
     });
   }
-
-  const today = DateTime.now().setZone(timeZone).startOf("day");
-  const defaultWeekStart = today.minus({ days: today.weekday - 1 }).plus({ weeks: weekOffset });
-  const defaultWeekEnd = defaultWeekStart.plus({ days: 6 });
-  const rangeStart = rangeStartInput ?? defaultWeekStart.toISODate() ?? "";
-  const rangeEnd = rangeEndInput ?? defaultWeekEnd.toISODate() ?? "";
 
   const chores = seriesRows.flatMap((row) => {
     const seriesStart = normalizeDate(row.start_date, timeZone);

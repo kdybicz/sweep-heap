@@ -9,6 +9,8 @@ type UndoToastStackProps = {
   onUndo: (choreId: number, occurrenceDate: string) => void;
 };
 
+const undoWindowMs = 5000;
+
 export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastStackProps) {
   if (!undoToasts.length) {
     return null;
@@ -18,7 +20,7 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
     <div className="fixed bottom-6 left-6 right-6 z-50 mx-auto flex max-w-md flex-col gap-3">
       {undoToasts.map((toast) => {
         const remainingMs = Math.max(0, DateTime.fromISO(toast.undoUntil).toMillis() - nowMs);
-        const progress = Math.min(100, (remainingMs / 5000) * 100);
+        const elapsedMs = Math.max(0, Math.min(undoWindowMs, undoWindowMs - remainingMs));
         return (
           <div
             key={`${toast.choreId}-${toast.occurrenceDate}`}
@@ -49,8 +51,11 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
             </div>
             <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--surface-strong)]">
               <div
-                className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-100"
-                style={{ width: `${progress}%` }}
+                className="undo-progress-bar h-full rounded-full bg-[var(--accent)]"
+                style={{
+                  animationDelay: `-${elapsedMs}ms`,
+                  animationDuration: `${undoWindowMs}ms`,
+                }}
               />
             </div>
           </div>

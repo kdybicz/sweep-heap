@@ -1,6 +1,8 @@
 import type { FormEvent } from "react";
+import { useId, useRef } from "react";
 
 import type { ChoreType } from "@/lib/chore-ui-state";
+import { useDialogFocusTrap } from "@/lib/use-dialog-focus-trap";
 
 type AddChoreModalProps = {
   open: boolean;
@@ -49,17 +51,40 @@ export default function AddChoreModal({
   onRepeatEndChange,
   onNotesChange,
 }: AddChoreModalProps) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useDialogFocusTrap({
+    active: open,
+    dialogRef,
+    onEscape: onClose,
+  });
+
   if (!open) {
     return null;
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
-      <button className="absolute inset-0 bg-black/40" onClick={onClose} type="button" />
-      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]">
+      <button
+        aria-label="Close add chore dialog"
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+        type="button"
+      />
+      <div
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--stroke)] bg-[var(--surface-weak)] px-6 py-5">
           <div>
-            <h3 className="text-xl font-semibold">Add a chore</h3>
+            <h3 className="text-xl font-semibold" id={titleId}>
+              Add a chore
+            </h3>
             <p className="text-xs text-[var(--muted)]">Quick details now, schedule tweaks later.</p>
           </div>
         </div>

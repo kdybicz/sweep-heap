@@ -103,3 +103,20 @@ textarea {
 button {
   font-family: inherit;
 }
+
+@keyframes undo-progress {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.undo-progress-bar {
+  animation-fill-mode: forwards;
+  animation-name: undo-progress;
+  animation-timing-function: linear;
+  transform-origin: left center;
+}
