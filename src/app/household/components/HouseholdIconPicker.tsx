@@ -38,7 +38,7 @@ type HouseholdIconPickerProps = {
 export default function HouseholdIconPicker({
   value,
   onChange,
-  showEmptyIconPreview = true,
+  showEmptyIconPreview = false,
 }: HouseholdIconPickerProps) {
   const [open, setOpen] = useState(false);
   const selectedIcon = value.trim();
