@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import DeleteAccountForm from "@/app/user/edit/DeleteAccountForm";
 import UserDetailsEditForm from "@/app/user/edit/UserDetailsEditForm";
-import { auth } from "@/auth";
+import { getSession } from "@/auth";
 import { getActiveHouseholdSummary } from "@/lib/repositories";
 
 export default async function UserEditPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) {
     redirect("/auth");
   }

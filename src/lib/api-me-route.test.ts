@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, getActiveHouseholdIdMock, getUserMembershipsMock, updateUserNameByIdMock } =
+const { getSessionMock, getActiveHouseholdIdMock, getUserMembershipsMock, updateUserNameByIdMock } =
   vi.hoisted(() => ({
-    authMock: vi.fn(),
+    getSessionMock: vi.fn(),
     getActiveHouseholdIdMock: vi.fn(),
     getUserMembershipsMock: vi.fn(),
     updateUserNameByIdMock: vi.fn(),
   }));
 
 vi.mock("@/auth", () => ({
-  auth: authMock,
+  getSession: getSessionMock,
 }));
 
 vi.mock("@/lib/repositories", () => ({
@@ -36,14 +36,14 @@ const invalidJsonPatchRequest = () =>
 
 describe("/api/me route", () => {
   beforeEach(() => {
-    authMock.mockReset();
+    getSessionMock.mockReset();
     getActiveHouseholdIdMock.mockReset();
     getUserMembershipsMock.mockReset();
     updateUserNameByIdMock.mockReset();
   });
 
   it("GET rejects unauthenticated requests", async () => {
-    authMock.mockResolvedValue(null);
+    getSessionMock.mockResolvedValue(null);
 
     const response = await GET();
     const body = await response.json();
@@ -55,7 +55,7 @@ describe("/api/me route", () => {
   });
 
   it("GET rejects non-numeric user ids", async () => {
-    authMock.mockResolvedValue({ user: { id: "abc" } });
+    getSessionMock.mockResolvedValue({ user: { id: "abc" } });
 
     const response = await GET();
     const body = await response.json();
@@ -67,7 +67,7 @@ describe("/api/me route", () => {
   });
 
   it("GET returns user details and memberships", async () => {
-    authMock.mockResolvedValue({
+    getSessionMock.mockResolvedValue({
       user: {
         id: "4",
         name: "Alex",
@@ -108,7 +108,7 @@ describe("/api/me route", () => {
   });
 
   it("PATCH rejects unauthenticated requests", async () => {
-    authMock.mockResolvedValue(null);
+    getSessionMock.mockResolvedValue(null);
 
     const response = await PATCH(patchRequest({ name: "Alex" }));
     const body = await response.json();
@@ -119,7 +119,7 @@ describe("/api/me route", () => {
   });
 
   it("PATCH rejects non-numeric user ids", async () => {
-    authMock.mockResolvedValue({ user: { id: "abc" } });
+    getSessionMock.mockResolvedValue({ user: { id: "abc" } });
 
     const response = await PATCH(patchRequest({ name: "Alex" }));
     const body = await response.json();
@@ -130,7 +130,7 @@ describe("/api/me route", () => {
   });
 
   it("PATCH rejects invalid json payloads", async () => {
-    authMock.mockResolvedValue({ user: { id: "4" } });
+    getSessionMock.mockResolvedValue({ user: { id: "4" } });
 
     const response = await PATCH(invalidJsonPatchRequest());
     const body = await response.json();
@@ -141,7 +141,7 @@ describe("/api/me route", () => {
   });
 
   it("PATCH rejects empty names", async () => {
-    authMock.mockResolvedValue({ user: { id: "4" } });
+    getSessionMock.mockResolvedValue({ user: { id: "4" } });
 
     const response = await PATCH(patchRequest({ name: "   " }));
     const body = await response.json();
@@ -152,7 +152,7 @@ describe("/api/me route", () => {
   });
 
   it("PATCH returns not found when user does not exist", async () => {
-    authMock.mockResolvedValue({ user: { id: "4" } });
+    getSessionMock.mockResolvedValue({ user: { id: "4" } });
     updateUserNameByIdMock.mockResolvedValue(null);
 
     const response = await PATCH(patchRequest({ name: "Alex" }));
@@ -167,7 +167,7 @@ describe("/api/me route", () => {
   });
 
   it("PATCH updates user name", async () => {
-    authMock.mockResolvedValue({ user: { id: "4" } });
+    getSessionMock.mockResolvedValue({ user: { id: "4" } });
     updateUserNameByIdMock.mockResolvedValue({
       id: 4,
       name: "Alex",

@@ -91,12 +91,10 @@ export const createDeleteAccountToken = async ({
   try {
     await client.query("begin");
     await client.query("select pg_advisory_xact_lock($1)", [userId]);
-    await client.query("delete from verification_token where identifier like $1", [
-      `${deleteAccountTokenPrefix}:${userId}:%`,
-    ]);
+    await client.query("delete from delete_account_tokens where user_id = $1", [userId]);
     await client.query(
-      "insert into verification_token (identifier, token, expires) values ($1, $2, $3)",
-      [identifier, tokenHash, expiresAt],
+      "insert into delete_account_tokens (user_id, identifier, token_hash, expires_at) values ($1, $2, $3, $4)",
+      [userId, identifier, tokenHash, expiresAt],
     );
     await client.query("commit");
   } catch (error) {
@@ -115,7 +113,7 @@ export const consumeDeleteAccountToken = async ({
   tokenHash: string;
 }) => {
   const result = await pool.query<{ identifier: string }>(
-    "delete from verification_token where identifier = $1 and token = $2 and expires > now() returning identifier",
+    "delete from delete_account_tokens where identifier = $1 and token_hash = $2 and expires_at > now() returning identifier",
     [identifier, tokenHash],
   );
   return result.rows[0]?.identifier ?? null;

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppearanceSettingsForm from "@/app/settings/AppearanceSettingsForm";
-import { auth } from "@/auth";
+import { getSession } from "@/auth";
 import { getActiveHouseholdSummary } from "@/lib/repositories";
 
 export default async function SettingsPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) {
     redirect("/auth");
   }

@@ -1,9 +1,12 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { authClient } from "@/lib/auth-client";
+
 export default function AuthForm() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -13,10 +16,16 @@ export default function AuthForm() {
     setError(null);
     setLoading(true);
     try {
-      await signIn("nodemailer", {
+      const result = await authClient.signIn.magicLink({
         email,
-        callbackUrl: "/household",
+        callbackURL: "/household",
       });
+      if (result.error) {
+        setError(result.error.message ?? "Sign in failed");
+        setLoading(false);
+        return;
+      }
+      router.push("/auth/check-email");
     } catch (submitError) {
       const message = submitError instanceof Error ? submitError.message : "Sign in failed";
       setError(message);

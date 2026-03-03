@@ -1,53 +1,135 @@
-import PostgresAdapter from "@auth/pg-adapter";
-import NextAuth from "next-auth";
-import Nodemailer from "next-auth/providers/nodemailer";
+import { betterAuth } from "better-auth";
+import { magicLink } from "better-auth/plugins";
+import { headers } from "next/headers";
+import nodemailer from "nodemailer";
+
 import { pool } from "@/lib/db";
 
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-    };
-  }
-}
+const appUrl = process.env.AUTH_URL;
 
-export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = process.env.SMTP_PORT;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  const smtpFrom = process.env.SMTP_FROM;
+const smtpHost = process.env.SMTP_HOST;
+const smtpFrom = process.env.SMTP_FROM;
+const parsedSmtpPort = Number(process.env.SMTP_PORT ?? 587);
+const smtpPort = Number.isFinite(parsedSmtpPort) ? parsedSmtpPort : 587;
+const smtpUser = process.env.SMTP_USER;
+const smtpPass = process.env.SMTP_PASS;
+const smtpAuth = smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined;
 
-  const smtpAuth = smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined;
-  return {
-    adapter: PostgresAdapter(pool),
-    providers: [
-      Nodemailer({
-        server: {
-          host: smtpHost,
-          port: Number(smtpPort ?? 587),
-          auth: smtpAuth,
-        },
-        from: smtpFrom,
-      }),
-    ],
-    pages: {
-      signIn: "/auth",
-      verifyRequest: "/auth/check-email",
-    },
-    session: {
-      strategy: "database",
-    },
-    callbacks: {
-      session({ session, user }) {
-        if (session.user) {
-          session.user.id = String(user.id);
-        }
-        return session;
-      },
-    },
-  };
+const transporter = nodemailer.createTransport({
+  host: smtpHost,
+  port: smtpPort,
+  auth: smtpAuth,
 });
+
+const magicLinkHtml = ({ url, host }: { url: string; host: string }) => {
+  const escapedHost = host.replace(/\./g, "&#8203;.");
+  const brandColor = "#346df1";
+  const color = {
+    background: "#f9f9f9",
+    text: "#444",
+    mainBackground: "#fff",
+    buttonBackground: brandColor,
+    buttonBorder: brandColor,
+    buttonText: "#fff",
+  };
+
+  return `<body style="background: ${color.background};">
+  <table width="100%" border="0" cellspacing="20" cellpadding="0" style="background: ${color.mainBackground}; max-width: 600px; margin: auto; border-radius: 10px;">
+    <tr>
+      <td align="center" style="padding: 10px 0; font-size: 22px; font-family: Helvetica, Arial, sans-serif; color: ${color.text};">
+        Sign in to <strong>${escapedHost}</strong>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding: 10px 0;">
+        <table border="0" cellspacing="0" cellpadding="0">
+          <tr>
+            <td align="center" style="border-radius: 5px;" bgcolor="${color.buttonBackground}">
+              <a href="${url}" target="_blank" style="font-size: 18px; font-family: Helvetica, Arial, sans-serif; color: ${color.buttonText}; text-decoration: none; border-radius: 5px; padding: 10px 20px; border: 1px solid ${color.buttonBorder}; display: inline-block; font-weight: bold;">
+                Sign in
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding: 10px 0; font-size: 14px; font-family: Helvetica, Arial, sans-serif; color: ${color.text};">
+        If you did not request this email, you can safely ignore it.
+      </td>
+    </tr>
+  </table>
+</body>`;
+};
+
+const magicLinkText = ({ url, host }: { url: string; host: string }) =>
+  `Sign in to ${host}\n${url}\n\n`;
+
+export const auth = betterAuth({
+  appName: "Chores",
+  baseURL: appUrl,
+  trustedOrigins: appUrl ? [appUrl] : ["http://localhost:3000"],
+  database: pool,
+  advanced: {
+    database: {
+      generateId: "serial",
+    },
+  },
+  user: {
+    modelName: "users",
+    fields: {
+      emailVerified: "email_verified",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    },
+  },
+  session: {
+    modelName: "sessions",
+    fields: {
+      userId: "user_id",
+      token: "token",
+      expiresAt: "expires_at",
+      ipAddress: "ip_address",
+      userAgent: "user_agent",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    },
+  },
+  account: {
+    modelName: "accounts",
+    fields: {
+      userId: "user_id",
+      accountId: "account_id",
+      providerId: "provider_id",
+      accessTokenExpiresAt: "access_token_expires_at",
+      refreshTokenExpiresAt: "refresh_token_expires_at",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    },
+  },
+  verification: {
+    modelName: "verification",
+    fields: {
+      expiresAt: "expires_at",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    },
+  },
+  plugins: [
+    magicLink({
+      expiresIn: 24 * 60 * 60,
+      sendMagicLink: async ({ email, url }) => {
+        const host = new URL(url).host;
+        await transporter.sendMail({
+          to: email,
+          from: smtpFrom,
+          subject: `Sign in to ${host}`,
+          text: magicLinkText({ url, host }),
+          html: magicLinkHtml({ url, host }),
+        });
+      },
+    }),
+  ],
+});
+
+export const getSession = async () => auth.api.getSession({ headers: await headers() });

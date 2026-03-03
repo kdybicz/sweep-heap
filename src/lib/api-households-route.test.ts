@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  authMock,
+  getSessionMock,
   createHouseholdWithOwnerMock,
   getActiveHouseholdSummaryMock,
   getUserMembershipsMock,
   updateHouseholdByIdMock,
 } = vi.hoisted(() => ({
-  authMock: vi.fn(),
+  getSessionMock: vi.fn(),
   createHouseholdWithOwnerMock: vi.fn(),
   getActiveHouseholdSummaryMock: vi.fn(),
   getUserMembershipsMock: vi.fn(),
@@ -15,7 +15,7 @@ const {
 }));
 
 vi.mock("@/auth", () => ({
-  auth: authMock,
+  getSession: getSessionMock,
 }));
 
 vi.mock("@/lib/repositories", () => ({
@@ -36,7 +36,7 @@ const requestWithBody = (method: "POST" | "PATCH", body: Record<string, unknown>
 
 describe("/api/households route", () => {
   beforeEach(() => {
-    authMock.mockReset();
+    getSessionMock.mockReset();
     createHouseholdWithOwnerMock.mockReset();
     getActiveHouseholdSummaryMock.mockReset();
     getUserMembershipsMock.mockReset();
@@ -44,7 +44,7 @@ describe("/api/households route", () => {
   });
 
   it("GET returns active household for authenticated user", async () => {
-    authMock.mockResolvedValue({ user: { id: "7" } });
+    getSessionMock.mockResolvedValue({ user: { id: "7" } });
     getActiveHouseholdSummaryMock.mockResolvedValue({
       id: 11,
       name: "Home",
@@ -70,7 +70,7 @@ describe("/api/households route", () => {
   });
 
   it("POST normalizes icon and invalid timezone before create", async () => {
-    authMock.mockResolvedValue({ user: { id: "21" } });
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
     getUserMembershipsMock.mockResolvedValue([]);
     createHouseholdWithOwnerMock.mockResolvedValue(100);
 
@@ -94,7 +94,7 @@ describe("/api/households route", () => {
   });
 
   it("PATCH rejects non-admin users", async () => {
-    authMock.mockResolvedValue({ user: { id: "9" } });
+    getSessionMock.mockResolvedValue({ user: { id: "9" } });
     getActiveHouseholdSummaryMock.mockResolvedValue({
       id: 3,
       name: "Flat",
@@ -118,7 +118,7 @@ describe("/api/households route", () => {
   });
 
   it("PATCH updates household and clears empty icon", async () => {
-    authMock.mockResolvedValue({ user: { id: "9" } });
+    getSessionMock.mockResolvedValue({ user: { id: "9" } });
     getActiveHouseholdSummaryMock.mockResolvedValue({
       id: 3,
       name: "Flat",

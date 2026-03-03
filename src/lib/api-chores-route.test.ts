@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { authMock, getActiveHouseholdIdMock, mutateChoreMock } = vi.hoisted(() => ({
-  authMock: vi.fn(),
+const { getSessionMock, getActiveHouseholdIdMock, mutateChoreMock } = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
   getActiveHouseholdIdMock: vi.fn(),
   mutateChoreMock: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
-  auth: authMock,
+  getSession: getSessionMock,
 }));
 
 vi.mock("@/lib/repositories", () => ({
@@ -23,7 +23,7 @@ import { PATCH } from "@/app/api/chores/route";
 
 describe("PATCH /api/chores", () => {
   it("allows repeated stay-open log calls", async () => {
-    authMock.mockResolvedValue({ user: { id: "21" } });
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
     getActiveHouseholdIdMock.mockResolvedValue(11);
     mutateChoreMock.mockResolvedValue({
       ok: true,

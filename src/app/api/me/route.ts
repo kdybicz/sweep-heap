@@ -1,10 +1,10 @@
-import { auth } from "@/auth";
+import { getSession } from "@/auth";
 import { getActiveHouseholdId, getUserMemberships, updateUserNameById } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
 const getSessionContext = async () => {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) {
     return {
       session,

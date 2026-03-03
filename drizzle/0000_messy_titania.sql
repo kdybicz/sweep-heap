@@ -1,17 +1,21 @@
 CREATE TABLE "accounts" (
 	"id" serial PRIMARY KEY NOT NULL,
-	"userId" integer NOT NULL,
-	"type" text NOT NULL,
-	"provider" text NOT NULL,
-	"providerAccountId" text NOT NULL,
+	"user_id" integer NOT NULL,
+	"account_id" text NOT NULL,
+	"provider_id" text NOT NULL,
+	"type" text,
+	"password" text,
 	"refresh_token" text,
 	"access_token" text,
-	"expires_at" bigint,
+	"access_token_expires_at" timestamp with time zone,
+	"refresh_token_expires_at" timestamp with time zone,
 	"id_token" text,
 	"scope" text,
 	"session_state" text,
 	"token_type" text,
-	CONSTRAINT "accounts_provider_providerAccountId_unique" UNIQUE("provider","providerAccountId")
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "accounts_provider_id_account_id_unique" UNIQUE("provider_id","account_id")
 );
 --> statement-breakpoint
 CREATE TABLE "chore_occurrence_overrides" (
@@ -39,6 +43,17 @@ CREATE TABLE "chores" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "delete_account_tokens" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"user_id" integer NOT NULL,
+	"identifier" text NOT NULL,
+	"token_hash" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "delete_account_tokens_identifier_unique" UNIQUE("identifier"),
+	CONSTRAINT "delete_account_tokens_user_identifier_unique" UNIQUE("user_id","identifier")
+);
+--> statement-breakpoint
 CREATE TABLE "household_memberships" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"household_id" integer NOT NULL,
@@ -53,37 +68,47 @@ CREATE TABLE "households" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"time_zone" text DEFAULT 'UTC' NOT NULL,
+	"icon" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "sessions" (
 	"id" serial PRIMARY KEY NOT NULL,
-	"userId" integer NOT NULL,
-	"expires" timestamp with time zone NOT NULL,
-	"sessionToken" text NOT NULL,
-	CONSTRAINT "sessions_sessionToken_unique" UNIQUE("sessionToken")
+	"user_id" integer NOT NULL,
+	"token" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"ip_address" text,
+	"user_agent" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "sessions_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text,
-	"email" text,
-	"emailVerified" timestamp with time zone,
+	"email" text NOT NULL,
+	"email_verified" boolean DEFAULT false NOT NULL,
 	"image" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-CREATE TABLE "verification_token" (
+CREATE TABLE "verification" (
+	"id" serial PRIMARY KEY NOT NULL,
 	"identifier" text NOT NULL,
-	"expires" timestamp with time zone NOT NULL,
-	"token" text NOT NULL,
-	CONSTRAINT "verification_token_identifier_token_pk" PRIMARY KEY("identifier","token")
+	"value" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "verification_identifier_value_unique" UNIQUE("identifier","value")
 );
 --> statement-breakpoint
-ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chore_occurrence_overrides" ADD CONSTRAINT "chore_occurrence_overrides_chore_id_chores_id_fk" FOREIGN KEY ("chore_id") REFERENCES "public"."chores"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chores" ADD CONSTRAINT "chores_household_id_households_id_fk" FOREIGN KEY ("household_id") REFERENCES "public"."households"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "delete_account_tokens" ADD CONSTRAINT "delete_account_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "household_memberships" ADD CONSTRAINT "household_memberships_household_id_households_id_fk" FOREIGN KEY ("household_id") REFERENCES "public"."households"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "household_memberships" ADD CONSTRAINT "household_memberships_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sessions" ADD CONSTRAINT "sessions_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;

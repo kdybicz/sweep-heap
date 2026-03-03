@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 
-import { auth } from "@/auth";
+import { getSession } from "@/auth";
 import {
   createHouseholdWithOwner,
   getActiveHouseholdSummary,
@@ -31,7 +31,7 @@ const toIcon = (value: unknown) => {
 };
 
 const getSessionUserId = async () => {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) {
     return null;
   }

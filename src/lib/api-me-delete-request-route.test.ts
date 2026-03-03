@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, createDeleteAccountTokenMock, sendDeleteAccountConfirmationEmailMock } =
+const { getSessionMock, createDeleteAccountTokenMock, sendDeleteAccountConfirmationEmailMock } =
   vi.hoisted(() => ({
-    authMock: vi.fn(),
+    getSessionMock: vi.fn(),
     createDeleteAccountTokenMock: vi.fn(),
     sendDeleteAccountConfirmationEmailMock: vi.fn(),
   }));
 
 vi.mock("@/auth", () => ({
-  auth: authMock,
+  getSession: getSessionMock,
 }));
 
 vi.mock("@/lib/repositories", () => ({
@@ -30,13 +30,13 @@ const request = () =>
 
 describe("/api/me/delete-request route", () => {
   beforeEach(() => {
-    authMock.mockReset();
+    getSessionMock.mockReset();
     createDeleteAccountTokenMock.mockReset();
     sendDeleteAccountConfirmationEmailMock.mockReset();
   });
 
   it("rejects unauthenticated requests", async () => {
-    authMock.mockResolvedValue(null);
+    getSessionMock.mockResolvedValue(null);
 
     const response = await POST(request());
     const body = await response.json();
@@ -48,7 +48,7 @@ describe("/api/me/delete-request route", () => {
   });
 
   it("rejects non-numeric user ids", async () => {
-    authMock.mockResolvedValue({ user: { id: "abc", email: "alex@example.com" } });
+    getSessionMock.mockResolvedValue({ user: { id: "abc", email: "alex@example.com" } });
 
     const response = await POST(request());
     const body = await response.json();
@@ -60,7 +60,7 @@ describe("/api/me/delete-request route", () => {
   });
 
   it("rejects when account has no email", async () => {
-    authMock.mockResolvedValue({ user: { id: "4", email: null } });
+    getSessionMock.mockResolvedValue({ user: { id: "4", email: null } });
 
     const response = await POST(request());
     const body = await response.json();
@@ -75,7 +75,7 @@ describe("/api/me/delete-request route", () => {
   });
 
   it("creates and emails delete confirmation token", async () => {
-    authMock.mockResolvedValue({ user: { id: "4", email: "alex@example.com" } });
+    getSessionMock.mockResolvedValue({ user: { id: "4", email: "alex@example.com" } });
 
     const response = await POST(request());
     const body = await response.json();
@@ -101,7 +101,7 @@ describe("/api/me/delete-request route", () => {
   });
 
   it("returns server error when email delivery fails", async () => {
-    authMock.mockResolvedValue({ user: { id: "4", email: "alex@example.com" } });
+    getSessionMock.mockResolvedValue({ user: { id: "4", email: "alex@example.com" } });
     sendDeleteAccountConfirmationEmailMock.mockRejectedValue(new Error("smtp down"));
 
     const response = await POST(request());

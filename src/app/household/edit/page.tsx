@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import HouseholdEditForm from "@/app/household/edit/HouseholdEditForm";
-import { auth } from "@/auth";
+import { getSession } from "@/auth";
 import { getActiveHouseholdSummary } from "@/lib/repositories";
 
 export default async function HouseholdEditPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) {
     redirect("/auth");
   }

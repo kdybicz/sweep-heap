@@ -1,9 +1,8 @@
 import {
-  bigint,
+  boolean,
   date,
   integer,
   pgTable,
-  primaryKey,
   serial,
   text,
   timestamp,
@@ -21,55 +20,87 @@ export const households = pgTable("households", {
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name"),
-  email: text("email").unique(),
-  emailVerified: timestamp("emailVerified", { mode: "date", withTimezone: true }),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
 
 export const accounts = pgTable(
   "accounts",
   {
     id: serial("id").primaryKey(),
-    userId: integer("userId")
+    userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    type: text("type").notNull(),
-    provider: text("provider").notNull(),
-    providerAccountId: text("providerAccountId").notNull(),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    type: text("type"),
+    password: text("password"),
     refreshToken: text("refresh_token"),
     accessToken: text("access_token"),
-    expiresAt: bigint("expires_at", { mode: "number" }),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", {
+      mode: "date",
+      withTimezone: true,
+    }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", {
+      mode: "date",
+      withTimezone: true,
+    }),
     idToken: text("id_token"),
     scope: text("scope"),
     sessionState: text("session_state"),
     tokenType: text("token_type"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    unique("accounts_provider_providerAccountId_unique").on(
-      table.provider,
-      table.providerAccountId,
-    ),
+    unique("accounts_provider_id_account_id_unique").on(table.providerId, table.accountId),
   ],
 );
 
 export const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
-  userId: integer("userId")
+  userId: integer("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
-  sessionToken: text("sessionToken").notNull().unique(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
 
-export const verificationToken = pgTable(
-  "verification_token",
+export const verifications = pgTable(
+  "verification",
   {
+    id: serial("id").primaryKey(),
     identifier: text("identifier").notNull(),
-    expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
-    token: text("token").notNull(),
+    value: text("value").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [primaryKey({ columns: [table.identifier, table.token] })],
+  (table) => [unique("verification_identifier_value_unique").on(table.identifier, table.value)],
+);
+
+export const deleteAccountTokens = pgTable(
+  "delete_account_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    identifier: text("identifier").notNull().unique(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("delete_account_tokens_user_identifier_unique").on(table.userId, table.identifier),
+  ],
 );
 
 export const householdMemberships = pgTable(

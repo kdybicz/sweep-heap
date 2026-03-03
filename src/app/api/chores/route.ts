@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { getSession } from "@/auth";
 import { getActiveHouseholdId } from "@/lib/repositories";
 import { listChores, mutateChore } from "@/lib/services";
 
@@ -7,7 +7,7 @@ export const revalidate = 0;
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user?.id) {
       return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user?.id) {
       return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }

@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import HouseholdBoard from "@/app/household/board/HouseholdBoard";
 import { HouseholdViewerProvider } from "@/app/household/board/HouseholdViewerContext";
-import { auth } from "@/auth";
+import { getSession } from "@/auth";
 import { getUserMemberships } from "@/lib/repositories";
 
 export default async function HouseholdPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) {
     redirect("/auth");
   }

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { auth } from "@/auth";
+import { getSession } from "@/auth";
 import { sendDeleteAccountConfirmationEmail } from "@/lib/delete-account-email";
 import { buildDeleteAccountTokenIdentifier, createDeleteAccountToken } from "@/lib/repositories";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const tokenExpiryInMinutes = 30;
 
 export async function POST(request: Request) {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) {
     return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }

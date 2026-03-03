@@ -207,13 +207,13 @@ describe("createDeleteAccountToken", () => {
     expect(client.query).toHaveBeenNthCalledWith(2, "select pg_advisory_xact_lock($1)", [9]);
     expect(client.query).toHaveBeenNthCalledWith(
       3,
-      "delete from verification_token where identifier like $1",
-      ["delete-account:9:%"],
+      "delete from delete_account_tokens where user_id = $1",
+      [9],
     );
     expect(client.query).toHaveBeenNthCalledWith(
       4,
-      "insert into verification_token (identifier, token, expires) values ($1, $2, $3)",
-      ["delete-account:9:nonce", "hash", expiresAt],
+      "insert into delete_account_tokens (user_id, identifier, token_hash, expires_at) values ($1, $2, $3, $4)",
+      [9, "delete-account:9:nonce", "hash", expiresAt],
     );
     expect(client.query).toHaveBeenNthCalledWith(5, "commit");
     expect(client.release).toHaveBeenCalledTimes(1);
@@ -234,7 +234,7 @@ describe("consumeDeleteAccountToken", () => {
     });
 
     expect(queryMock).toHaveBeenCalledWith(
-      "delete from verification_token where identifier = $1 and token = $2 and expires > now() returning identifier",
+      "delete from delete_account_tokens where identifier = $1 and token_hash = $2 and expires_at > now() returning identifier",
       ["delete-account:4:nonce", "hash"],
     );
     expect(identifier).toBe("delete-account:4:nonce");

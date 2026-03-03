@@ -44,8 +44,8 @@ const seed = async () => {
   const householdId = householdResult.rows[0]?.id;
 
   const userResult = await pool.query(
-    'insert into users (name, email, "emailVerified") values ($1, $2, now()) returning id',
-    ["Demo User", "demo.user@example.com"],
+    "insert into users (name, email, email_verified) values ($1, $2, $3) returning id",
+    ["Demo User", "demo.user@example.com", true],
   );
   const userId = userResult.rows[0]?.id;
 
