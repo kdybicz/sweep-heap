@@ -1,6 +1,6 @@
 export type AccountShortcut = {
-  href: "/user/edit" | "/settings" | "/household/edit" | "/signout";
-  label: "Profile" | "Settings" | "Household" | "Sign out";
+  href: "/user/edit" | "/settings" | "/household/edit" | "/household/members" | "/signout";
+  label: "Profile" | "Settings" | "Household" | "Members" | "Sign out";
 };
 
 export const getAccountShortcuts = (isHouseholdAdmin: boolean): AccountShortcut[] => {
@@ -9,6 +9,10 @@ export const getAccountShortcuts = (isHouseholdAdmin: boolean): AccountShortcut[
       {
         href: "/user/edit",
         label: "Profile",
+      },
+      {
+        href: "/household/members",
+        label: "Members",
       },
       {
         href: "/household/edit",
@@ -29,6 +33,10 @@ export const getAccountShortcuts = (isHouseholdAdmin: boolean): AccountShortcut[
     {
       href: "/user/edit",
       label: "Profile",
+    },
+    {
+      href: "/household/members",
+      label: "Members",
     },
     {
       href: "/settings",

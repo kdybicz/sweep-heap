@@ -122,6 +122,26 @@ export const householdMemberships = pgTable(
   ],
 );
 
+export const householdMemberInvites = pgTable("household_member_invites", {
+  id: serial("id").primaryKey(),
+  householdId: integer("household_id")
+    .notNull()
+    .references(() => households.id, { onDelete: "cascade" }),
+  invitedByUserId: integer("invited_by_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  acceptedByUserId: integer("accepted_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  email: text("email").notNull(),
+  role: text("role").notNull().default("member"),
+  identifier: text("identifier").notNull().unique(),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { mode: "date", withTimezone: true }),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+});
+
 export const chores = pgTable("chores", {
   id: serial("id").primaryKey(),
   householdId: integer("household_id")

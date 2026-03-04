@@ -1,13 +1,45 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 
+const getSafeCallbackUrl = (value: string) => {
+  const candidates = [value];
+
+  try {
+    candidates.unshift(decodeURIComponent(value));
+  } catch {}
+
+  for (const candidate of candidates) {
+    if (candidate.startsWith("/") && !candidate.startsWith("//")) {
+      return candidate;
+    }
+  }
+
+  return "/household";
+};
+
+const getPrefilledEmail = (value: string | null) => {
+  if (!value) {
+    return "";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.includes("@")) {
+    return "";
+  }
+
+  return trimmed;
+};
+
 export default function AuthForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+
+  const callbackURL = getSafeCallbackUrl(searchParams.get("callbackURL") ?? "/household");
+  const [email, setEmail] = useState(() => getPrefilledEmail(searchParams.get("email")));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +50,7 @@ export default function AuthForm() {
     try {
       const result = await authClient.signIn.magicLink({
         email,
-        callbackURL: "/household",
+        callbackURL,
       });
       if (result.error) {
         setError(result.error.message ?? "Sign in failed");

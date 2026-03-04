@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 const THEME_PREFERENCE_STORAGE_KEY = "sweep-heap-theme";
+const THEME_PREFERENCE_COOKIE_KEY = "sweep-heap-theme";
+const THEME_PREFERENCE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 const themeOptions = [
   {
@@ -40,6 +42,21 @@ const applyThemePreference = (preference: ThemePreference) => {
   document.documentElement.removeAttribute("data-theme");
 };
 
+const persistThemePreferenceCookie = (preference: ThemePreference) => {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  if (preference === "system") {
+    // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not universally supported.
+    document.cookie = `${THEME_PREFERENCE_COOKIE_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
+    return;
+  }
+
+  // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not universally supported.
+  document.cookie = `${THEME_PREFERENCE_COOKIE_KEY}=${preference}; Path=/; Max-Age=${THEME_PREFERENCE_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+};
+
 export default function AppearanceSettingsForm() {
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
 
@@ -53,6 +70,7 @@ export default function AppearanceSettingsForm() {
       if (isThemePreference(storedThemePreference)) {
         setThemePreference(storedThemePreference);
         applyThemePreference(storedThemePreference);
+        persistThemePreferenceCookie(storedThemePreference);
         return;
       }
 
@@ -66,6 +84,7 @@ export default function AppearanceSettingsForm() {
   const handleThemePreferenceChange = (nextPreference: ThemePreference) => {
     setThemePreference(nextPreference);
     applyThemePreference(nextPreference);
+    persistThemePreferenceCookie(nextPreference);
 
     if (typeof window === "undefined") {
       return;
