@@ -85,7 +85,7 @@ yarn dev
 
 ## Useful Commands
 
-- `yarn db:reset` - drops and recreates `public` schema, then runs migrations
+- `yarn db:reset` - drops `drizzle` and `public` schemas, recreates `public`, then runs migrations
 - `yarn db:migrate` - applies Drizzle migrations
 - `yarn db:generate` - generates migration files from `src/lib/drizzle/schema.ts`
 - `yarn db:studio` - opens Drizzle Studio
