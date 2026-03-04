@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { getSmtpSettings } from "@/lib/smtp";
 
 const deleteAccountHtml = ({
   confirmationUrl,
@@ -90,22 +91,20 @@ export const sendDeleteAccountConfirmationEmail = async ({
   expiresInMinutes: number;
   to: string;
 }) => {
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpFrom = process.env.SMTP_FROM;
+  const smtpSettings = getSmtpSettings();
+  const smtpHost = smtpSettings.host;
+  const smtpFrom = smtpSettings.from;
   if (!smtpHost || !smtpFrom) {
     throw new Error("Email is not configured");
   }
 
-  const parsedSmtpPort = Number(process.env.SMTP_PORT ?? 587);
-  const smtpPort = Number.isFinite(parsedSmtpPort) ? parsedSmtpPort : 587;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
   const host = new URL(confirmationUrl).host;
 
   const transporter = nodemailer.createTransport({
     host: smtpHost,
-    port: smtpPort,
-    auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
+    port: smtpSettings.port,
+    secure: smtpSettings.secure,
+    auth: smtpSettings.auth,
   });
 
   await transporter.sendMail({

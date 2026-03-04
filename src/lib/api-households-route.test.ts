@@ -69,6 +69,17 @@ describe("/api/households route", () => {
     });
   });
 
+  it("GET returns household required when user has no active household", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "7" } });
+    getActiveHouseholdSummaryMock.mockResolvedValue(null);
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ ok: false, error: "Household required" });
+  });
+
   it("POST normalizes icon and invalid timezone before create", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
     getUserMembershipsMock.mockResolvedValue([]);

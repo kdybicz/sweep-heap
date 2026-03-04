@@ -79,7 +79,8 @@ export const generateOccurrences = ({
   };
 
   if (repeatRule === "none") {
-    if (start >= clampStart && start <= clampEnd) {
+    const singleOccurrenceEnds = start.plus({ days: spanDays - 1 });
+    if (singleOccurrenceEnds >= clampStart && start <= clampEnd) {
       addOccurrenceSpan(start);
     }
     return Array.from(occurrenceSet).sort();
@@ -88,6 +89,9 @@ export const generateOccurrences = ({
   let cursor = start;
   while (true) {
     const nextCursor = advance(cursor, repeatRule);
+    if (nextCursor.equals(cursor)) {
+      break;
+    }
     if (nextCursor > clampStart) {
       break;
     }

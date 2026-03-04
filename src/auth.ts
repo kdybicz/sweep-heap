@@ -4,21 +4,16 @@ import { headers } from "next/headers";
 import nodemailer from "nodemailer";
 
 import { pool } from "@/lib/db";
+import { getSmtpSettings } from "@/lib/smtp";
 
 const appUrl = process.env.AUTH_URL;
-
-const smtpHost = process.env.SMTP_HOST;
-const smtpFrom = process.env.SMTP_FROM;
-const parsedSmtpPort = Number(process.env.SMTP_PORT ?? 587);
-const smtpPort = Number.isFinite(parsedSmtpPort) ? parsedSmtpPort : 587;
-const smtpUser = process.env.SMTP_USER;
-const smtpPass = process.env.SMTP_PASS;
-const smtpAuth = smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined;
+const smtpSettings = getSmtpSettings();
 
 const transporter = nodemailer.createTransport({
-  host: smtpHost,
-  port: smtpPort,
-  auth: smtpAuth,
+  host: smtpSettings.host,
+  port: smtpSettings.port,
+  secure: smtpSettings.secure,
+  auth: smtpSettings.auth,
 });
 
 const magicLinkHtml = ({ url, host }: { url: string; host: string }) => {
@@ -122,7 +117,7 @@ export const auth = betterAuth({
         const host = new URL(url).host;
         await transporter.sendMail({
           to: email,
-          from: smtpFrom,
+          from: smtpSettings.from,
           subject: `Sign in to ${host}`,
           text: magicLinkText({ url, host }),
           html: magicLinkHtml({ url, host }),

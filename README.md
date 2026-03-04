@@ -2,6 +2,12 @@
 
 This is a Next.js 16 app for shared household chores, backed by PostgreSQL and Better Auth magic-link sign-in.
 
+## Project Docs
+
+- `docs/requirements.md` - product requirements and behavior.
+- `docs/requirements-quick-reference.md` - condensed product rules.
+- `docs/engineering-patterns.md` - canonical implementation patterns and contracts.
+
 ## Local Environment Requirements
 
 - Node.js 24 (see `.nvmrc` and `package.json#engines`)
@@ -22,6 +28,7 @@ The app expects these variables:
 - `AUTH_URL` (local app URL, usually `http://localhost:3000`)
 - `AUTH_SECRET` (required by Better Auth; generate a strong random value)
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (email transport; defaults target local Mailpit on port `1125`)
+- `SMTP_SECURE` (optional; `true`/`false` override, otherwise inferred from port `465`)
 
 For local Mailpit, leave `SMTP_USER` and `SMTP_PASS` empty (omit credentials).
 

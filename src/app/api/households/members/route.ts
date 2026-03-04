@@ -65,7 +65,7 @@ export async function GET() {
 
   const household = await getActiveHouseholdSummary(sessionContext.userId);
   if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 404 });
+    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }
 
   const [members, pendingInvites] = await Promise.all([
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
 
   const household = await getActiveHouseholdSummary(sessionContext.userId);
   if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 404 });
+    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }
 
   const payload = await parseJsonObjectBody(request);
@@ -189,7 +189,7 @@ export async function PATCH(request: Request) {
 
   const household = await getActiveHouseholdSummary(sessionContext.userId);
   if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 404 });
+    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }
 
   if (household.role !== "admin") {
@@ -259,7 +259,7 @@ export async function DELETE(request: Request) {
 
   const household = await getActiveHouseholdSummary(sessionContext.userId);
   if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 404 });
+    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }
 
   if (household.role !== "admin") {

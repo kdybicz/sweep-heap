@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { generateOccurrences } from "@/lib/occurrences";
+import { generateOccurrences, type RepeatRule } from "@/lib/occurrences";
 
 const timeZone = "Europe/Warsaw";
 
@@ -13,6 +13,20 @@ describe("generateOccurrences", () => {
       rangeEnd: "2026-03-08",
       repeatRule: "week",
       seriesEndDate: "2026-03-23",
+      timeZone,
+    });
+
+    expect(occurrences).toEqual(["2026-03-02"]);
+  });
+
+  it("includes non-repeating multi-day span days that overlap the range", () => {
+    const occurrences = generateOccurrences({
+      startDate: "2026-03-01",
+      endDate: "2026-03-03",
+      rangeStart: "2026-03-02",
+      rangeEnd: "2026-03-02",
+      repeatRule: "none",
+      seriesEndDate: null,
       timeZone,
     });
 
@@ -133,5 +147,19 @@ describe("generateOccurrences", () => {
       "2026-03-21",
       "2026-03-22",
     ]);
+  });
+
+  it("does not loop forever for unexpected repeat values", () => {
+    const occurrences = generateOccurrences({
+      startDate: "2026-03-02",
+      endDate: "2026-03-02",
+      rangeStart: "2026-03-02",
+      rangeEnd: "2026-03-02",
+      repeatRule: "unexpected" as unknown as RepeatRule,
+      seriesEndDate: null,
+      timeZone,
+    });
+
+    expect(occurrences).toEqual(["2026-03-02"]);
   });
 });

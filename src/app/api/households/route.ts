@@ -53,7 +53,7 @@ export async function GET() {
 
   const household = await getActiveHouseholdSummary(userId);
   if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 404 });
+    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }
 
   return Response.json({ ok: true, household });
@@ -98,7 +98,7 @@ export async function PATCH(request: Request) {
 
   const household = await getActiveHouseholdSummary(userId);
   if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 404 });
+    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }
   if (household.role !== "admin") {
     return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });

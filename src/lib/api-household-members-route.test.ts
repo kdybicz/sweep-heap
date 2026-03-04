@@ -110,6 +110,17 @@ describe("/api/households/members route", () => {
     expect(listPendingHouseholdInvitesMock).toHaveBeenCalledWith(11);
   });
 
+  it("GET returns household required when user has no active household", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "7" } });
+    getActiveHouseholdSummaryMock.mockResolvedValue(null);
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ ok: false, error: "Household required" });
+  });
+
   it("POST creates invite token and sends invitation email", async () => {
     getSessionMock.mockResolvedValue({
       user: { id: "7", name: "Alex", email: "alex@example.com" },

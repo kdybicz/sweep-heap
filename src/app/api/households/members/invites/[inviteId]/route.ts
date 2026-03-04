@@ -37,7 +37,7 @@ export async function POST(
 
   const household = await getActiveHouseholdSummary(userId);
   if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 404 });
+    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }
 
   const resolvedParams = await params;
@@ -105,7 +105,7 @@ export async function DELETE(
 
   const household = await getActiveHouseholdSummary(userId);
   if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 404 });
+    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }
 
   if (household.role !== "admin") {

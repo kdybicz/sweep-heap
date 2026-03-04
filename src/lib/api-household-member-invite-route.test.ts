@@ -109,6 +109,20 @@ describe("/api/households/members/invites/[inviteId] route", () => {
     expect(resendPendingHouseholdInviteMock).not.toHaveBeenCalled();
   });
 
+  it("POST returns household required when user has no active household", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "7" } });
+    getActiveHouseholdSummaryMock.mockResolvedValue(null);
+
+    const response = await POST(new Request("http://localhost/api/households/members/invites/12"), {
+      params: Promise.resolve({ inviteId: "12" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ ok: false, error: "Household required" });
+    expect(resendPendingHouseholdInviteMock).not.toHaveBeenCalled();
+  });
+
   it("DELETE forbids non-admin revoke", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "7" } });
     getActiveHouseholdSummaryMock.mockResolvedValue({
