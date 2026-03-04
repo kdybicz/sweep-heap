@@ -15,9 +15,9 @@ Use the right env loader by runtime:
 
 For agent/container flows:
 
-- `scripts/with-agent-env.mjs` loads `.env.local`, then optional `AGENT_ENV_FILE`, then `.env.agent.local`.
-- `.env.agent.local` overrides `AGENT_ENV_FILE` values by design.
-- The parser in `scripts/with-agent-env.mjs` is intentionally lightweight, not full dotenv semantics.
+- Use shared `make` targets for both humans and agents.
+- When `AGENT` is set, `Makefile` exports container-safe overrides (`DATABASE_URL`, `AUTH_URL`, `SMTP_HOST`).
+- Keep `.env.local` as the canonical host-dev values and avoid parsing dotenv files in Make (`include .env`) because Make syntax is not full dotenv syntax.
 
 ## 2) SMTP and Email Transport
 

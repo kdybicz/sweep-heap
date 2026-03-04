@@ -34,22 +34,20 @@ For local Mailpit, leave `SMTP_USER` and `SMTP_PASS` empty (omit credentials).
 
 ### Agent/Container Overrides
 
-If you run commands inside a container (for example this coding agent) and the host app/database live on your machine, keep `.env.local` pointed at `localhost` for normal host development and add container-only overrides in `.env.agent.local` (already gitignored by `.env*`):
+If you run commands inside a container (for example this coding agent) and the host app/database live on your machine, keep `.env.local` pointed at `localhost` for normal host development.
+
+Use the shared `Makefile` for commands. When `AGENT` is set (it is set by default in OpenCode sandboxes), `make` automatically overrides these values for container access:
+
+- `DATABASE_URL=postgresql://chores:chores@host.docker.internal:5432/chores`
+- `AUTH_URL=http://host.docker.internal:3000`
+- `SMTP_HOST=host.docker.internal`
+
+This keeps one command flow for both local devs and agents without dotenv shell parsing.
+
+To test the agent behavior on your host machine:
 
 ```bash
-cat >.env.agent.local <<'EOF'
-DATABASE_URL=postgresql://chores:chores@host.docker.internal:5432/chores
-AUTH_URL=http://host.docker.internal:3000
-SMTP_HOST=host.docker.internal
-EOF
-```
-
-Then run `agent:*` scripts from the container. They load `.env.local` and override with `.env.agent.local`.
-
-If you prefer storing overrides outside the repo, set `AGENT_ENV_FILE` before the command:
-
-```bash
-AGENT_ENV_FILE=/path/to/agent.env yarn agent:db:migrate
+AGENT=1 make db-migrate
 ```
 
 Generate a local auth secret if needed:
@@ -69,25 +67,25 @@ docker compose up -d
 2) Install dependencies:
 
 ```bash
-corepack yarn@4.12.0 install
+make install
 ```
 
 3) Prepare the database schema:
 
 ```bash
-yarn db:migrate
+make db-migrate
 ```
 
 4) Seed demo data:
 
 ```bash
-yarn seed:chores
+make seed-chores
 ```
 
 5) Run the app:
 
 ```bash
-yarn dev
+make dev
 ```
 
 ## Useful Commands
@@ -96,10 +94,10 @@ yarn dev
 - `yarn db:migrate` - applies Drizzle migrations
 - `yarn db:generate` - generates migration files from `src/lib/drizzle/schema.ts`
 - `yarn db:studio` - opens Drizzle Studio
-- `yarn agent:db:migrate` - runs migrations with container/agent env overrides
-- `yarn agent:db:reset` - resets DB with container/agent env overrides
-- `yarn agent:seed:chores` - seeds demo data with container/agent env overrides
-- `yarn agent:db:studio` - opens Drizzle Studio with container/agent env overrides
+- `make db-migrate` - applies migrations, with automatic agent overrides when `AGENT` is set
+- `make db-reset` - resets DB, with automatic agent overrides when `AGENT` is set
+- `make seed-chores` - seeds demo data, with automatic agent overrides when `AGENT` is set
+- `make db-studio` - opens Drizzle Studio, with automatic agent overrides when `AGENT` is set
 
 ## Local URLs
 
