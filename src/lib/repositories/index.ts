@@ -21,5 +21,6 @@ export {
   createDeleteAccountToken,
   deleteUserById,
   extractUserIdFromDeleteAccountTokenIdentifier,
+  isDeleteAccountTokenValid,
   updateUserNameById,
 } from "@/lib/repositories/user-repository";

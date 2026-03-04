@@ -118,3 +118,17 @@ export const consumeDeleteAccountToken = async ({
   );
   return result.rows[0]?.identifier ?? null;
 };
+
+export const isDeleteAccountTokenValid = async ({
+  identifier,
+  tokenHash,
+}: {
+  identifier: string;
+  tokenHash: string;
+}) => {
+  const result = await pool.query(
+    "select 1 from delete_account_tokens where identifier = $1 and token_hash = $2 and expires_at > now()",
+    [identifier, tokenHash],
+  );
+  return (result.rowCount ?? 0) > 0;
+};
