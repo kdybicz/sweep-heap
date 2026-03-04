@@ -11,7 +11,7 @@ import useHouseholdBoard from "@/app/household/board/useHouseholdBoard";
 
 export default function HouseholdBoard() {
   const board = useHouseholdBoard();
-  const { isHouseholdAdmin } = useHouseholdViewer();
+  const { householdIcon, householdName, isHouseholdAdmin, userName } = useHouseholdViewer();
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -28,7 +28,12 @@ export default function HouseholdBoard() {
         />
 
         <section className="flex flex-col gap-6">
-          <AccountHeader canEditHousehold={isHouseholdAdmin} />
+          <AccountHeader
+            canEditHousehold={isHouseholdAdmin}
+            householdIcon={householdIcon}
+            householdName={householdName}
+            userName={userName}
+          />
           <WeekGrid
             chores={board.week.chores}
             days={board.week.days}

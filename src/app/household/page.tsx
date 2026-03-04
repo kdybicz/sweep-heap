@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import HouseholdBoard from "@/app/household/board/HouseholdBoard";
 import { HouseholdViewerProvider } from "@/app/household/board/HouseholdViewerContext";
 import { getSession } from "@/auth";
-import { getUserMemberships } from "@/lib/repositories";
+import { getActiveHouseholdSummary } from "@/lib/repositories";
 
 export default async function HouseholdPage() {
   const session = await getSession();
@@ -15,15 +15,23 @@ export default async function HouseholdPage() {
     redirect("/auth");
   }
 
-  const memberships = await getUserMemberships(userId);
-  if (!memberships.length) {
+  const household = await getActiveHouseholdSummary(userId);
+  if (!household) {
     redirect("/household/setup");
   }
 
-  const isHouseholdAdmin = memberships[0]?.role === "admin";
+  const isHouseholdAdmin = household.role === "admin";
+  const householdName = household.name.trim() || "Your household";
+  const householdIcon = household.icon?.trim() || "";
+  const userName = session.user.name?.trim() || session.user.email?.split("@")[0]?.trim() || "You";
 
   return (
-    <HouseholdViewerProvider isHouseholdAdmin={isHouseholdAdmin}>
+    <HouseholdViewerProvider
+      householdIcon={householdIcon}
+      householdName={householdName}
+      isHouseholdAdmin={isHouseholdAdmin}
+      userName={userName}
+    >
       <HouseholdBoard />
     </HouseholdViewerProvider>
   );
