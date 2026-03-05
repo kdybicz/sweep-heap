@@ -136,6 +136,7 @@
   - Mark done writes override `status = open`, `closed_reason = done`.
   - Repeated logging is allowed.
 - Undo window is 5 seconds (not 10 seconds).
+- `action=set` and `action=undo` must target a valid generated occurrence day for that chore series.
 - `action=undo` is enforced against `undo_until` and returns conflict after the window expires.
 - Undo action deletes the override row for that occurrence.
 - UI shows active undo toasts with a visible countdown bar.

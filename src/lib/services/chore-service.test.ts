@@ -48,6 +48,13 @@ vi.mock("@/lib/date", () => ({
 
 import { listChores, mutateChore } from "@/lib/services";
 
+const scheduledSingleDaySeries = {
+  start_date: "2026-01-03",
+  end_date: "2026-01-03",
+  series_end_date: null,
+  repeat_rule: "none",
+} as const;
+
 describe("mutateChore", () => {
   beforeEach(() => {
     deleteChoreOccurrenceOverrideMock.mockReset();
@@ -187,7 +194,11 @@ describe("mutateChore", () => {
   });
 
   it("deletes override on undo action", async () => {
-    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "close_on_done" });
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "close_on_done",
+      ...scheduledSingleDaySeries,
+    });
     getChoreOccurrenceOverrideMock.mockResolvedValue({
       status: "closed",
       closedReason: "done",
@@ -212,7 +223,11 @@ describe("mutateChore", () => {
   });
 
   it("rejects undo when the undo window expired", async () => {
-    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "close_on_done" });
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "close_on_done",
+      ...scheduledSingleDaySeries,
+    });
     getChoreOccurrenceOverrideMock.mockResolvedValue({
       status: "closed",
       closedReason: "done",
@@ -240,7 +255,11 @@ describe("mutateChore", () => {
   });
 
   it("rejects undo when action is no longer undoable", async () => {
-    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "close_on_done" });
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "close_on_done",
+      ...scheduledSingleDaySeries,
+    });
     getChoreOccurrenceOverrideMock.mockResolvedValue(null);
 
     const result = await mutateChore({
@@ -302,7 +321,11 @@ describe("mutateChore", () => {
   });
 
   it("closes close-on-done chore occurrence on completion", async () => {
-    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "close_on_done" });
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "close_on_done",
+      ...scheduledSingleDaySeries,
+    });
 
     const result = await mutateChore({
       householdId: 11,
@@ -326,7 +349,11 @@ describe("mutateChore", () => {
   });
 
   it("keeps stay-open chore occurrence open when logging completion", async () => {
-    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "stay_open" });
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "stay_open",
+      ...scheduledSingleDaySeries,
+    });
 
     const result = await mutateChore({
       householdId: 11,
@@ -350,7 +377,11 @@ describe("mutateChore", () => {
   });
 
   it("allows repeated completion logs for stay-open chores", async () => {
-    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "stay_open" });
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "stay_open",
+      ...scheduledSingleDaySeries,
+    });
 
     const first = await mutateChore({
       householdId: 11,
@@ -392,6 +423,62 @@ describe("mutateChore", () => {
         closedReason: "done",
       }),
     );
+  });
+
+  it("rejects set when occurrence date is outside the chore schedule", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "close_on_done",
+      ...scheduledSingleDaySeries,
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "set",
+        choreId: 3,
+        occurrenceDate: "2026-01-04",
+        status: "closed",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      body: {
+        ok: false,
+        error: "Occurrence date is outside chore schedule",
+      },
+    });
+    expect(upsertChoreOccurrenceOverrideMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects undo when occurrence date is outside the chore schedule", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "close_on_done",
+      ...scheduledSingleDaySeries,
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "undo",
+        choreId: 3,
+        occurrenceDate: "2026-01-04",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      body: {
+        ok: false,
+        error: "Occurrence date is outside chore schedule",
+      },
+    });
+    expect(getChoreOccurrenceOverrideMock).not.toHaveBeenCalled();
+    expect(deleteChoreOccurrenceOverrideMock).not.toHaveBeenCalled();
   });
 });
 

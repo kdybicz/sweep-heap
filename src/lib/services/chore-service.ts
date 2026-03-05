@@ -55,6 +55,29 @@ const normalizeNotes = (value: unknown) => {
   return trimmed.slice(0, 500);
 };
 
+const isOccurrenceInSeries = ({
+  occurrenceDate,
+  repeatRule,
+  seriesEndDate,
+  startDate,
+  endDate,
+}: {
+  occurrenceDate: string;
+  repeatRule: string;
+  seriesEndDate: string | null;
+  startDate: string;
+  endDate: string;
+}) =>
+  generateOccurrences({
+    startDate,
+    endDate,
+    rangeStart: occurrenceDate,
+    rangeEnd: occurrenceDate,
+    repeatRule: normalizeRepeatRule(repeatRule) as RepeatRule,
+    seriesEndDate,
+    timeZone: "UTC",
+  }).includes(occurrenceDate);
+
 export const listChores = async ({
   householdId,
   weekOffset,
@@ -279,6 +302,25 @@ export const mutateChore = async ({
       body: {
         ok: false,
         error: "Chore not found",
+      },
+    };
+  }
+
+  const occurrenceInSeries = isOccurrenceInSeries({
+    occurrenceDate,
+    repeatRule: chore.repeat_rule,
+    seriesEndDate: chore.series_end_date,
+    startDate: chore.start_date,
+    endDate: chore.end_date,
+  });
+
+  if (!occurrenceInSeries) {
+    return {
+      ok: false,
+      status: 409,
+      body: {
+        ok: false,
+        error: "Occurrence date is outside chore schedule",
       },
     };
   }

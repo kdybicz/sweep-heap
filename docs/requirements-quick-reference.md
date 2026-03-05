@@ -35,6 +35,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.
 - `stay_open`: done sets `status=open`, `closed_reason=done`.
 - Undo window is 5 seconds.
+- `action=set` and `action=undo` must target a valid generated occurrence date for the chore series.
 - Undo is API-enforced against `undo_until` and returns conflict after expiry.
 - Undo deletes the occurrence override row.
 

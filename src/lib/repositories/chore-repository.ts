@@ -29,6 +29,10 @@ type ChoreOverrideRecord = {
 type ChoreInHouseholdRow = {
   id: number;
   type: "close_on_done" | "stay_open";
+  start_date: string;
+  end_date: string;
+  series_end_date: string | null;
+  repeat_rule: string;
 };
 
 type HouseholdDateRange = {
@@ -109,7 +113,7 @@ export const getChoreInHousehold = async ({
   householdId: number;
 }) => {
   const result = await pool.query<ChoreInHouseholdRow>(
-    "select id, type from chores where id = $1 and household_id = $2",
+    "select id, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule from chores where id = $1 and household_id = $2",
     [choreId, householdId],
   );
   return result.rows[0] ?? null;

@@ -99,3 +99,4 @@ For `PATCH /api/chores` with `action: "undo"`:
 
 - Undo must be enforced server-side using `undo_until` (not only by UI toast timing).
 - Return `409` with a conflict error when the undo window is no longer active.
+- For `action: "set"` and `action: "undo"`, validate that `occurrenceDate` is a generated series occurrence day for the chore and return `409` when it is outside schedule.
