@@ -178,4 +178,20 @@ describe("/api/households/invites/accept route", () => {
     expect(body.ok).toBe(true);
     expect(typeof body.redirectUrl).toBe("string");
   });
+
+  it("returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getValidHouseholdInviteMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await POST(requestWithBody({ identifier: "id", token: "token" }));
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to accept household invite" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
 });

@@ -1,37 +1,8 @@
-import { getSession } from "@/auth";
 import { parseJsonObjectBody } from "@/lib/http";
 import { getActiveHouseholdId, getUserMemberships, updateUserNameById } from "@/lib/repositories";
+import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
-
-const getSessionContext = async () => {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    return {
-      session,
-      userId: null,
-      status: 401,
-      error: "Unauthorized",
-    };
-  }
-
-  const userId = Number(session.user.id);
-  if (!Number.isFinite(userId)) {
-    return {
-      session,
-      userId: null,
-      status: 400,
-      error: "Invalid user",
-    };
-  }
-
-  return {
-    session,
-    userId,
-    status: 200,
-    error: null,
-  };
-};
 
 const handleUnexpectedError = (action: "load" | "update", error: unknown) => {
   const message = action === "load" ? "Failed to load user" : "Failed to update user";
@@ -42,15 +13,8 @@ const handleUnexpectedError = (action: "load" | "update", error: unknown) => {
 export async function GET() {
   try {
     const sessionContext = await getSessionContext();
-    if (
-      sessionContext.error ||
-      sessionContext.userId === null ||
-      !sessionContext.session?.user?.id
-    ) {
-      return Response.json(
-        { ok: false, error: sessionContext.error ?? "Unauthorized" },
-        { status: sessionContext.status },
-      );
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
     const memberships = await getUserMemberships(sessionContext.userId);
@@ -59,9 +23,9 @@ export async function GET() {
     return Response.json({
       ok: true,
       user: {
-        id: sessionContext.session.user.id,
-        email: sessionContext.session.user.email ?? null,
-        name: sessionContext.session.user.name ?? null,
+        id: sessionContext.sessionUserId,
+        email: sessionContext.sessionUserEmail,
+        name: sessionContext.sessionUserName,
       },
       memberships,
       activeHouseholdId,
@@ -74,11 +38,8 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const sessionContext = await getSessionContext();
-    if (sessionContext.error || sessionContext.userId === null) {
-      return Response.json(
-        { ok: false, error: sessionContext.error ?? "Unauthorized" },
-        { status: sessionContext.status },
-      );
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
     const payload = await parseJsonObjectBody(request);

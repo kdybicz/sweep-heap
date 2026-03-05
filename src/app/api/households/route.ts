@@ -1,6 +1,5 @@
 import { DateTime } from "luxon";
 
-import { getSession } from "@/auth";
 import { parseJsonObjectBody } from "@/lib/http";
 import {
   createHouseholdWithOwner,
@@ -8,6 +7,7 @@ import {
   getUserMemberships,
   updateHouseholdById,
 } from "@/lib/repositories";
+import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
 
@@ -31,32 +31,6 @@ const toIcon = (value: unknown) => {
   return trimmed.slice(0, 16);
 };
 
-const getSessionContext = async () => {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    return {
-      userId: null,
-      status: 401,
-      error: "Unauthorized",
-    };
-  }
-
-  const userId = Number(session.user.id);
-  if (!Number.isFinite(userId)) {
-    return {
-      userId: null,
-      status: 400,
-      error: "Invalid user",
-    };
-  }
-
-  return {
-    userId,
-    status: 200,
-    error: null,
-  };
-};
-
 const handleUnexpectedError = (action: "load" | "create" | "update", error: unknown) => {
   const message =
     action === "load"
@@ -72,11 +46,8 @@ const handleUnexpectedError = (action: "load" | "create" | "update", error: unkn
 export async function GET() {
   try {
     const sessionContext = await getSessionContext();
-    if (sessionContext.error || sessionContext.userId === null) {
-      return Response.json(
-        { ok: false, error: sessionContext.error ?? "Unauthorized" },
-        { status: sessionContext.status },
-      );
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
     const household = await getActiveHouseholdSummary(sessionContext.userId);
@@ -93,11 +64,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const sessionContext = await getSessionContext();
-    if (sessionContext.error || sessionContext.userId === null) {
-      return Response.json(
-        { ok: false, error: sessionContext.error ?? "Unauthorized" },
-        { status: sessionContext.status },
-      );
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
     const payload = await parseJsonObjectBody(request);
@@ -136,11 +104,8 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const sessionContext = await getSessionContext();
-    if (sessionContext.error || sessionContext.userId === null) {
-      return Response.json(
-        { ok: false, error: sessionContext.error ?? "Unauthorized" },
-        { status: sessionContext.status },
-      );
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
     const household = await getActiveHouseholdSummary(sessionContext.userId);

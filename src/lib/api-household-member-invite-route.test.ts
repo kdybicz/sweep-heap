@@ -123,6 +123,28 @@ describe("/api/households/members/invites/[inviteId] route", () => {
     expect(resendPendingHouseholdInviteMock).not.toHaveBeenCalled();
   });
 
+  it("POST returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "7" } });
+      getActiveHouseholdSummaryMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await POST(
+        new Request("http://localhost/api/households/members/invites/12"),
+        {
+          params: Promise.resolve({ inviteId: "12" }),
+        },
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to resend household invite" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it("DELETE forbids non-admin revoke", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "7" } });
     getActiveHouseholdSummaryMock.mockResolvedValue({
@@ -187,5 +209,34 @@ describe("/api/households/members/invites/[inviteId] route", () => {
       householdId: 11,
       inviteId: 12,
     });
+  });
+
+  it("DELETE returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "7" } });
+      getActiveHouseholdSummaryMock.mockResolvedValue({
+        id: 11,
+        name: "Home",
+        role: "admin",
+        timeZone: "UTC",
+        icon: null,
+      });
+      revokePendingHouseholdInviteMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await DELETE(
+        new Request("http://localhost/api/households/members/invites/12"),
+        {
+          params: Promise.resolve({ inviteId: "12" }),
+        },
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to revoke household invite" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });

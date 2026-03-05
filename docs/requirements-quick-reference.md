@@ -21,6 +21,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ### Invites
 - Invite validity is `identifier + tokenHash` and expiry window (7 days).
+- Invite create/resend is best-effort for SMTP delivery; check `inviteEmailSent` in success responses.
 - Signed-in acceptance requires session email to match invited email.
 - If no matching session, API returns redirect for magic-link verification handoff.
 
@@ -50,6 +51,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `GET|PATCH /api/me`
 - `POST /api/me/delete-request`
 - `POST /api/me/delete-confirm`
+- Delete-request email delivery is required; SMTP failures return `500`.
 
 ## Key File Map
 - Routes: `src/app/api/**/route.ts`

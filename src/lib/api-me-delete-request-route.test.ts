@@ -137,4 +137,22 @@ describe("/api/me/delete-request route", () => {
     expect(body).toEqual({ ok: false, error: "Failed to send confirmation email" });
     expect(createDeleteAccountTokenMock).toHaveBeenCalledTimes(1);
   });
+
+  it("returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "4", email: "alex@example.com" } });
+      createDeleteAccountTokenMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await POST(request());
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to create delete account request" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(sendDeleteAccountConfirmationEmailMock).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
 });

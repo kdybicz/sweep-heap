@@ -27,6 +27,11 @@ All email flows should use centralized SMTP settings from `src/lib/smtp.ts`:
 - Build nodemailer transport with `host`, `port`, `secure`, and `auth` from those settings.
 - Treat missing host/from as configuration errors where email is required.
 
+Delivery semantics:
+
+- Household invite create/resend is best-effort: persist/update invite state first, then attempt SMTP send, and return `ok: true` with `inviteEmailSent` to report delivery outcome.
+- Delete-account request is email-required: if SMTP send fails, return `500` with `{ ok: false, error: "Failed to send confirmation email" }`.
+
 Rules for `secure`:
 
 - If `SMTP_SECURE` is set (`true`/`false`), it overrides auto-detection.
@@ -38,6 +43,7 @@ Rules for `secure`:
 Return a consistent JSON envelope for failures:
 
 - `{ ok: false, error: string }`
+- Keep route handlers wrapped in top-level `try/catch` so unexpected throws still return the same envelope.
 
 Use status codes consistently:
 
@@ -50,6 +56,7 @@ Use status codes consistently:
 Body parsing rule:
 
 - `parseJsonObjectBody()` should return `null` for parse failures and valid non-object JSON (arrays/primitives), so routes can consistently return `400` with `Invalid JSON body` for non-object payloads.
+- For authenticated API routes that require numeric user ids, use `getSessionContext()` from `src/lib/session-context.ts` to keep auth/status handling consistent.
 
 Important contract:
 

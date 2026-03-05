@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { getSession } from "@/auth";
+
+import { getHouseholdInviteExpiryDate } from "@/lib/household-invite";
 import { sendHouseholdInviteEmail } from "@/lib/household-invite-email";
 import { getAppOrigin, parseJsonObjectBody } from "@/lib/http";
 import {
@@ -11,6 +12,7 @@ import {
   updateActiveHouseholdMemberRoleWithGuard,
 } from "@/lib/repositories";
 import type { HouseholdMemberRole } from "@/lib/repositories/household-repository";
+import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
 
@@ -20,37 +22,6 @@ const isHouseholdRole = (value: unknown): value is HouseholdMemberRole =>
   typeof value === "string" && householdRoles.includes(value as HouseholdMemberRole);
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-
-const inviteExpiryInDays = 7;
-
-const getSessionContext = async () => {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    return {
-      session,
-      userId: null,
-      status: 401,
-      error: "Unauthorized",
-    };
-  }
-
-  const userId = Number(session.user.id);
-  if (!Number.isFinite(userId)) {
-    return {
-      session,
-      userId: null,
-      status: 400,
-      error: "Invalid user",
-    };
-  }
-
-  return {
-    session,
-    userId,
-    status: 200,
-    error: null,
-  };
-};
 
 const handleUnexpectedError = (
   action: "list" | "invite" | "update-role" | "remove-member",
@@ -72,11 +43,8 @@ const handleUnexpectedError = (
 export async function GET() {
   try {
     const sessionContext = await getSessionContext();
-    if (sessionContext.error || sessionContext.userId === null) {
-      return Response.json(
-        { ok: false, error: sessionContext.error ?? "Unauthorized" },
-        { status: sessionContext.status },
-      );
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
     const household = await getActiveHouseholdSummary(sessionContext.userId);
@@ -109,11 +77,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const sessionContext = await getSessionContext();
-    if (sessionContext.error || sessionContext.userId === null) {
-      return Response.json(
-        { ok: false, error: sessionContext.error ?? "Unauthorized" },
-        { status: sessionContext.status },
-      );
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
     const household = await getActiveHouseholdSummary(sessionContext.userId);
@@ -134,7 +99,7 @@ export async function POST(request: Request) {
     const token = randomBytes(32).toString("base64url");
     const tokenHash = createHash("sha256").update(token).digest("hex");
     const identifier = `household-invite-${household.id}-${randomBytes(12).toString("base64url")}`;
-    const expiresAt = new Date(Date.now() + inviteExpiryInDays * 24 * 60 * 60 * 1000);
+    const expiresAt = getHouseholdInviteExpiryDate();
 
     const inviteResult = await createHouseholdMemberInvite({
       email,
@@ -177,8 +142,8 @@ export async function POST(request: Request) {
     inviteUrl.searchParams.set("identifier", identifier);
     inviteUrl.searchParams.set("token", token);
     const inviterName =
-      sessionContext.session.user.name?.trim() ||
-      sessionContext.session.user.email?.trim() ||
+      sessionContext.sessionUserName?.trim() ||
+      sessionContext.sessionUserEmail?.trim() ||
       "A household member";
 
     try {
@@ -210,11 +175,8 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const sessionContext = await getSessionContext();
-    if (sessionContext.error || sessionContext.userId === null) {
-      return Response.json(
-        { ok: false, error: sessionContext.error ?? "Unauthorized" },
-        { status: sessionContext.status },
-      );
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
     const household = await getActiveHouseholdSummary(sessionContext.userId);
@@ -273,11 +235,8 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const sessionContext = await getSessionContext();
-    if (sessionContext.error || sessionContext.userId === null) {
-      return Response.json(
-        { ok: false, error: sessionContext.error ?? "Unauthorized" },
-        { status: sessionContext.status },
-      );
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
     const household = await getActiveHouseholdSummary(sessionContext.userId);

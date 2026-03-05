@@ -1,7 +1,7 @@
-import { getSession } from "@/auth";
 import { parseJsonObjectBody } from "@/lib/http";
 import { getActiveHouseholdId } from "@/lib/repositories";
 import { listChores, mutateChore } from "@/lib/services";
+import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,16 +24,13 @@ const parseWeekOffset = (value: string | null) => {
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
-    if (!session?.user?.id) {
-      return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    const sessionContext = await getSessionContext();
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
-    const userId = Number(session.user.id);
-    if (!Number.isFinite(userId)) {
-      return Response.json({ ok: false, error: "Invalid user" }, { status: 400 });
-    }
+
     const requestUrl = new URL(request.url);
-    const householdId = await getActiveHouseholdId(userId);
+    const householdId = await getActiveHouseholdId(sessionContext.userId);
     if (!householdId) {
       return Response.json({ ok: false, error: "Household required" }, { status: 403 });
     }
@@ -66,16 +63,12 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const session = await getSession();
-    if (!session?.user?.id) {
-      return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-    const userId = Number(session.user.id);
-    if (!Number.isFinite(userId)) {
-      return Response.json({ ok: false, error: "Invalid user" }, { status: 400 });
+    const sessionContext = await getSessionContext();
+    if (!sessionContext.ok) {
+      return sessionErrorResponse(sessionContext);
     }
 
-    const householdId = await getActiveHouseholdId(userId);
+    const householdId = await getActiveHouseholdId(sessionContext.userId);
     if (!householdId) {
       return Response.json({ ok: false, error: "Household required" }, { status: 403 });
     }

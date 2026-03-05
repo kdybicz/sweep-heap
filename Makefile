@@ -21,19 +21,23 @@ fi; \
 $(1)'
 endef
 
-.PHONY: help install dev db-migrate db-reset seed-chores db-studio typecheck test build lint lint-fix format format-write dev-check dev-fix
+.PHONY: help install dev db-generate db-migrate db-reset seed-chores db-studio typecheck test build lint lint-fix format format-write dev-check dev-fix
 
 help:
 	@printf '%s\n' \
 	  'Available targets:' \
 	  '  install      Install dependencies' \
 	  '  dev          Run Next.js dev server' \
+	  '  db-generate  Generate Drizzle migrations' \
 	  '  db-migrate   Apply Drizzle migrations' \
 	  '  db-reset     Reset DB schemas and migrate' \
 	  '  seed-chores  Seed demo chores data' \
 	  '  db-studio    Open Drizzle Studio' \
 	  '  dev-check    Format, lint, test, typecheck' \
 	  '  dev-fix      Auto-fix format/lint then test/typecheck'
+
+db-generate:
+	$(call run,yarn db:generate)
 
 install:
 	$(call run,corepack yarn@4.12.0 install)

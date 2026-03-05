@@ -95,6 +95,7 @@
 
 ## Invite Rules
 - Household invite token links are backed by `identifier + tokenHash` and expire after 7 days.
+- Invite create/resend delivery is best-effort: APIs return `ok: true` even when SMTP send fails, with `inviteEmailSent: false` in the response.
 - Accepting invite with active session:
   - Succeeds only when signed-in email matches invite email.
   - Fails with conflict if signed-in user belongs to another household.
@@ -195,6 +196,7 @@
 
 ## Account Deletion Requirements (Current)
 - Delete request requires authenticated user with an email.
+- Delete request email delivery is required: when confirmation email send fails, API returns `500` with `Failed to send confirmation email`.
 - Confirmation uses one-time token (`identifier + tokenHash`) and expires in 30 minutes.
 - On confirmed delete:
   - User row is removed.

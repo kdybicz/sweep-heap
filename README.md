@@ -70,19 +70,23 @@ docker compose up -d
 make install
 ```
 
-3) Prepare the database schema:
+3) Prepare data (choose one):
 
-```bash
-make db-migrate
-```
-
-4) Seed demo data:
+- Demo data (runs migrations first):
 
 ```bash
 make seed-chores
 ```
 
-5) Run the app:
+- Empty DB (migrations only):
+
+```bash
+make db-migrate
+```
+
+If you rerun demo seeding, use `make db-reset && make seed-chores` (seed inserts fixed demo rows and is not idempotent).
+
+4) Run the app:
 
 ```bash
 make dev
@@ -91,14 +95,12 @@ make dev
 ## Useful Commands
 
 - Prefer `make` targets first (especially in agent/container environments); use direct `yarn` only when an equivalent `make` target is missing.
-- `yarn db:reset` - drops `drizzle` and `public` schemas, recreates `public`, then runs migrations
-- `yarn db:migrate` - applies Drizzle migrations
-- `yarn db:generate` - generates migration files from `src/lib/drizzle/schema.ts`
-- `yarn db:studio` - opens Drizzle Studio
+- `make db-generate` - generates migration files from `src/lib/drizzle/schema.ts`
 - `make db-migrate` - applies migrations, with automatic agent overrides when `AGENT` is set
 - `make db-reset` - resets DB, with automatic agent overrides when `AGENT` is set
-- `make seed-chores` - seeds demo data, with automatic agent overrides when `AGENT` is set
+- `make seed-chores` - runs migrations then seeds demo data (not idempotent), with automatic agent overrides when `AGENT` is set
 - `make db-studio` - opens Drizzle Studio, with automatic agent overrides when `AGENT` is set
+- Direct script fallback: `yarn db:generate`, `yarn db:migrate`, `yarn db:reset`, `yarn db:studio`
 
 ## Local URLs
 

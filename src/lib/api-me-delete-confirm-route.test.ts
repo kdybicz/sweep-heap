@@ -130,4 +130,26 @@ describe("/api/me/delete-confirm route", () => {
     });
     expect(deleteUserByIdMock).toHaveBeenCalledWith({ userId: 4 });
   });
+
+  it("returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      consumeDeleteAccountTokenMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await POST(
+        confirmRequest({
+          identifier: "delete-account:4:nonce",
+          token: "raw-token",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to confirm account deletion" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(deleteUserByIdMock).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
 });
