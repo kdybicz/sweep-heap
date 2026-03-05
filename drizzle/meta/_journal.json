@@ -15,6 +15,13 @@
       "when": 1772634039086,
       "tag": "0001_magical_bloodstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772733471373,
+      "tag": "0002_tearful_gorgon",
+      "breakpoints": true
     }
   ]
 }

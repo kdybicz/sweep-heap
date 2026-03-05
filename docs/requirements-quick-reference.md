@@ -64,7 +64,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - No append-only chore event log yet (only latest override state).
 - Concurrency conflicts are not exposed as explicit retryable responses.
 - Month/year recurrence edge cases can drift from strict start-date anchoring.
-- Skip and Snooze buttons are UI placeholders (no backend action).
+- Skip and Snooze actions are not available yet.
 
 ## Backlog Links
 - Active execution backlog: `docs/todo.md`.

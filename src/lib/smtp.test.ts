@@ -61,6 +61,15 @@ describe("getSmtpSettings", () => {
     expect(settings.secure).toBe(true);
   });
 
+  it("treats blank SMTP_PORT as missing and falls back to 587", () => {
+    process.env.SMTP_PORT = "   ";
+
+    const settings = getSmtpSettings();
+
+    expect(settings.port).toBe(587);
+    expect(settings.secure).toBe(false);
+  });
+
   it("respects SMTP_SECURE override when set", () => {
     process.env.SMTP_PORT = "465";
     process.env.SMTP_SECURE = "false";
@@ -72,14 +81,14 @@ describe("getSmtpSettings", () => {
 
   it("trims host/from and only enables auth with both credentials", () => {
     process.env.SMTP_HOST = " smtp.example.com ";
-    process.env.SMTP_FROM = " Chore Share <no-reply@example.com> ";
+    process.env.SMTP_FROM = " The Sweep Heap <no-reply@example.com> ";
     process.env.SMTP_USER = " user ";
     process.env.SMTP_PASS = " pass ";
 
     const settings = getSmtpSettings();
 
     expect(settings.host).toBe("smtp.example.com");
-    expect(settings.from).toBe("Chore Share <no-reply@example.com>");
+    expect(settings.from).toBe("The Sweep Heap <no-reply@example.com>");
     expect(settings.auth).toEqual({ user: "user", pass: "pass" });
   });
 

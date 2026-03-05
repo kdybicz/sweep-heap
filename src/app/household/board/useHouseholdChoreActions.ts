@@ -16,6 +16,7 @@ import type {
   UseHouseholdChoreActionsParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
+import { CHORE_UNDO_WINDOW_SECONDS } from "@/lib/chore-undo";
 
 export type {
   UseHouseholdChoreActionsModel,
@@ -212,7 +213,7 @@ export default function useHouseholdChoreActions({
       const choreId = targetChore.id;
       const occurrenceDate = targetChore.occurrence_date;
       const optimisticStatus = targetChore.type === "stay_open" ? "open" : "closed";
-      const undoUntil = DateTime.utc().plus({ seconds: 5 }).toISO();
+      const undoUntil = DateTime.utc().plus({ seconds: CHORE_UNDO_WINDOW_SECONDS }).toISO();
       const previous = findTargetChore({ chores, choreId, occurrenceDate });
       setChores((prev) =>
         applyOptimisticDone({

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-const THEME_PREFERENCE_STORAGE_KEY = "sweep-heap-theme";
-const THEME_PREFERENCE_COOKIE_KEY = "sweep-heap-theme";
-const THEME_PREFERENCE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+import {
+  THEME_PREFERENCE_COOKIE_KEY,
+  THEME_PREFERENCE_COOKIE_MAX_AGE_SECONDS,
+  THEME_PREFERENCE_STORAGE_KEY,
+} from "@/lib/theme-preference";
 
 const themeOptions = [
   {

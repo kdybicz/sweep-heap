@@ -94,21 +94,8 @@ export default function ChoreDetailsModal({
             >
               {getPrimaryActionLabel(chore)}
             </button>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={chore.occurrence_date < todayKey}
-                type="button"
-              >
-                Skip
-              </button>
-              <button
-                className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={chore.occurrence_date < todayKey}
-                type="button"
-              >
-                Snooze
-              </button>
+            <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+              Skip and Snooze are planned but not available yet.
             </div>
             <button
               className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"

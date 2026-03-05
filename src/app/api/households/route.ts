@@ -57,101 +57,125 @@ const getSessionContext = async () => {
   };
 };
 
+const handleUnexpectedError = (action: "load" | "create" | "update", error: unknown) => {
+  const message =
+    action === "load"
+      ? "Failed to load household"
+      : action === "create"
+        ? "Failed to create household"
+        : "Failed to update household";
+
+  console.error(message, error);
+  return Response.json({ ok: false, error: message }, { status: 500 });
+};
+
 export async function GET() {
-  const sessionContext = await getSessionContext();
-  if (sessionContext.error || sessionContext.userId === null) {
-    return Response.json(
-      { ok: false, error: sessionContext.error ?? "Unauthorized" },
-      { status: sessionContext.status },
-    );
-  }
+  try {
+    const sessionContext = await getSessionContext();
+    if (sessionContext.error || sessionContext.userId === null) {
+      return Response.json(
+        { ok: false, error: sessionContext.error ?? "Unauthorized" },
+        { status: sessionContext.status },
+      );
+    }
 
-  const household = await getActiveHouseholdSummary(sessionContext.userId);
-  if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-  }
+    const household = await getActiveHouseholdSummary(sessionContext.userId);
+    if (!household) {
+      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
+    }
 
-  return Response.json({ ok: true, household });
+    return Response.json({ ok: true, household });
+  } catch (error) {
+    return handleUnexpectedError("load", error);
+  }
 }
 
 export async function POST(request: Request) {
-  const sessionContext = await getSessionContext();
-  if (sessionContext.error || sessionContext.userId === null) {
-    return Response.json(
-      { ok: false, error: sessionContext.error ?? "Unauthorized" },
-      { status: sessionContext.status },
-    );
+  try {
+    const sessionContext = await getSessionContext();
+    if (sessionContext.error || sessionContext.userId === null) {
+      return Response.json(
+        { ok: false, error: sessionContext.error ?? "Unauthorized" },
+        { status: sessionContext.status },
+      );
+    }
+
+    const payload = await parseJsonObjectBody(request);
+    if (payload === null) {
+      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const name = typeof payload?.name === "string" ? payload.name.trim() : "";
+    if (!name) {
+      return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
+    }
+
+    const memberships = await getUserMemberships(sessionContext.userId);
+    if (memberships.length) {
+      return Response.json(
+        { ok: false, error: "User already belongs to a household" },
+        { status: 409 },
+      );
+    }
+
+    const timeZone = toTimeZone(payload?.timeZone);
+    const icon = toIcon(payload?.icon);
+    const householdId = await createHouseholdWithOwner({
+      userId: sessionContext.userId,
+      name,
+      timeZone,
+      icon,
+    });
+
+    return Response.json({ ok: true, householdId });
+  } catch (error) {
+    return handleUnexpectedError("create", error);
   }
-
-  const payload = await parseJsonObjectBody(request);
-  if (payload === null) {
-    return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const name = typeof payload?.name === "string" ? payload.name.trim() : "";
-  if (!name) {
-    return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
-  }
-
-  const memberships = await getUserMemberships(sessionContext.userId);
-  if (memberships.length) {
-    return Response.json(
-      { ok: false, error: "User already belongs to a household" },
-      { status: 409 },
-    );
-  }
-
-  const timeZone = toTimeZone(payload?.timeZone);
-  const icon = toIcon(payload?.icon);
-  const householdId = await createHouseholdWithOwner({
-    userId: sessionContext.userId,
-    name,
-    timeZone,
-    icon,
-  });
-
-  return Response.json({ ok: true, householdId });
 }
 
 export async function PATCH(request: Request) {
-  const sessionContext = await getSessionContext();
-  if (sessionContext.error || sessionContext.userId === null) {
-    return Response.json(
-      { ok: false, error: sessionContext.error ?? "Unauthorized" },
-      { status: sessionContext.status },
-    );
-  }
+  try {
+    const sessionContext = await getSessionContext();
+    if (sessionContext.error || sessionContext.userId === null) {
+      return Response.json(
+        { ok: false, error: sessionContext.error ?? "Unauthorized" },
+        { status: sessionContext.status },
+      );
+    }
 
-  const household = await getActiveHouseholdSummary(sessionContext.userId);
-  if (!household) {
-    return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-  }
-  if (household.role !== "admin") {
-    return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
-  }
+    const household = await getActiveHouseholdSummary(sessionContext.userId);
+    if (!household) {
+      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
+    }
+    if (household.role !== "admin") {
+      return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
 
-  const payload = await parseJsonObjectBody(request);
-  if (payload === null) {
-    return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+    const payload = await parseJsonObjectBody(request);
+    if (payload === null) {
+      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const name = typeof payload?.name === "string" ? payload.name.trim() : "";
+    if (!name) {
+      return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
+    }
+
+    const timeZone = toTimeZone(payload?.timeZone);
+    const icon = toIcon(payload?.icon);
+    const updated = await updateHouseholdById({
+      householdId: household.id,
+      name,
+      timeZone,
+      icon,
+    });
+
+    if (!updated) {
+      return Response.json({ ok: false, error: "Household not found" }, { status: 404 });
+    }
+
+    return Response.json({ ok: true, household: updated });
+  } catch (error) {
+    return handleUnexpectedError("update", error);
   }
-
-  const name = typeof payload?.name === "string" ? payload.name.trim() : "";
-  if (!name) {
-    return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
-  }
-
-  const timeZone = toTimeZone(payload?.timeZone);
-  const icon = toIcon(payload?.icon);
-  const updated = await updateHouseholdById({
-    householdId: household.id,
-    name,
-    timeZone,
-    icon,
-  });
-
-  if (!updated) {
-    return Response.json({ ok: false, error: "Household not found" }, { status: 404 });
-  }
-
-  return Response.json({ ok: true, household: updated });
 }

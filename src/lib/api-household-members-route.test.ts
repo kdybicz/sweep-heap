@@ -1,27 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  countActiveHouseholdAdminsMock,
   createHouseholdMemberInviteMock,
-  getActiveHouseholdMemberMock,
   getActiveHouseholdSummaryMock,
   getSessionMock,
   listActiveHouseholdMembersMock,
   listPendingHouseholdInvitesMock,
-  removeActiveHouseholdMemberMock,
+  removeActiveHouseholdMemberWithGuardMock,
   sendHouseholdInviteEmailMock,
-  updateActiveHouseholdMemberRoleMock,
+  updateActiveHouseholdMemberRoleWithGuardMock,
 } = vi.hoisted(() => ({
-  countActiveHouseholdAdminsMock: vi.fn(),
   createHouseholdMemberInviteMock: vi.fn(),
-  getActiveHouseholdMemberMock: vi.fn(),
   getActiveHouseholdSummaryMock: vi.fn(),
   getSessionMock: vi.fn(),
   listActiveHouseholdMembersMock: vi.fn(),
   listPendingHouseholdInvitesMock: vi.fn(),
-  removeActiveHouseholdMemberMock: vi.fn(),
+  removeActiveHouseholdMemberWithGuardMock: vi.fn(),
   sendHouseholdInviteEmailMock: vi.fn(),
-  updateActiveHouseholdMemberRoleMock: vi.fn(),
+  updateActiveHouseholdMemberRoleWithGuardMock: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -29,14 +25,12 @@ vi.mock("@/auth", () => ({
 }));
 
 vi.mock("@/lib/repositories", () => ({
-  countActiveHouseholdAdmins: countActiveHouseholdAdminsMock,
   createHouseholdMemberInvite: createHouseholdMemberInviteMock,
-  getActiveHouseholdMember: getActiveHouseholdMemberMock,
   getActiveHouseholdSummary: getActiveHouseholdSummaryMock,
   listActiveHouseholdMembers: listActiveHouseholdMembersMock,
   listPendingHouseholdInvites: listPendingHouseholdInvitesMock,
-  removeActiveHouseholdMember: removeActiveHouseholdMemberMock,
-  updateActiveHouseholdMemberRole: updateActiveHouseholdMemberRoleMock,
+  removeActiveHouseholdMemberWithGuard: removeActiveHouseholdMemberWithGuardMock,
+  updateActiveHouseholdMemberRoleWithGuard: updateActiveHouseholdMemberRoleWithGuardMock,
 }));
 
 vi.mock("@/lib/household-invite-email", () => ({
@@ -54,16 +48,14 @@ const requestWithBody = (method: "POST" | "PATCH" | "DELETE", body: Record<strin
 
 describe("/api/households/members route", () => {
   beforeEach(() => {
-    countActiveHouseholdAdminsMock.mockReset();
     createHouseholdMemberInviteMock.mockReset();
-    getActiveHouseholdMemberMock.mockReset();
     getActiveHouseholdSummaryMock.mockReset();
     getSessionMock.mockReset();
     listActiveHouseholdMembersMock.mockReset();
     listPendingHouseholdInvitesMock.mockReset();
-    removeActiveHouseholdMemberMock.mockReset();
+    removeActiveHouseholdMemberWithGuardMock.mockReset();
     sendHouseholdInviteEmailMock.mockReset();
-    updateActiveHouseholdMemberRoleMock.mockReset();
+    updateActiveHouseholdMemberRoleWithGuardMock.mockReset();
   });
 
   it("GET returns household members for authenticated members", async () => {
@@ -119,6 +111,30 @@ describe("/api/households/members route", () => {
 
     expect(response.status).toBe(403);
     expect(body).toEqual({ ok: false, error: "Household required" });
+  });
+
+  it("GET returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "7" } });
+      getActiveHouseholdSummaryMock.mockResolvedValue({
+        id: 11,
+        name: "Home",
+        timeZone: "UTC",
+        icon: null,
+        role: "admin",
+      });
+      listActiveHouseholdMembersMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await GET();
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to load household members" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("POST creates invite token and sends invitation email", async () => {
@@ -286,7 +302,7 @@ describe("/api/households/members route", () => {
 
     expect(response.status).toBe(403);
     expect(body).toEqual({ ok: false, error: "Forbidden" });
-    expect(updateActiveHouseholdMemberRoleMock).not.toHaveBeenCalled();
+    expect(updateActiveHouseholdMemberRoleWithGuardMock).not.toHaveBeenCalled();
   });
 
   it("PATCH rejects attempts to change your own role", async () => {
@@ -336,7 +352,7 @@ describe("/api/households/members route", () => {
       ok: false,
       error: "Admins cannot remove themselves",
     });
-    expect(removeActiveHouseholdMemberMock).not.toHaveBeenCalled();
+    expect(removeActiveHouseholdMemberWithGuardMock).not.toHaveBeenCalled();
   });
 
   it("PATCH prevents demoting the last admin", async () => {
@@ -348,14 +364,9 @@ describe("/api/households/members route", () => {
       icon: null,
       role: "admin",
     });
-    getActiveHouseholdMemberMock.mockResolvedValue({
-      userId: 9,
-      name: "Morgan",
-      email: "morgan@example.com",
-      role: "admin",
-      joinedAt: new Date("2026-01-01T00:00:00.000Z"),
+    updateActiveHouseholdMemberRoleWithGuardMock.mockResolvedValue({
+      status: "last_admin",
     });
-    countActiveHouseholdAdminsMock.mockResolvedValue(1);
 
     const response = await PATCH(
       requestWithBody("PATCH", {
@@ -370,7 +381,40 @@ describe("/api/households/members route", () => {
       ok: false,
       error: "At least one admin must remain in the household",
     });
-    expect(updateActiveHouseholdMemberRoleMock).not.toHaveBeenCalled();
+    expect(updateActiveHouseholdMemberRoleWithGuardMock).toHaveBeenCalledWith({
+      householdId: 11,
+      userId: 9,
+      role: "member",
+    });
+  });
+
+  it("PATCH returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "5" } });
+      getActiveHouseholdSummaryMock.mockResolvedValue({
+        id: 11,
+        name: "Home",
+        timeZone: "UTC",
+        icon: null,
+        role: "admin",
+      });
+      updateActiveHouseholdMemberRoleWithGuardMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await PATCH(
+        requestWithBody("PATCH", {
+          userId: 9,
+          role: "member",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to update member role" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("DELETE prevents removing the last admin", async () => {
@@ -382,14 +426,9 @@ describe("/api/households/members route", () => {
       icon: null,
       role: "admin",
     });
-    getActiveHouseholdMemberMock.mockResolvedValue({
-      userId: 9,
-      name: "Morgan",
-      email: "morgan@example.com",
-      role: "admin",
-      joinedAt: new Date("2026-01-01T00:00:00.000Z"),
+    removeActiveHouseholdMemberWithGuardMock.mockResolvedValue({
+      status: "last_admin",
     });
-    countActiveHouseholdAdminsMock.mockResolvedValue(1);
 
     const response = await DELETE(
       requestWithBody("DELETE", {
@@ -403,7 +442,10 @@ describe("/api/households/members route", () => {
       ok: false,
       error: "At least one admin must remain in the household",
     });
-    expect(removeActiveHouseholdMemberMock).not.toHaveBeenCalled();
+    expect(removeActiveHouseholdMemberWithGuardMock).toHaveBeenCalledWith({
+      householdId: 11,
+      userId: 9,
+    });
   });
 
   it("DELETE removes a household member for admins", async () => {
@@ -415,14 +457,10 @@ describe("/api/households/members route", () => {
       icon: null,
       role: "admin",
     });
-    getActiveHouseholdMemberMock.mockResolvedValue({
+    removeActiveHouseholdMemberWithGuardMock.mockResolvedValue({
+      status: "removed",
       userId: 9,
-      name: "Morgan",
-      email: "morgan@example.com",
-      role: "member",
-      joinedAt: new Date("2026-01-01T00:00:00.000Z"),
     });
-    removeActiveHouseholdMemberMock.mockResolvedValue(9);
 
     const response = await DELETE(
       requestWithBody("DELETE", {
@@ -433,7 +471,7 @@ describe("/api/households/members route", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true, removedUserId: 9 });
-    expect(removeActiveHouseholdMemberMock).toHaveBeenCalledWith({
+    expect(removeActiveHouseholdMemberWithGuardMock).toHaveBeenCalledWith({
       householdId: 11,
       userId: 9,
     });

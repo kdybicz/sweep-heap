@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-
+import { CHORE_UNDO_WINDOW_SECONDS } from "@/lib/chore-undo";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import { toISODateOrThrow } from "@/lib/date";
 import type { RepeatRule } from "@/lib/occurrences";
@@ -329,7 +329,9 @@ export const mutateChore = async ({
 
   const shouldRecordCompletion = status === "closed";
   const closedReason = shouldRecordCompletion ? "done" : null;
-  const undoUntil = shouldRecordCompletion ? DateTime.utc().plus({ seconds: 5 }).toISO() : null;
+  const undoUntil = shouldRecordCompletion
+    ? DateTime.utc().plus({ seconds: CHORE_UNDO_WINDOW_SECONDS }).toISO()
+    : null;
   const overrideStatus = shouldRecordCompletion
     ? choreType === "stay_open"
       ? "open"

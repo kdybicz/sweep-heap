@@ -70,7 +70,7 @@ const magicLinkText = ({ url, host }: { url: string; host: string }) =>
   `Sign in to ${host}\n${url}\n\n`;
 
 export const auth = betterAuth({
-  appName: "Chores",
+  appName: "The Sweep Heap",
   baseURL: appUrl,
   trustedOrigins: appUrl ? [appUrl] : ["http://localhost:3000"],
   database: pool,

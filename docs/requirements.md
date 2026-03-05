@@ -61,7 +61,7 @@
 - Private chores visible only to a subset of household members.
 - Smart home integrations and monetization.
 - Advanced recurrence customizations (weekday sets, arbitrary intervals, etc.).
-- Functional skip/snooze workflow (buttons exist in UI but no backend behavior yet).
+- Functional skip/snooze workflow.
 
 ## Domain Model (Current)
 

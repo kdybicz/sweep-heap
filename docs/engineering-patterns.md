@@ -31,6 +31,7 @@ Rules for `secure`:
 
 - If `SMTP_SECURE` is set (`true`/`false`), it overrides auto-detection.
 - If unset, `secure` defaults to `true` for port `465`, otherwise `false`.
+- Treat blank/invalid `SMTP_PORT` values as unset and fall back to `587`.
 
 ## 3) API Error Contract
 
@@ -92,6 +93,7 @@ For `DELETE /api/households/members`:
 
 - Reject self-removal requests (`targetUserId === session user id`) with `400`.
 - Keep UI affordances aligned with API behavior for self-role/self-removal restrictions.
+- Apply last-admin safeguards inside a single repository transaction that locks active memberships for the household before role/remove writes.
 
 ## 9) Chore Undo Contract
 
@@ -100,3 +102,11 @@ For `PATCH /api/chores` with `action: "undo"`:
 - Undo must be enforced server-side using `undo_until` (not only by UI toast timing).
 - Return `409` with a conflict error when the undo window is no longer active.
 - For `action: "set"` and `action: "undo"`, validate that `occurrenceDate` is a generated series occurrence day for the chore and return `409` when it is outside schedule.
+- Keep undo timing centralized via `CHORE_UNDO_WINDOW_SECONDS`/`CHORE_UNDO_WINDOW_MS` (`src/lib/chore-undo.ts`) and consume those constants in API service logic and UI countdown rendering.
+
+## 10) Invite Deduplication Contract
+
+For household invite creation:
+
+- Keep email normalization (`trim().toLowerCase()`) before persistence.
+- Enforce one pending invite per `(household, email)` with a partial unique DB index and handle race conflicts by returning the already-pending invite response.

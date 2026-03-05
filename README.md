@@ -1,4 +1,4 @@
-# Chores
+# The Sweep Heap
 
 This is a Next.js 16 app for shared household chores, backed by PostgreSQL and Better Auth magic-link sign-in.
 

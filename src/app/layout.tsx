@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist_Mono, Oxanium } from "next/font/google";
 import { cookies } from "next/headers";
 import Script from "next/script";
+
+import { THEME_PREFERENCE_COOKIE_KEY, THEME_PREFERENCE_STORAGE_KEY } from "@/lib/theme-preference";
+
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -19,12 +22,10 @@ export const metadata: Metadata = {
   description: "Weekly chores overview for The Sweep Heap",
 };
 
-const THEME_PREFERENCE_COOKIE_KEY = "sweep-heap-theme";
-
 const themePreferenceScript = `
 (() => {
   try {
-    const storedTheme = window.localStorage.getItem("sweep-heap-theme");
+    const storedTheme = window.localStorage.getItem("${THEME_PREFERENCE_STORAGE_KEY}");
     if (storedTheme === "light" || storedTheme === "dark") {
       document.documentElement.dataset.theme = storedTheme;
       return;

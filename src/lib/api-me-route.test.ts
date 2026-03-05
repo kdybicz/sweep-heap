@@ -107,6 +107,29 @@ describe("/api/me route", () => {
     expect(getActiveHouseholdIdMock).toHaveBeenCalledWith(4);
   });
 
+  it("GET returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: {
+          id: "4",
+          name: "Alex",
+          email: "alex@example.com",
+        },
+      });
+      getUserMembershipsMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await GET();
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to load user" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it("PATCH rejects unauthenticated requests", async () => {
     getSessionMock.mockResolvedValue(null);
 
@@ -190,5 +213,22 @@ describe("/api/me route", () => {
         email: "alex@example.com",
       },
     });
+  });
+
+  it("PATCH returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "4" } });
+      updateUserNameByIdMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await PATCH(patchRequest({ name: "Alex" }));
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to update user" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });

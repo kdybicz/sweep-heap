@@ -91,20 +91,6 @@ export const insertChore = async ({
   return result.rows[0]?.id ?? null;
 };
 
-export const isChoreInHousehold = async ({
-  choreId,
-  householdId,
-}: {
-  choreId: number;
-  householdId: number;
-}) => {
-  const result = await pool.query<{ id: number }>(
-    "select id from chores where id = $1 and household_id = $2",
-    [choreId, householdId],
-  );
-  return (result.rowCount ?? 0) > 0;
-};
-
 export const getChoreInHousehold = async ({
   choreId,
   householdId,

@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 
 export type MembershipSummary = {
@@ -68,6 +69,68 @@ export type AcceptHouseholdInviteResult =
   | {
       status: "belongs_to_other_household";
     };
+
+export type UpdateHouseholdMemberRoleWithGuardResult =
+  | {
+      status: "updated";
+      member: HouseholdMemberRecord;
+    }
+  | {
+      status: "member_not_found";
+    }
+  | {
+      status: "last_admin";
+    };
+
+export type RemoveHouseholdMemberWithGuardResult =
+  | {
+      status: "removed";
+      userId: number;
+    }
+  | {
+      status: "member_not_found";
+    }
+  | {
+      status: "last_admin";
+    };
+
+type ActiveMembershipLockRow = {
+  userId: number;
+  role: HouseholdMemberRole;
+};
+
+const lockActiveHouseholdMemberships = async ({
+  client,
+  householdId,
+}: {
+  client: PoolClient;
+  householdId: number;
+}) => {
+  const result = await client.query<ActiveMembershipLockRow>(
+    "select user_id as \"userId\", role as role from household_memberships where household_id = $1 and status = 'active' order by user_id for update",
+    [householdId],
+  );
+  return result.rows;
+};
+
+const countLockedAdmins = (memberships: ActiveMembershipLockRow[]) =>
+  memberships.reduce((count, membership) => count + (membership.role === "admin" ? 1 : 0), 0);
+
+type PgErrorLike = {
+  code?: string;
+  constraint?: string;
+};
+
+const pendingInviteUniqueIndex = "household_member_invites_pending_email_unique";
+
+const isUniqueViolationForConstraint = (error: unknown, constraint: string) => {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const pgError = error as PgErrorLike;
+  return pgError.code === "23505" && pgError.constraint === constraint;
+};
 
 export const getUserMemberships = async (userId: number) => {
   const result = await pool.query<MembershipSummary>(
@@ -153,28 +216,6 @@ export const listPendingHouseholdInvites = async (householdId: number) => {
   return result.rows;
 };
 
-export const getActiveHouseholdMember = async ({
-  householdId,
-  userId,
-}: {
-  householdId: number;
-  userId: number;
-}) => {
-  const result = await pool.query<HouseholdMemberRecord>(
-    'select hm.user_id as "userId", u.name as name, u.email as email, hm.role as role, hm.joined_at as "joinedAt" from household_memberships hm join users u on u.id = hm.user_id where hm.household_id = $1 and hm.user_id = $2 and hm.status = \'active\' limit 1',
-    [householdId, userId],
-  );
-  return result.rows[0] ?? null;
-};
-
-export const countActiveHouseholdAdmins = async (householdId: number) => {
-  const result = await pool.query<{ count: number }>(
-    "select count(*)::int as count from household_memberships where household_id = $1 and status = 'active' and role = 'admin'",
-    [householdId],
-  );
-  return result.rows[0]?.count ?? 0;
-};
-
 export const createHouseholdMemberInvite = async ({
   email,
   expiresAt,
@@ -230,11 +271,31 @@ export const createHouseholdMemberInvite = async ({
       }
     }
 
-    const existingInviteResult = await client.query<HouseholdInviteRecord>(
-      'select i.id as id, i.household_id as "householdId", h.name as "householdName", i.email as email, i.role as role, i.invited_by_user_id as "invitedByUserId", i.created_at as "createdAt", i.expires_at as "expiresAt" from household_member_invites i join households h on h.id = i.household_id where i.household_id = $1 and lower(i.email) = lower($2) and i.accepted_at is null and i.expires_at > now() order by i.created_at desc limit 1',
-      [householdId, normalizedEmail],
-    );
-    const existingInvite = existingInviteResult.rows[0];
+    const deleteExpiredPendingInvites = async () => {
+      await client.query(
+        "delete from household_member_invites where household_id = $1 and lower(email) = lower($2) and accepted_at is null and expires_at <= now()",
+        [householdId, normalizedEmail],
+      );
+    };
+
+    const selectPendingInvite = async () => {
+      const pendingInviteResult = await client.query<HouseholdInviteRecord>(
+        'select i.id as id, i.household_id as "householdId", h.name as "householdName", i.email as email, i.role as role, i.invited_by_user_id as "invitedByUserId", i.created_at as "createdAt", i.expires_at as "expiresAt" from household_member_invites i join households h on h.id = i.household_id where i.household_id = $1 and lower(i.email) = lower($2) and i.accepted_at is null and i.expires_at > now() order by i.created_at desc limit 1',
+        [householdId, normalizedEmail],
+      );
+      return pendingInviteResult.rows[0] ?? null;
+    };
+
+    const insertPendingInvite = async () => {
+      await client.query(
+        "insert into household_member_invites (household_id, invited_by_user_id, email, role, identifier, token_hash, expires_at) values ($1, $2, $3, $4, $5, $6, $7)",
+        [householdId, invitedByUserId, normalizedEmail, role, identifier, tokenHash, expiresAt],
+      );
+    };
+
+    await deleteExpiredPendingInvites();
+
+    const existingInvite = await selectPendingInvite();
     if (existingInvite) {
       await client.query("commit");
       return {
@@ -243,10 +304,51 @@ export const createHouseholdMemberInvite = async ({
       };
     }
 
-    await client.query(
-      "insert into household_member_invites (household_id, invited_by_user_id, email, role, identifier, token_hash, expires_at) values ($1, $2, $3, $4, $5, $6, $7)",
-      [householdId, invitedByUserId, normalizedEmail, role, identifier, tokenHash, expiresAt],
-    );
+    await client.query("savepoint pending_invite_insert");
+
+    try {
+      await insertPendingInvite();
+    } catch (error) {
+      if (!isUniqueViolationForConstraint(error, pendingInviteUniqueIndex)) {
+        throw error;
+      }
+
+      await client.query("rollback to savepoint pending_invite_insert");
+
+      await deleteExpiredPendingInvites();
+
+      const pendingInvite = await selectPendingInvite();
+      if (pendingInvite) {
+        await client.query("commit");
+        return {
+          status: "already_invited",
+          invite: pendingInvite,
+        };
+      }
+
+      await client.query("savepoint pending_invite_insert");
+
+      try {
+        await insertPendingInvite();
+      } catch (retryError) {
+        if (!isUniqueViolationForConstraint(retryError, pendingInviteUniqueIndex)) {
+          throw retryError;
+        }
+
+        await client.query("rollback to savepoint pending_invite_insert");
+
+        const retryPendingInvite = await selectPendingInvite();
+        if (!retryPendingInvite) {
+          throw retryError;
+        }
+
+        await client.query("commit");
+        return {
+          status: "already_invited",
+          invite: retryPendingInvite,
+        };
+      }
+    }
 
     const inviteResult = await client.query<HouseholdInviteRecord>(
       'select i.id as id, i.household_id as "householdId", h.name as "householdName", i.email as email, i.role as role, i.invited_by_user_id as "invitedByUserId", i.created_at as "createdAt", i.expires_at as "expiresAt" from household_member_invites i join households h on h.id = i.household_id where i.household_id = $1 and i.identifier = $2 limit 1',
@@ -406,7 +508,7 @@ export const acceptHouseholdInvite = async ({
   }
 };
 
-export const updateActiveHouseholdMemberRole = async ({
+export const updateActiveHouseholdMemberRoleWithGuard = async ({
   householdId,
   userId,
   role,
@@ -414,26 +516,111 @@ export const updateActiveHouseholdMemberRole = async ({
   householdId: number;
   userId: number;
   role: HouseholdMemberRole;
-}) => {
-  const result = await pool.query<HouseholdMemberRecord>(
-    'with updated as (update household_memberships set role = $1 where household_id = $2 and user_id = $3 and status = \'active\' returning user_id, role, joined_at) select updated.user_id as "userId", u.name as name, u.email as email, updated.role as role, updated.joined_at as "joinedAt" from updated join users u on u.id = updated.user_id',
-    [role, householdId, userId],
-  );
-  return result.rows[0] ?? null;
+}): Promise<UpdateHouseholdMemberRoleWithGuardResult> => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const memberships = await lockActiveHouseholdMemberships({
+      client,
+      householdId,
+    });
+    const targetMember = memberships.find((membership) => membership.userId === userId);
+    if (!targetMember) {
+      await client.query("rollback");
+      return {
+        status: "member_not_found",
+      };
+    }
+
+    if (targetMember.role === "admin" && role !== "admin" && countLockedAdmins(memberships) <= 1) {
+      await client.query("rollback");
+      return {
+        status: "last_admin",
+      };
+    }
+
+    const result = await client.query<HouseholdMemberRecord>(
+      'with updated as (update household_memberships set role = $1 where household_id = $2 and user_id = $3 and status = \'active\' returning user_id, role, joined_at) select updated.user_id as "userId", u.name as name, u.email as email, updated.role as role, updated.joined_at as "joinedAt" from updated join users u on u.id = updated.user_id',
+      [role, householdId, userId],
+    );
+
+    const updatedMember = result.rows[0] ?? null;
+    if (!updatedMember) {
+      await client.query("rollback");
+      return {
+        status: "member_not_found",
+      };
+    }
+
+    await client.query("commit");
+    return {
+      status: "updated",
+      member: updatedMember,
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
-export const removeActiveHouseholdMember = async ({
+export const removeActiveHouseholdMemberWithGuard = async ({
   householdId,
   userId,
 }: {
   householdId: number;
   userId: number;
-}) => {
-  const result = await pool.query<{ userId: number }>(
-    "delete from household_memberships where household_id = $1 and user_id = $2 and status = 'active' returning user_id as \"userId\"",
-    [householdId, userId],
-  );
-  return result.rows[0]?.userId ?? null;
+}): Promise<RemoveHouseholdMemberWithGuardResult> => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const memberships = await lockActiveHouseholdMemberships({
+      client,
+      householdId,
+    });
+    const targetMember = memberships.find((membership) => membership.userId === userId);
+    if (!targetMember) {
+      await client.query("rollback");
+      return {
+        status: "member_not_found",
+      };
+    }
+
+    if (targetMember.role === "admin" && countLockedAdmins(memberships) <= 1) {
+      await client.query("rollback");
+      return {
+        status: "last_admin",
+      };
+    }
+
+    const result = await client.query<{ userId: number }>(
+      "delete from household_memberships where household_id = $1 and user_id = $2 and status = 'active' returning user_id as \"userId\"",
+      [householdId, userId],
+    );
+    const removedUserId = result.rows[0]?.userId ?? null;
+    if (!removedUserId) {
+      await client.query("rollback");
+      return {
+        status: "member_not_found",
+      };
+    }
+
+    await client.query("commit");
+    return {
+      status: "removed",
+      userId: removedUserId,
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const updateHouseholdById = async ({

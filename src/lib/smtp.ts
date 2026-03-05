@@ -1,6 +1,15 @@
 const parseSmtpPort = (value: string | undefined) => {
-  const parsed = Number(value ?? "587");
-  return Number.isFinite(parsed) ? parsed : 587;
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return 587;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+    return 587;
+  }
+
+  return parsed;
 };
 
 const parseBooleanEnv = (value: string | undefined) => {

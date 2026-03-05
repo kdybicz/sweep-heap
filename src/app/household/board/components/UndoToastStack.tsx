@@ -2,14 +2,13 @@ import { DateTime } from "luxon";
 
 import { StateIcon } from "@/app/household/board/components/ChoreIcons";
 import type { UndoToast } from "@/app/household/board/types";
+import { CHORE_UNDO_WINDOW_MS } from "@/lib/chore-undo";
 
 type UndoToastStackProps = {
   undoToasts: UndoToast[];
   nowMs: number;
   onUndo: (choreId: number, occurrenceDate: string) => void;
 };
-
-const undoWindowMs = 5000;
 
 export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastStackProps) {
   if (!undoToasts.length) {
@@ -20,7 +19,10 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
     <div className="fixed bottom-6 left-6 right-6 z-50 mx-auto flex max-w-md flex-col gap-3">
       {undoToasts.map((toast) => {
         const remainingMs = Math.max(0, DateTime.fromISO(toast.undoUntil).toMillis() - nowMs);
-        const elapsedMs = Math.max(0, Math.min(undoWindowMs, undoWindowMs - remainingMs));
+        const elapsedMs = Math.max(
+          0,
+          Math.min(CHORE_UNDO_WINDOW_MS, CHORE_UNDO_WINDOW_MS - remainingMs),
+        );
         return (
           <div
             key={`${toast.choreId}-${toast.occurrenceDate}`}
@@ -54,7 +56,7 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
                 className="undo-progress-bar h-full rounded-full bg-[var(--accent)]"
                 style={{
                   animationDelay: `-${elapsedMs}ms`,
-                  animationDuration: `${undoWindowMs}ms`,
+                  animationDuration: `${CHORE_UNDO_WINDOW_MS}ms`,
                 }}
               />
             </div>

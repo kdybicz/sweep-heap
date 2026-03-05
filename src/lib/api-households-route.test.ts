@@ -98,6 +98,23 @@ describe("/api/households route", () => {
     expect(getActiveHouseholdSummaryMock).not.toHaveBeenCalled();
   });
 
+  it("GET returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "7" } });
+      getActiveHouseholdSummaryMock.mockRejectedValue(new Error("db failed"));
+
+      const response = await GET();
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to load household" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it("POST normalizes icon and invalid timezone before create", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
     getUserMembershipsMock.mockResolvedValue([]);
@@ -131,6 +148,29 @@ describe("/api/households route", () => {
     expect(response.status).toBe(400);
     expect(body).toEqual({ ok: false, error: "Invalid JSON body" });
     expect(createHouseholdWithOwnerMock).not.toHaveBeenCalled();
+  });
+
+  it("POST returns consistent 500 envelope on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "21" } });
+      getUserMembershipsMock.mockResolvedValue([]);
+      createHouseholdWithOwnerMock.mockRejectedValue(new Error("insert failed"));
+
+      const response = await POST(
+        requestWithBody("POST", {
+          name: "The Heap",
+          timeZone: "UTC",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ ok: false, error: "Failed to create household" });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("PATCH rejects non-admin users", async () => {
