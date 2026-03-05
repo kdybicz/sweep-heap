@@ -102,7 +102,7 @@ describe("/api/households/members route", () => {
 
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body.canManageMembers).toBe(false);
+    expect(body.canAdministerMembers).toBe(false);
     expect(body.viewerUserId).toBe(7);
     expect(body.members).toHaveLength(1);
     expect(body.pendingInvites).toHaveLength(1);

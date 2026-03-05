@@ -72,5 +72,6 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## Change Checklist
 - Keep route handlers thin and transport-focused.
 - Keep SQL in repositories; keep domain rules in services.
+- For legacy household member/invite routes, extract touched domain logic into services rather than adding more route-level branching.
 - Add or update focused tests when behavior changes.
 - If behavior intentionally changes, update both requirements docs.

@@ -13,3 +13,6 @@ in the AGENTS.md file to help prevent future agents from having the same issue.
 - Surprise to watch for: Makefile env parsing is not dotenv-compatible; avoid `include .env`/`source .env.local` patterns. Use `@next/env` in Node and rely on explicit `Makefile` exports for `AGENT` overrides.
 - Surprise to watch for: running `yarn db:*` directly in agent/container contexts can use `.env.local` localhost values and fail (`ECONNREFUSED 127.0.0.1:5432`). Prefer `make db-*`/`make seed-chores`, which apply `AGENT` host overrides.
 - Surprise to watch for: invite create/resend routes intentionally swallow SMTP send errors and still return `ok: true` with `inviteEmailSent: false`; check this flag when debugging invite delivery.
+- Surprise to watch for: `src/lib/smtp.ts` defaults `SMTP_PORT` to `587`; local Mailpit `1125` is provided by `.env.example`. If `SMTP_PORT` is missing, invite/delete emails may target the wrong port.
+- Surprise to watch for: in this Next.js 16 setup, dynamic route/page `params` and `searchParams` are often Promise-valued in server files; `await` them before reading values.
+- Surprise to watch for: `make seed-chores` is not idempotent (fixed demo inserts like `demo.user@example.com`), so rerunning without `make db-reset` can fail with unique constraint errors.

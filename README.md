@@ -27,7 +27,7 @@ The app expects these variables:
 - `DATABASE_URL` (Postgres connection string)
 - `AUTH_URL` (local app URL, usually `http://localhost:3000`)
 - `AUTH_SECRET` (required by Better Auth; generate a strong random value)
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (email transport; defaults target local Mailpit on port `1125`)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (email transport; local Mailpit uses port `1125`, while runtime fallback is `587` when `SMTP_PORT` is unset)
 - `SMTP_SECURE` (optional; `true`/`false` override, otherwise inferred from port `465`)
 
 For local Mailpit, leave `SMTP_USER` and `SMTP_PASS` empty (omit credentials).

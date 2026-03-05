@@ -2,74 +2,27 @@
 
 import { useMemo, useState } from "react";
 
-type HouseholdMemberRole = "admin" | "member";
-
-type HouseholdMember = {
-  userId: number;
-  name: string | null;
-  email: string;
-  role: HouseholdMemberRole;
-  joinedAt: string;
-};
-
-type HouseholdPendingInvite = {
-  id: number;
-  email: string;
-  role: HouseholdMemberRole;
-  createdAt: string;
-  expiresAt: string;
-};
+import {
+  formatDate,
+  type HouseholdMember,
+  type HouseholdMemberRole,
+  type HouseholdPendingInvite,
+  type HouseholdRow,
+  sortMembers,
+  sortPendingInvites,
+  toRoleLabel,
+  toSearchText,
+} from "@/app/household/members/members-view-utils";
 
 type HouseholdMembersViewProps = {
-  canManageMembers: boolean;
+  canAdministerMembers: boolean;
   initialMembers: HouseholdMember[];
   initialPendingInvites: HouseholdPendingInvite[];
   viewerUserId: number;
 };
 
-type HouseholdRow =
-  | { kind: "member"; member: HouseholdMember }
-  | { kind: "invite"; invite: HouseholdPendingInvite };
-
-const sortMembers = (members: HouseholdMember[]) =>
-  [...members].sort((a, b) => {
-    const aName = (a.name?.trim() || a.email).toLowerCase();
-    const bName = (b.name?.trim() || b.email).toLowerCase();
-    const byName = aName.localeCompare(bName);
-    if (byName !== 0) {
-      return byName;
-    }
-    return a.email.toLowerCase().localeCompare(b.email.toLowerCase());
-  });
-
-const sortPendingInvites = (invites: HouseholdPendingInvite[]) =>
-  [...invites].sort((a, b) => {
-    const byCreated = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    if (byCreated !== 0) {
-      return byCreated;
-    }
-    return a.email.toLowerCase().localeCompare(b.email.toLowerCase());
-  });
-
-const toRoleLabel = (role: HouseholdMemberRole) => (role === "admin" ? "Admin" : "Member");
-
-const formatDate = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
-};
-
-const toSearchText = (row: HouseholdRow) => {
-  if (row.kind === "member") {
-    return `${row.member.name ?? ""} ${row.member.email} ${row.member.role} member`.toLowerCase();
-  }
-  return `${row.invite.email} ${row.invite.role} pending invite`.toLowerCase();
-};
-
 export default function HouseholdMembersView({
-  canManageMembers,
+  canAdministerMembers,
   initialMembers,
   initialPendingInvites,
   viewerUserId,
@@ -405,7 +358,7 @@ export default function HouseholdMembersView({
         </div>
       ) : null}
 
-      {!canManageMembers ? (
+      {!canAdministerMembers ? (
         <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold text-[var(--muted)]">
           You can invite new members. Role changes and removals are limited to admins.
         </div>
@@ -430,7 +383,7 @@ export default function HouseholdMembersView({
                   const isResending = resendingInviteId === row.invite.id;
                   const isRevoking = revokingInviteId === row.invite.id;
                   const disableResend = isResending || isRevoking;
-                  const disableRevoke = !canManageMembers || isResending || isRevoking;
+                  const disableRevoke = !canAdministerMembers || isResending || isRevoking;
 
                   return (
                     <tr
@@ -464,7 +417,7 @@ export default function HouseholdMembersView({
                           >
                             {isResending ? "Resending..." : "Resend"}
                           </button>
-                          {canManageMembers ? (
+                          {canAdministerMembers ? (
                             <button
                               className="rounded-full border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-3 py-2 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                               type="button"
@@ -488,8 +441,9 @@ export default function HouseholdMembersView({
                 const roleIsUpdating = roleUpdatingUserId === member.userId;
                 const isRemoving = removingUserId === member.userId;
                 const disableRoleChange =
-                  !canManageMembers || isViewer || roleIsUpdating || isRemoving;
-                const disableRemove = !canManageMembers || isViewer || roleIsUpdating || isRemoving;
+                  !canAdministerMembers || isViewer || roleIsUpdating || isRemoving;
+                const disableRemove =
+                  !canAdministerMembers || isViewer || roleIsUpdating || isRemoving;
 
                 return (
                   <tr
@@ -506,7 +460,7 @@ export default function HouseholdMembersView({
                     </td>
                     <td className="px-4 py-3 text-[var(--muted)]">{member.email}</td>
                     <td className="px-4 py-3">
-                      {canManageMembers ? (
+                      {canAdministerMembers ? (
                         <select
                           className="rounded-lg border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                           value={member.role}
@@ -534,7 +488,7 @@ export default function HouseholdMembersView({
                     </td>
                     <td className="px-4 py-3 text-[var(--muted)]">{formatDate(member.joinedAt)}</td>
                     <td className="px-4 py-3 text-right">
-                      {canManageMembers ? (
+                      {canAdministerMembers ? (
                         <button
                           className="rounded-full border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                           type="button"

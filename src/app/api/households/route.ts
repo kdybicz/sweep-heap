@@ -31,27 +31,42 @@ const toIcon = (value: unknown) => {
   return trimmed.slice(0, 16);
 };
 
-const getSessionUserId = async () => {
+const getSessionContext = async () => {
   const session = await getSession();
   if (!session?.user?.id) {
-    return null;
+    return {
+      userId: null,
+      status: 401,
+      error: "Unauthorized",
+    };
   }
 
   const userId = Number(session.user.id);
   if (!Number.isFinite(userId)) {
-    return null;
+    return {
+      userId: null,
+      status: 400,
+      error: "Invalid user",
+    };
   }
 
-  return userId;
+  return {
+    userId,
+    status: 200,
+    error: null,
+  };
 };
 
 export async function GET() {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  const sessionContext = await getSessionContext();
+  if (sessionContext.error || sessionContext.userId === null) {
+    return Response.json(
+      { ok: false, error: sessionContext.error ?? "Unauthorized" },
+      { status: sessionContext.status },
+    );
   }
 
-  const household = await getActiveHouseholdSummary(userId);
+  const household = await getActiveHouseholdSummary(sessionContext.userId);
   if (!household) {
     return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }
@@ -60,9 +75,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  const sessionContext = await getSessionContext();
+  if (sessionContext.error || sessionContext.userId === null) {
+    return Response.json(
+      { ok: false, error: sessionContext.error ?? "Unauthorized" },
+      { status: sessionContext.status },
+    );
   }
 
   const payload = await parseJsonObjectBody(request);
@@ -75,7 +93,7 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
   }
 
-  const memberships = await getUserMemberships(userId);
+  const memberships = await getUserMemberships(sessionContext.userId);
   if (memberships.length) {
     return Response.json(
       { ok: false, error: "User already belongs to a household" },
@@ -85,18 +103,26 @@ export async function POST(request: Request) {
 
   const timeZone = toTimeZone(payload?.timeZone);
   const icon = toIcon(payload?.icon);
-  const householdId = await createHouseholdWithOwner({ userId, name, timeZone, icon });
+  const householdId = await createHouseholdWithOwner({
+    userId: sessionContext.userId,
+    name,
+    timeZone,
+    icon,
+  });
 
   return Response.json({ ok: true, householdId });
 }
 
 export async function PATCH(request: Request) {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  const sessionContext = await getSessionContext();
+  if (sessionContext.error || sessionContext.userId === null) {
+    return Response.json(
+      { ok: false, error: sessionContext.error ?? "Unauthorized" },
+      { status: sessionContext.status },
+    );
   }
 
-  const household = await getActiveHouseholdSummary(userId);
+  const household = await getActiveHouseholdSummary(sessionContext.userId);
   if (!household) {
     return Response.json({ ok: false, error: "Household required" }, { status: 403 });
   }

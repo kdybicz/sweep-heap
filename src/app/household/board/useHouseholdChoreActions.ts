@@ -2,6 +2,13 @@ import { DateTime } from "luxon";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  applyOptimisticDone,
+  applyOptimisticUndo,
+  findTargetChore,
+  restoreTargetChore,
+  updateTargetChore,
+} from "@/app/household/board/chore-actions-state";
 import { getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem, UndoToast } from "@/app/household/board/types";
 import type {
@@ -206,21 +213,15 @@ export default function useHouseholdChoreActions({
       const occurrenceDate = targetChore.occurrence_date;
       const optimisticStatus = targetChore.type === "stay_open" ? "open" : "closed";
       const undoUntil = DateTime.utc().plus({ seconds: 5 }).toISO();
-      const previous = chores.find(
-        (chore) => chore.id === choreId && chore.occurrence_date === occurrenceDate,
-      );
+      const previous = findTargetChore({ chores, choreId, occurrenceDate });
       setChores((prev) =>
-        prev.map((chore) =>
-          chore.id === choreId && chore.occurrence_date === occurrenceDate
-            ? {
-                ...chore,
-                status: optimisticStatus,
-                closed_reason: "done",
-                undo_until: undoUntil,
-                can_undo: true,
-              }
-            : chore,
-        ),
+        applyOptimisticDone({
+          chores: prev,
+          choreId,
+          occurrenceDate,
+          optimisticStatus,
+          undoUntil,
+        }),
       );
 
       try {
@@ -244,27 +245,25 @@ export default function useHouseholdChoreActions({
         }
         if (data.undo_until) {
           setChores((prev) =>
-            prev.map((chore) =>
-              chore.id === choreId && chore.occurrence_date === occurrenceDate
-                ? {
-                    ...chore,
-                    status: typeof data.status === "string" ? data.status : optimisticStatus,
-                    closed_reason:
-                      typeof data.closed_reason === "string" ? data.closed_reason : "done",
-                    undo_until: data.undo_until,
-                    can_undo: true,
-                  }
-                : chore,
-            ),
+            updateTargetChore({
+              chores: prev,
+              choreId,
+              occurrenceDate,
+              map: (chore) => ({
+                ...chore,
+                status: typeof data.status === "string" ? data.status : optimisticStatus,
+                closed_reason: typeof data.closed_reason === "string" ? data.closed_reason : "done",
+                undo_until: data.undo_until,
+                can_undo: true,
+              }),
+            }),
           );
         }
       } catch (error) {
         console.error(error);
         if (previous) {
           setChores((prev) =>
-            prev.map((chore) =>
-              chore.id === choreId && chore.occurrence_date === occurrenceDate ? previous : chore,
-            ),
+            restoreTargetChore({ chores: prev, choreId, occurrenceDate, previous }),
           );
         }
       } finally {
@@ -276,22 +275,8 @@ export default function useHouseholdChoreActions({
 
   const undoChoreDone = useCallback(
     async (choreId: number, occurrenceDate: string) => {
-      const previous = chores.find(
-        (chore) => chore.id === choreId && chore.occurrence_date === occurrenceDate,
-      );
-      setChores((prev) =>
-        prev.map((chore) =>
-          chore.id === choreId && chore.occurrence_date === occurrenceDate
-            ? {
-                ...chore,
-                status: "open",
-                closed_reason: null,
-                undo_until: null,
-                can_undo: false,
-              }
-            : chore,
-        ),
-      );
+      const previous = findTargetChore({ chores, choreId, occurrenceDate });
+      setChores((prev) => applyOptimisticUndo({ chores: prev, choreId, occurrenceDate }));
 
       try {
         const response = await fetch("/api/chores", {
@@ -315,9 +300,7 @@ export default function useHouseholdChoreActions({
         console.error(error);
         if (previous) {
           setChores((prev) =>
-            prev.map((chore) =>
-              chore.id === choreId && chore.occurrence_date === occurrenceDate ? previous : chore,
-            ),
+            restoreTargetChore({ chores: prev, choreId, occurrenceDate, previous }),
           );
         }
       } finally {

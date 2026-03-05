@@ -81,7 +81,7 @@ export async function GET() {
       role: household.role,
     },
     viewerUserId: sessionContext.userId,
-    canManageMembers: household.role === "admin",
+    canAdministerMembers: household.role === "admin",
     members,
     pendingInvites,
   });

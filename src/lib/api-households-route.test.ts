@@ -87,6 +87,17 @@ describe("/api/households route", () => {
     expect(body).toEqual({ ok: false, error: "Household required" });
   });
 
+  it("GET returns invalid user when session user id is not numeric", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "not-a-number" } });
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Invalid user" });
+    expect(getActiveHouseholdSummaryMock).not.toHaveBeenCalled();
+  });
+
   it("POST normalizes icon and invalid timezone before create", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
     getUserMembershipsMock.mockResolvedValue([]);

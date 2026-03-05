@@ -59,7 +59,7 @@ export default async function HouseholdMembersPage() {
 
         <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-6 shadow-[var(--shadow)] sm:p-8">
           <HouseholdMembersView
-            canManageMembers={household.role === "admin"}
+            canAdministerMembers={household.role === "admin"}
             initialMembers={initialMembers}
             initialPendingInvites={initialPendingInvites}
             viewerUserId={userId}

@@ -203,12 +203,13 @@
 - Keep route handlers transport-focused (auth, parsing, response mapping).
 - Keep SQL/data access in `src/lib/repositories/*-repository.ts`.
 - Keep domain logic in `src/lib/services/*-service.ts`.
+- Legacy note: household member/invite routes still contain some domain logic; when changing those flows, prefer extracting logic into service modules instead of expanding route handlers.
 - Use barrel exports from `src/lib/repositories/index.ts` and `src/lib/services/index.ts`.
 
 ## Testing and Quality Gates
 - Prefer focused unit tests for service and route behavior.
 - Mock repositories in service tests; avoid DB in unit tests.
-- Project default gate for code changes: `yarn dev:fix` (format, lint fix, tests, typecheck).
+- Project default gate for code changes: `make dev-fix` (format, lint fix, tests, typecheck).
 - Coverage expansion is tracked in `TODO-1` (Postgres-backed integration tests plus minimal auth/chore/account-deletion E2E flow).
 
 ## Known Gaps and Implementation Caveats
