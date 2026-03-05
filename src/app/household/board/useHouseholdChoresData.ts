@@ -1,114 +1,51 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo } from "react";
 
+import {
+  type ChoresQueryData,
+  fetchTodayChores,
+  fetchWeekChores,
+  getTodayChoresQueryKey,
+  getWeekChoresQueryKey,
+  HouseholdRequiredError,
+} from "@/app/household/board/chores-query";
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
-  FetchChoresFn,
   LoadChoresFn,
-  LoadWeekChoresRequestParams,
   UseHouseholdChoresDataModel,
   UseHouseholdChoresDataParams,
 } from "@/app/household/board/useHouseholdChoresData.types";
 
 export type {
-  FetchChoresFn,
   LoadChoresFn,
-  LoadWeekChoresRequestParams,
   UseHouseholdChoresDataModel,
   UseHouseholdChoresDataParams,
 } from "@/app/household/board/useHouseholdChoresData.types";
 
-type LoadWeekChoresResponse = {
-  ok?: boolean;
-  chores?: ChoreItem[];
-  timeZone?: string;
-  rangeStart?: string;
-  rangeEnd?: string;
-  error?: string;
+const redirectToHouseholdSetup = () => {
+  window.location.assign("/household/setup");
 };
 
-const isAbortError = (error: unknown) => {
-  if (error instanceof DOMException) {
-    return error.name === "AbortError";
-  }
-  return typeof error === "object" && error !== null && "name" in error
-    ? (error as { name?: unknown }).name === "AbortError"
-    : false;
+const toNextChores = ({
+  previous,
+  value,
+}: {
+  previous: ChoresQueryData | undefined;
+  value: SetStateAction<ChoreItem[]>;
+}): ChoresQueryData => {
+  const previousChores = previous?.chores ?? [];
+  const nextChores =
+    typeof value === "function"
+      ? (value as (current: ChoreItem[]) => ChoreItem[])(previousChores)
+      : value;
+
+  return {
+    chores: nextChores,
+    timeZone: previous?.timeZone ?? null,
+    rangeStart: previous?.rangeStart ?? null,
+    rangeEnd: previous?.rangeEnd ?? null,
+  };
 };
-
-export async function loadWeekChoresRequest({
-  weekOffset,
-  force,
-  fetchImpl = fetch as FetchChoresFn,
-  lastLoadedOffsetRef,
-  requestIdRef,
-  activeControllerRef,
-  setLoading,
-  setChores,
-  setTimeZone,
-  setRangeStart,
-  setRangeEnd,
-  onHouseholdRequired,
-  onError,
-}: LoadWeekChoresRequestParams): Promise<void> {
-  const weekOffsetKey = String(weekOffset);
-  if (!force && lastLoadedOffsetRef.current === weekOffsetKey) {
-    if (activeControllerRef.current) {
-      requestIdRef.current += 1;
-      activeControllerRef.current.abort();
-      activeControllerRef.current = null;
-    }
-    setLoading(false);
-    return;
-  }
-
-  const requestId = requestIdRef.current + 1;
-  requestIdRef.current = requestId;
-  activeControllerRef.current?.abort();
-  const controller = new AbortController();
-  activeControllerRef.current = controller;
-
-  try {
-    setLoading(true);
-    const response = await fetchImpl(`/api/chores?weekOffset=${weekOffset}`, {
-      cache: "no-store",
-      signal: controller.signal,
-    });
-    const data = (await response.json()) as LoadWeekChoresResponse;
-    if (requestId !== requestIdRef.current) {
-      return;
-    }
-
-    if (data?.ok) {
-      setChores(data.chores ?? []);
-      const nextTimeZone = data.timeZone;
-      if (nextTimeZone) {
-        setTimeZone((current) => (nextTimeZone !== current ? nextTimeZone : current));
-      }
-      if (data.rangeStart && data.rangeEnd) {
-        setRangeStart(data.rangeStart);
-        setRangeEnd(data.rangeEnd);
-      }
-      lastLoadedOffsetRef.current = weekOffsetKey;
-    } else if (data?.error === "Household required") {
-      onHouseholdRequired();
-    }
-  } catch (error) {
-    if (requestId !== requestIdRef.current) {
-      return;
-    }
-    if (isAbortError(error)) {
-      return;
-    }
-    onError(error);
-  } finally {
-    if (requestId === requestIdRef.current) {
-      if (activeControllerRef.current === controller) {
-        activeControllerRef.current = null;
-      }
-      setLoading(false);
-    }
-  }
-}
 
 export default function useHouseholdChoresData({
   weekOffset,
@@ -117,75 +54,121 @@ export default function useHouseholdChoresData({
   setRangeStart,
   setRangeEnd,
 }: UseHouseholdChoresDataParams): UseHouseholdChoresDataModel {
-  const [chores, setChores] = useState<ChoreItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [todayChores, setTodayChores] = useState<ChoreItem[]>([]);
-  const [loadingToday, setLoadingToday] = useState(true);
-  const lastLoadedOffsetRef = useRef<string | null>(null);
-  const requestIdRef = useRef(0);
-  const activeControllerRef = useRef<AbortController | null>(null);
+  const queryClient = useQueryClient();
+  const weekChoresQueryKey = useMemo(() => getWeekChoresQueryKey(weekOffset), [weekOffset]);
+  const todayChoresQueryKey = useMemo(() => getTodayChoresQueryKey(todayKey), [todayKey]);
+
+  const weekChoresQuery = useQuery({
+    queryKey: weekChoresQueryKey,
+    queryFn: ({ signal }) => fetchWeekChores({ weekOffset, signal }),
+    retry: false,
+  });
+
+  const todayChoresQuery = useQuery({
+    queryKey: todayChoresQueryKey,
+    queryFn: ({ signal }) => fetchTodayChores({ todayKey, signal }),
+    retry: false,
+    enabled: Boolean(todayKey),
+  });
+
+  const setChores = useCallback<Dispatch<SetStateAction<ChoreItem[]>>>(
+    (value) => {
+      queryClient.setQueryData<ChoresQueryData>(weekChoresQueryKey, (previous) =>
+        toNextChores({
+          previous,
+          value,
+        }),
+      );
+    },
+    [queryClient, weekChoresQueryKey],
+  );
 
   const loadChores = useCallback<LoadChoresFn>(
     async ({ force }: { force?: boolean } = {}) => {
-      await loadWeekChoresRequest({
-        weekOffset,
-        force,
-        lastLoadedOffsetRef,
-        requestIdRef,
-        activeControllerRef,
-        setLoading,
-        setChores,
-        setTimeZone,
-        setRangeStart,
-        setRangeEnd,
-        onHouseholdRequired: () => {
-          window.location.assign("/household/setup");
-        },
-        onError: (error) => {
-          console.error(error);
-        },
+      if (force) {
+        await queryClient.invalidateQueries({
+          queryKey: weekChoresQueryKey,
+          exact: true,
+        });
+        return;
+      }
+
+      await queryClient.refetchQueries({
+        queryKey: weekChoresQueryKey,
+        exact: true,
+        type: "active",
       });
     },
-    [setRangeEnd, setRangeStart, setTimeZone, weekOffset],
+    [queryClient, weekChoresQueryKey],
   );
 
   useEffect(() => {
-    return () => {
-      activeControllerRef.current?.abort();
-    };
-  }, []);
+    const data = weekChoresQuery.data;
+    if (!data) {
+      return;
+    }
 
-  useEffect(() => {
-    void loadChores();
-  }, [loadChores]);
+    const nextTimeZone = data.timeZone;
+    if (nextTimeZone) {
+      setTimeZone((current) => (nextTimeZone !== current ? nextTimeZone : current));
+    }
+
+    if (data.rangeStart && data.rangeEnd) {
+      setRangeStart(data.rangeStart);
+      setRangeEnd(data.rangeEnd);
+    }
+  }, [setRangeEnd, setRangeStart, setTimeZone, weekChoresQuery.data]);
 
   const loadTodayChores = useCallback(async () => {
-    try {
-      setLoadingToday(true);
-      const response = await fetch(`/api/chores?start=${todayKey}&end=${todayKey}`, {
-        cache: "no-store",
-      });
-      const data = await response.json();
-      if (data?.error === "Household required") {
-        window.location.assign("/household/setup");
-        return;
-      }
-      if (data?.ok) {
-        setTodayChores(data.chores ?? []);
-        if (data.timeZone) {
-          setTimeZone((current) => (data.timeZone !== current ? data.timeZone : current));
-        }
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoadingToday(false);
-    }
-  }, [setTimeZone, todayKey]);
+    await queryClient.refetchQueries({
+      queryKey: todayChoresQueryKey,
+      exact: true,
+      type: "active",
+    });
+  }, [queryClient, todayChoresQueryKey]);
 
   useEffect(() => {
-    void loadTodayChores();
-  }, [loadTodayChores]);
+    const data = todayChoresQuery.data;
+    const nextTimeZone = data?.timeZone;
+    if (!nextTimeZone) {
+      return;
+    }
+
+    setTimeZone((current) => (nextTimeZone !== current ? nextTimeZone : current));
+  }, [setTimeZone, todayChoresQuery.data]);
+
+  useEffect(() => {
+    const error = weekChoresQuery.error;
+    if (!error) {
+      return;
+    }
+
+    if (error instanceof HouseholdRequiredError) {
+      redirectToHouseholdSetup();
+      return;
+    }
+
+    console.error(error);
+  }, [weekChoresQuery.error]);
+
+  useEffect(() => {
+    const error = todayChoresQuery.error;
+    if (!error) {
+      return;
+    }
+
+    if (error instanceof HouseholdRequiredError) {
+      redirectToHouseholdSetup();
+      return;
+    }
+
+    console.error(error);
+  }, [todayChoresQuery.error]);
+
+  const chores = weekChoresQuery.data?.chores ?? [];
+  const todayChores = todayChoresQuery.data?.chores ?? [];
+  const loading = weekChoresQuery.isPending;
+  const loadingToday = todayChoresQuery.isPending;
 
   return {
     chores,

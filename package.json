@@ -26,6 +26,7 @@
     "dev:fix": "yarn format:write && yarn lint:fix && yarn test && yarn typecheck"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
     "better-auth": "^1.4.20",
     "drizzle-orm": "^0.45.1",
     "luxon": "^3.7.2",

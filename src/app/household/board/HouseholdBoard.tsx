@@ -1,5 +1,8 @@
 "use client";
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+
 import AccountHeader from "@/app/household/board/components/AccountHeader";
 import AddChoreModal from "@/app/household/board/components/AddChoreModal";
 import ChoreDetailsModal from "@/app/household/board/components/ChoreDetailsModal";
@@ -10,6 +13,26 @@ import { useHouseholdViewer } from "@/app/household/board/HouseholdViewerContext
 import useHouseholdBoard from "@/app/household/board/useHouseholdBoard";
 
 export default function HouseholdBoard() {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: false,
+            refetchOnWindowFocus: false,
+          },
+        },
+      }),
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <HouseholdBoardContent />
+    </QueryClientProvider>
+  );
+}
+
+function HouseholdBoardContent() {
   const board = useHouseholdBoard();
   const { householdIcon, householdName, isHouseholdAdmin, userName } = useHouseholdViewer();
 
