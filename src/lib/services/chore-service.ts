@@ -7,6 +7,7 @@ import { generateOccurrences } from "@/lib/occurrences";
 import {
   deleteChoreOccurrenceOverride,
   getChoreInHousehold,
+  getChoreOccurrenceOverride,
   getHouseholdTimeZoneById,
   insertChore,
   listActiveChoreSeriesByHousehold,
@@ -163,10 +164,35 @@ export const mutateChore = async ({
   payload: unknown;
 }): Promise<ChoreMutationSuccess | ChoreMutationFailure> => {
   const input = (payload ?? {}) as Record<string, unknown>;
+  const rawAction = typeof input.action === "string" ? input.action.trim().toLowerCase() : null;
+  const action = rawAction ?? "set";
+
+  if (action !== "create" && action !== "set" && action !== "undo") {
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        ok: false,
+        error: "Action must be create, set, or undo",
+      },
+    };
+  }
+
+  const rawStatus = typeof input.status === "string" ? input.status.trim().toLowerCase() : null;
+  if (action === "set" && rawStatus !== "open" && rawStatus !== "closed") {
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        ok: false,
+        error: "Status must be open or closed",
+      },
+    };
+  }
+
   const choreId = Number(input.choreId);
   const occurrenceDate = normalizeDate(input.occurrenceDate, "UTC");
-  const status = input.status === "closed" ? "closed" : "open";
-  const action = typeof input.action === "string" ? input.action : "set";
+  const status = rawStatus === "closed" ? "closed" : "open";
   const title = typeof input.title === "string" ? input.title.trim() : "";
   const inputType =
     typeof input.type === "string" ? input.type.trim().toLowerCase() : "close_on_done";
@@ -269,6 +295,26 @@ export const mutateChore = async ({
     : "open";
 
   if (action === "undo") {
+    const override = await getChoreOccurrenceOverride({ choreId, occurrenceDate });
+    const undoUntil = override?.undoUntil ? DateTime.fromJSDate(override.undoUntil).toUTC() : null;
+
+    if (
+      !override ||
+      override.closedReason !== "done" ||
+      !undoUntil ||
+      !undoUntil.isValid ||
+      undoUntil <= DateTime.utc()
+    ) {
+      return {
+        ok: false,
+        status: 409,
+        body: {
+          ok: false,
+          error: "Undo window expired",
+        },
+      };
+    }
+
     await deleteChoreOccurrenceOverride({ choreId, occurrenceDate });
   } else {
     await upsertChoreOccurrenceOverride({

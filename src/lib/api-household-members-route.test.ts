@@ -314,6 +314,31 @@ describe("/api/households/members route", () => {
     });
   });
 
+  it("DELETE rejects attempts to remove yourself", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "5" } });
+    getActiveHouseholdSummaryMock.mockResolvedValue({
+      id: 11,
+      name: "Home",
+      timeZone: "UTC",
+      icon: null,
+      role: "admin",
+    });
+
+    const response = await DELETE(
+      requestWithBody("DELETE", {
+        userId: 5,
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      ok: false,
+      error: "Admins cannot remove themselves",
+    });
+    expect(removeActiveHouseholdMemberMock).not.toHaveBeenCalled();
+  });
+
   it("PATCH prevents demoting the last admin", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "5" } });
     getActiveHouseholdSummaryMock.mockResolvedValue({

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   deleteChoreOccurrenceOverrideMock,
   getChoreInHouseholdMock,
+  getChoreOccurrenceOverrideMock,
   insertChoreMock,
   listActiveChoreSeriesByHouseholdMock,
   listChoreOverridesByHouseholdMock,
@@ -14,6 +15,7 @@ const {
 } = vi.hoisted(() => ({
   deleteChoreOccurrenceOverrideMock: vi.fn(),
   getChoreInHouseholdMock: vi.fn(),
+  getChoreOccurrenceOverrideMock: vi.fn(),
   insertChoreMock: vi.fn(),
   listActiveChoreSeriesByHouseholdMock: vi.fn(),
   listChoreOverridesByHouseholdMock: vi.fn(),
@@ -27,6 +29,7 @@ const {
 vi.mock("@/lib/repositories", () => ({
   deleteChoreOccurrenceOverride: deleteChoreOccurrenceOverrideMock,
   getChoreInHousehold: getChoreInHouseholdMock,
+  getChoreOccurrenceOverride: getChoreOccurrenceOverrideMock,
   insertChore: insertChoreMock,
   listActiveChoreSeriesByHousehold: listActiveChoreSeriesByHouseholdMock,
   listChoreOverridesByHousehold: listChoreOverridesByHouseholdMock,
@@ -49,6 +52,7 @@ describe("mutateChore", () => {
   beforeEach(() => {
     deleteChoreOccurrenceOverrideMock.mockReset();
     getChoreInHouseholdMock.mockReset();
+    getChoreOccurrenceOverrideMock.mockReset();
     insertChoreMock.mockReset();
     listActiveChoreSeriesByHouseholdMock.mockReset();
     listChoreOverridesByHouseholdMock.mockReset();
@@ -184,6 +188,11 @@ describe("mutateChore", () => {
 
   it("deletes override on undo action", async () => {
     getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "close_on_done" });
+    getChoreOccurrenceOverrideMock.mockResolvedValue({
+      status: "closed",
+      closedReason: "done",
+      undoUntil: new Date(Date.now() + 5_000),
+    });
 
     const result = await mutateChore({
       householdId: 11,
@@ -200,6 +209,96 @@ describe("mutateChore", () => {
       occurrenceDate: "2026-01-03",
     });
     expect(upsertChoreOccurrenceOverrideMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects undo when the undo window expired", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "close_on_done" });
+    getChoreOccurrenceOverrideMock.mockResolvedValue({
+      status: "closed",
+      closedReason: "done",
+      undoUntil: new Date(Date.now() - 1000),
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "undo",
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      body: {
+        ok: false,
+        error: "Undo window expired",
+      },
+    });
+    expect(deleteChoreOccurrenceOverrideMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects undo when action is no longer undoable", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({ id: 3, type: "close_on_done" });
+    getChoreOccurrenceOverrideMock.mockResolvedValue(null);
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "undo",
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      body: {
+        ok: false,
+        error: "Undo window expired",
+      },
+    });
+    expect(deleteChoreOccurrenceOverrideMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown actions", async () => {
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "invalid",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      body: {
+        ok: false,
+        error: "Action must be create, set, or undo",
+      },
+    });
+  });
+
+  it("requires explicit open/closed status for set action", async () => {
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "set",
+        choreId: 3,
+        occurrenceDate: "2026-01-03",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      body: {
+        ok: false,
+        error: "Status must be open or closed",
+      },
+    });
   });
 
   it("closes close-on-done chore occurrence on completion", async () => {
@@ -300,6 +399,7 @@ describe("listChores", () => {
   beforeEach(() => {
     deleteChoreOccurrenceOverrideMock.mockReset();
     getChoreInHouseholdMock.mockReset();
+    getChoreOccurrenceOverrideMock.mockReset();
     insertChoreMock.mockReset();
     listActiveChoreSeriesByHouseholdMock.mockReset();
     listChoreOverridesByHouseholdMock.mockReset();

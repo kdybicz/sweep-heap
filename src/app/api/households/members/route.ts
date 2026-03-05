@@ -282,6 +282,10 @@ export async function DELETE(request: Request) {
     return Response.json({ ok: false, error: "Member user id is required" }, { status: 400 });
   }
 
+  if (targetUserId === sessionContext.userId) {
+    return Response.json({ ok: false, error: "Admins cannot remove themselves" }, { status: 400 });
+  }
+
   const member = await getActiveHouseholdMember({
     householdId: household.id,
     userId: targetUserId,

@@ -7,14 +7,23 @@ import { pool } from "@/lib/db";
 import { getSmtpSettings } from "@/lib/smtp";
 
 const appUrl = process.env.AUTH_URL;
-const smtpSettings = getSmtpSettings();
 
-const transporter = nodemailer.createTransport({
-  host: smtpSettings.host,
-  port: smtpSettings.port,
-  secure: smtpSettings.secure,
-  auth: smtpSettings.auth,
-});
+const getMagicLinkTransport = () => {
+  const smtpSettings = getSmtpSettings();
+  if (!smtpSettings.host || !smtpSettings.from) {
+    throw new Error("Email is not configured");
+  }
+
+  return {
+    from: smtpSettings.from,
+    transporter: nodemailer.createTransport({
+      host: smtpSettings.host,
+      port: smtpSettings.port,
+      secure: smtpSettings.secure,
+      auth: smtpSettings.auth,
+    }),
+  };
+};
 
 const magicLinkHtml = ({ url, host }: { url: string; host: string }) => {
   const escapedHost = host.replace(/\./g, "&#8203;.");
@@ -115,9 +124,10 @@ export const auth = betterAuth({
       expiresIn: 24 * 60 * 60,
       sendMagicLink: async ({ email, url }) => {
         const host = new URL(url).host;
+        const { from, transporter } = getMagicLinkTransport();
         await transporter.sendMail({
           to: email,
-          from: smtpSettings.from,
+          from,
           subject: `Sign in to ${host}`,
           text: magicLinkText({ url, host }),
           html: magicLinkHtml({ url, host }),

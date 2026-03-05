@@ -4,10 +4,11 @@ export const parseJsonObjectBody = async (request: Request) => {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed as Record<string, unknown>;
     }
-    return {};
   } catch {
     return null;
   }
+
+  return null;
 };
 
 export const getAppOrigin = (request: Request) => {

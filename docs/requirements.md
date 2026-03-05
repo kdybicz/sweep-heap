@@ -7,7 +7,7 @@
 - For a compact day-to-day version, use `docs/requirements-quick-reference.md`.
 
 ## Status
-- Last reviewed against code: 2026-03-04.
+- Last reviewed against code: 2026-03-05.
 - Product phase: MVP with active iteration.
 - Current scope includes auth, households, members/invites, chores board UI, and account settings.
 
@@ -91,6 +91,7 @@
   - Remove members.
 - Safety rule: at least one admin must remain in a household.
 - Admins cannot change their own role through the members API.
+- Admins cannot remove themselves through the members API.
 
 ## Invite Rules
 - Household invite token links are backed by `identifier + tokenHash` and expire after 7 days.
@@ -135,6 +136,7 @@
   - Mark done writes override `status = open`, `closed_reason = done`.
   - Repeated logging is allowed.
 - Undo window is 5 seconds (not 10 seconds).
+- `action=undo` is enforced against `undo_until` and returns conflict after the window expires.
 - Undo action deletes the override row for that occurrence.
 - UI shows active undo toasts with a visible countdown bar.
 

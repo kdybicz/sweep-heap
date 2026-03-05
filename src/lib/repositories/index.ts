@@ -1,6 +1,7 @@
 export {
   deleteChoreOccurrenceOverride,
   getChoreInHousehold,
+  getChoreOccurrenceOverride,
   insertChore,
   isChoreInHousehold,
   listActiveChoreSeriesByHousehold,

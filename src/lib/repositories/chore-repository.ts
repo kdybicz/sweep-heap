@@ -20,6 +20,12 @@ type ChoreOverrideRow = {
   undo_until: Date | null;
 };
 
+type ChoreOverrideRecord = {
+  status: string;
+  closedReason: string | null;
+  undoUntil: Date | null;
+};
+
 type ChoreInHouseholdRow = {
   id: number;
   type: "close_on_done" | "stay_open";
@@ -105,6 +111,20 @@ export const getChoreInHousehold = async ({
   const result = await pool.query<ChoreInHouseholdRow>(
     "select id, type from chores where id = $1 and household_id = $2",
     [choreId, householdId],
+  );
+  return result.rows[0] ?? null;
+};
+
+export const getChoreOccurrenceOverride = async ({
+  choreId,
+  occurrenceDate,
+}: {
+  choreId: number;
+  occurrenceDate: string;
+}) => {
+  const result = await pool.query<ChoreOverrideRecord>(
+    'select status, closed_reason as "closedReason", undo_until as "undoUntil" from chore_occurrence_overrides where chore_id = $1 and occurrence_date = $2 limit 1',
+    [choreId, occurrenceDate],
   );
   return result.rows[0] ?? null;
 };

@@ -13,17 +13,10 @@ endif
 define run
 @bash -lc 'set -eo pipefail; \
 if [ -s "$(NVM_DIR)/nvm.sh" ]; then \
-  source "$(NVM_DIR)/nvm.sh"; \
-  nvm use --silent "$(NODE_VERSION)" >/dev/null; \
-else \
-  current="$$(node -v)"; \
-  current="$${current#v}"; \
-  current_major="$${current%%.*}"; \
-  if [ "$$current_major" != "$(NODE_VERSION)" ]; then \
-    echo "Node $(NODE_VERSION) is required (found $$(node -v))."; \
-    echo "Install nvm or switch Node before running make targets."; \
-    exit 1; \
-  fi; \
+	source "$(NVM_DIR)/nvm.sh"; \
+	nvm install "$(NODE_VERSION)"; \
+	nvm use "$(NODE_VERSION)" >/dev/null; \
+	corepack enable >/dev/null 2>&1 || true; \
 fi; \
 $(1)'
 endef

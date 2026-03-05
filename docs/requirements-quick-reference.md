@@ -17,6 +17,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Admin-only: edit household, revoke invites, change roles, remove members.
 - Last admin cannot be demoted or removed.
 - Admin cannot change their own role from the members endpoint.
+- Admin cannot remove themselves from the members endpoint.
 
 ### Invites
 - Invite validity is `identifier + tokenHash` and expiry window (7 days).
@@ -34,6 +35,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.
 - `stay_open`: done sets `status=open`, `closed_reason=done`.
 - Undo window is 5 seconds.
+- Undo is API-enforced against `undo_until` and returns conflict after expiry.
 - Undo deletes the occurrence override row.
 
 ## API Snapshot

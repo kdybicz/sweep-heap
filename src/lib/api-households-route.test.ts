@@ -34,6 +34,13 @@ const requestWithBody = (method: "POST" | "PATCH", body: Record<string, unknown>
     body: JSON.stringify(body),
   });
 
+const requestWithRawBody = (method: "POST" | "PATCH", rawBody: string) =>
+  new Request("http://localhost/api/households", {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: rawBody,
+  });
+
 describe("/api/households route", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
@@ -102,6 +109,17 @@ describe("/api/households route", () => {
       timeZone: "UTC",
       icon: "🧹🧹🧹🧹🧹🧹🧹🧹",
     });
+  });
+
+  it("POST rejects non-object json payloads", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
+
+    const response = await POST(requestWithRawBody("POST", "[]"));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Invalid JSON body" });
+    expect(createHouseholdWithOwnerMock).not.toHaveBeenCalled();
   });
 
   it("PATCH rejects non-admin users", async () => {

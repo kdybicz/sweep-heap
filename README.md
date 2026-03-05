@@ -90,6 +90,7 @@ make dev
 
 ## Useful Commands
 
+- Prefer `make` targets first (especially in agent/container environments); use direct `yarn` only when an equivalent `make` target is missing.
 - `yarn db:reset` - drops `drizzle` and `public` schemas, recreates `public`, then runs migrations
 - `yarn db:migrate` - applies Drizzle migrations
 - `yarn db:generate` - generates migration files from `src/lib/drizzle/schema.ts`

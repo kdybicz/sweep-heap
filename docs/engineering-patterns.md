@@ -44,7 +44,11 @@ Use status codes consistently:
 - `400`: malformed request or invalid user/session payload.
 - `403`: authenticated but not allowed (including `Household required` and role-based `Forbidden`).
 - `404`: requested resource is missing (for example member/invite/chore not found).
-- `409`: valid request conflicts with business rules.
+- `409`: valid request conflicts with business rules (for example last-admin safety or expired undo).
+
+Body parsing rule:
+
+- `parseJsonObjectBody()` should return `null` for parse failures and valid non-object JSON (arrays/primitives), so routes can consistently return `400` with `Invalid JSON body` for non-object payloads.
 
 Important contract:
 
@@ -81,3 +85,17 @@ If a recurring surprise gets fixed and becomes a standard:
 
 1. Document the standard here.
 2. Remove or shorten the matching note in `AGENTS.md`.
+
+## 8) Members API Consistency
+
+For `DELETE /api/households/members`:
+
+- Reject self-removal requests (`targetUserId === session user id`) with `400`.
+- Keep UI affordances aligned with API behavior for self-role/self-removal restrictions.
+
+## 9) Chore Undo Contract
+
+For `PATCH /api/chores` with `action: "undo"`:
+
+- Undo must be enforced server-side using `undo_until` (not only by UI toast timing).
+- Return `409` with a conflict error when the undo window is no longer active.
