@@ -158,4 +158,40 @@ describe("PATCH /api/chores", () => {
       payload,
     });
   });
+
+  it("rejects unsupported action values before service mutation", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
+    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Action must be create, set, or undo" });
+    expect(mutateChoreMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing status for set-style mutations before service mutation", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
+    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set", choreId: 3, occurrenceDate: "2026-01-03" }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Status must be open or closed" });
+    expect(mutateChoreMock).not.toHaveBeenCalled();
+  });
 });

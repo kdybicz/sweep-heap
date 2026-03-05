@@ -1,4 +1,5 @@
 import { requireApiHousehold } from "@/lib/api-access";
+import { validateChorePatchPayload } from "@/lib/api-payload-validation";
 import { parseJsonObjectBody } from "@/lib/http";
 import { listChores, mutateChore } from "@/lib/services";
 
@@ -68,7 +69,15 @@ export async function PATCH(request: Request) {
       return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const result = await mutateChore({ householdId: householdAccess.household.id, payload });
+    const payloadValidation = validateChorePatchPayload(payload);
+    if (!payloadValidation.ok) {
+      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
+    }
+
+    const result = await mutateChore({
+      householdId: householdAccess.household.id,
+      payload: payloadValidation.data,
+    });
     if (!result.ok) {
       return Response.json(result.body, { status: result.status });
     }

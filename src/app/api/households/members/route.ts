@@ -1,6 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { requireApiHousehold, requireApiHouseholdAdmin } from "@/lib/api-access";
+import {
+  validateHouseholdInvitePayload,
+  validateHouseholdMemberRemovePayload,
+  validateHouseholdMemberRoleUpdatePayload,
+} from "@/lib/api-payload-validation";
 import { getHouseholdInviteExpiryDate } from "@/lib/household-invite";
 import { sendHouseholdInviteEmail } from "@/lib/household-invite-email";
 import { getAppOrigin, parseJsonObjectBody } from "@/lib/http";
@@ -11,16 +16,8 @@ import {
   removeActiveHouseholdMemberWithGuard,
   updateActiveHouseholdMemberRoleWithGuard,
 } from "@/lib/repositories";
-import type { HouseholdMemberRole } from "@/lib/repositories/household-repository";
 
 export const dynamic = "force-dynamic";
-
-const householdRoles: HouseholdMemberRole[] = ["admin", "member"];
-
-const isHouseholdRole = (value: unknown): value is HouseholdMemberRole =>
-  typeof value === "string" && householdRoles.includes(value as HouseholdMemberRole);
-
-const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 const handleUnexpectedError = (
   action: "list" | "invite" | "update-role" | "remove-member",
@@ -84,10 +81,12 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
-    if (!email || !isValidEmail(email)) {
-      return Response.json({ ok: false, error: "Valid email is required" }, { status: 400 });
+    const payloadValidation = validateHouseholdInvitePayload(payload);
+    if (!payloadValidation.ok) {
+      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
     }
+
+    const { email } = payloadValidation.data;
 
     const token = randomBytes(32).toString("base64url");
     const tokenHash = createHash("sha256").update(token).digest("hex");
@@ -179,14 +178,12 @@ export async function PATCH(request: Request) {
       return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const targetUserId = Number(payload.userId);
-    if (!Number.isFinite(targetUserId)) {
-      return Response.json({ ok: false, error: "Member user id is required" }, { status: 400 });
+    const payloadValidation = validateHouseholdMemberRoleUpdatePayload(payload);
+    if (!payloadValidation.ok) {
+      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
     }
 
-    if (!isHouseholdRole(payload.role)) {
-      return Response.json({ ok: false, error: "Role must be admin or member" }, { status: 400 });
-    }
+    const { role, userId: targetUserId } = payloadValidation.data;
 
     if (targetUserId === sessionContext.userId) {
       return Response.json(
@@ -198,7 +195,7 @@ export async function PATCH(request: Request) {
     const updatedMemberResult = await updateActiveHouseholdMemberRoleWithGuard({
       householdId: household.id,
       userId: targetUserId,
-      role: payload.role,
+      role,
     });
 
     if (updatedMemberResult.status === "member_not_found") {
@@ -232,10 +229,12 @@ export async function DELETE(request: Request) {
       return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const targetUserId = Number(payload.userId);
-    if (!Number.isFinite(targetUserId)) {
-      return Response.json({ ok: false, error: "Member user id is required" }, { status: 400 });
+    const payloadValidation = validateHouseholdMemberRemovePayload(payload);
+    if (!payloadValidation.ok) {
+      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
     }
+
+    const { userId: targetUserId } = payloadValidation.data;
 
     if (targetUserId === sessionContext.userId) {
       return Response.json(

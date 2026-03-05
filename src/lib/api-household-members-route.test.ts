@@ -235,6 +235,28 @@ describe("/api/households/members route", () => {
     });
   });
 
+  it("POST rejects invalid email payloads", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "7" } });
+    getActiveHouseholdSummaryMock.mockResolvedValue({
+      id: 11,
+      name: "Home",
+      timeZone: "UTC",
+      icon: null,
+      role: "member",
+    });
+
+    const response = await POST(
+      requestWithBody("POST", {
+        email: "not-an-email",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Valid email is required" });
+    expect(createHouseholdMemberInviteMock).not.toHaveBeenCalled();
+  });
+
   it("POST rejects when invite already pending", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "7" } });
     getActiveHouseholdSummaryMock.mockResolvedValue({
@@ -330,6 +352,29 @@ describe("/api/households/members route", () => {
     });
   });
 
+  it("PATCH rejects invalid role payloads", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "5" } });
+    getActiveHouseholdSummaryMock.mockResolvedValue({
+      id: 11,
+      name: "Home",
+      timeZone: "UTC",
+      icon: null,
+      role: "admin",
+    });
+
+    const response = await PATCH(
+      requestWithBody("PATCH", {
+        userId: 9,
+        role: "owner",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Role must be admin or member" });
+    expect(updateActiveHouseholdMemberRoleWithGuardMock).not.toHaveBeenCalled();
+  });
+
   it("DELETE rejects attempts to remove yourself", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "5" } });
     getActiveHouseholdSummaryMock.mockResolvedValue({
@@ -352,6 +397,28 @@ describe("/api/households/members route", () => {
       ok: false,
       error: "Admins cannot remove themselves",
     });
+    expect(removeActiveHouseholdMemberWithGuardMock).not.toHaveBeenCalled();
+  });
+
+  it("DELETE rejects invalid member user ids", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "5" } });
+    getActiveHouseholdSummaryMock.mockResolvedValue({
+      id: 11,
+      name: "Home",
+      timeZone: "UTC",
+      icon: null,
+      role: "admin",
+    });
+
+    const response = await DELETE(
+      requestWithBody("DELETE", {
+        userId: "not-a-number",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Member user id is required" });
     expect(removeActiveHouseholdMemberWithGuardMock).not.toHaveBeenCalled();
   });
 
