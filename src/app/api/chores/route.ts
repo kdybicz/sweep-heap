@@ -6,6 +6,22 @@ import { listChores, mutateChore } from "@/lib/services";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const weekOffsetPattern = /^-?\d+$/;
+const maxWeekOffset = 520;
+
+const parseWeekOffset = (value: string | null) => {
+  if (!value || !weekOffsetPattern.test(value)) {
+    return 0;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.max(-maxWeekOffset, Math.min(maxWeekOffset, parsed));
+};
+
 export async function GET(request: Request) {
   try {
     const session = await getSession();
@@ -21,8 +37,7 @@ export async function GET(request: Request) {
     if (!householdId) {
       return Response.json({ ok: false, error: "Household required" }, { status: 403 });
     }
-    const rawWeekOffset = Number(requestUrl.searchParams.get("weekOffset") ?? "0");
-    const weekOffset = Number.isFinite(rawWeekOffset) ? rawWeekOffset : 0;
+    const weekOffset = parseWeekOffset(requestUrl.searchParams.get("weekOffset"));
     const listResult = await listChores({
       householdId,
       weekOffset,

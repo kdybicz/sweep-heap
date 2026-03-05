@@ -1,10 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionMock, getActiveHouseholdIdMock, mutateChoreMock } = vi.hoisted(() => ({
-  getSessionMock: vi.fn(),
-  getActiveHouseholdIdMock: vi.fn(),
-  mutateChoreMock: vi.fn(),
-}));
+const { getSessionMock, getActiveHouseholdIdMock, listChoresMock, mutateChoreMock } = vi.hoisted(
+  () => ({
+    getSessionMock: vi.fn(),
+    getActiveHouseholdIdMock: vi.fn(),
+    listChoresMock: vi.fn(),
+    mutateChoreMock: vi.fn(),
+  }),
+);
 
 vi.mock("@/auth", () => ({
   getSession: getSessionMock,
@@ -15,13 +18,99 @@ vi.mock("@/lib/repositories", () => ({
 }));
 
 vi.mock("@/lib/services", () => ({
-  listChores: vi.fn(),
+  listChores: listChoresMock,
   mutateChore: mutateChoreMock,
 }));
 
-import { PATCH } from "@/app/api/chores/route";
+import { GET, PATCH } from "@/app/api/chores/route";
+
+describe("GET /api/chores", () => {
+  beforeEach(() => {
+    getSessionMock.mockReset();
+    getActiveHouseholdIdMock.mockReset();
+    listChoresMock.mockReset();
+    mutateChoreMock.mockReset();
+  });
+
+  it("passes integer week offsets through to listChores", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
+    getActiveHouseholdIdMock.mockResolvedValue(11);
+    listChoresMock.mockResolvedValue({
+      timeZone: "UTC",
+      rangeStart: "2026-01-01",
+      rangeEnd: "2026-01-07",
+      chores: [],
+    });
+
+    const response = await GET(new Request("http://localhost/api/chores?weekOffset=3"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(listChoresMock).toHaveBeenCalledWith({
+      householdId: 11,
+      weekOffset: 3,
+      start: null,
+      end: null,
+    });
+  });
+
+  it("defaults to weekOffset=0 when query value is not an integer", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
+    getActiveHouseholdIdMock.mockResolvedValue(11);
+    listChoresMock.mockResolvedValue({
+      timeZone: "UTC",
+      rangeStart: "2026-01-01",
+      rangeEnd: "2026-01-07",
+      chores: [],
+    });
+
+    await GET(new Request("http://localhost/api/chores?weekOffset=1.5"));
+
+    expect(listChoresMock).toHaveBeenCalledWith({
+      householdId: 11,
+      weekOffset: 0,
+      start: null,
+      end: null,
+    });
+  });
+
+  it("clamps weekOffset to supported bounds", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
+    getActiveHouseholdIdMock.mockResolvedValue(11);
+    listChoresMock.mockResolvedValue({
+      timeZone: "UTC",
+      rangeStart: "2026-01-01",
+      rangeEnd: "2026-01-07",
+      chores: [],
+    });
+
+    await GET(new Request("http://localhost/api/chores?weekOffset=9999"));
+    await GET(new Request("http://localhost/api/chores?weekOffset=-9999"));
+
+    expect(listChoresMock).toHaveBeenNthCalledWith(1, {
+      householdId: 11,
+      weekOffset: 520,
+      start: null,
+      end: null,
+    });
+    expect(listChoresMock).toHaveBeenNthCalledWith(2, {
+      householdId: 11,
+      weekOffset: -520,
+      start: null,
+      end: null,
+    });
+  });
+});
 
 describe("PATCH /api/chores", () => {
+  beforeEach(() => {
+    getSessionMock.mockReset();
+    getActiveHouseholdIdMock.mockReset();
+    listChoresMock.mockReset();
+    mutateChoreMock.mockReset();
+  });
+
   it("allows repeated stay-open log calls", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
     getActiveHouseholdIdMock.mockResolvedValue(11);

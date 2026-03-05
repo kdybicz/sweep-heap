@@ -80,7 +80,13 @@ export async function POST(
       to: invite.email,
     });
     inviteEmailSent = true;
-  } catch {}
+  } catch (error) {
+    console.error("Failed to resend household invite email", {
+      householdId: household.id,
+      inviteId: invite.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   return Response.json({
     ok: true,

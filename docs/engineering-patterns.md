@@ -50,7 +50,14 @@ Important contract:
 
 - When a user is authenticated but has no active household, return `403` with `error: "Household required"`.
 
-## 4) Recurrence and Occurrence Generation
+## 4) Page-Level Access Guards
+
+Keep page-level access rules aligned with API permissions:
+
+- Server-rendered pages for privileged actions must enforce the same role checks as the API they submit to.
+- For household admin-only flows (for example `/household/edit` with `PATCH /api/households`), redirect non-admin members before rendering the edit form.
+
+## 5) Recurrence and Occurrence Generation
 
 In `src/lib/occurrences.ts`:
 
@@ -58,7 +65,7 @@ In `src/lib/occurrences.ts`:
 - Recurrence cursor loops must guard against non-advancing values (`nextCursor.equals(cursor)`) to avoid hangs.
 - Keep date math timezone-aware and day-based (`Luxon`, `startOf("day")`, ISO date keys).
 
-## 5) Testing Standards for Contracts
+## 6) Testing Standards for Contracts
 
 When you change behavior in these areas, update tests in the same PR:
 
@@ -68,7 +75,7 @@ When you change behavior in these areas, update tests in the same PR:
 
 Prefer adding regression tests for bugs that were fixed.
 
-## 6) Maintenance Rule
+## 7) Maintenance Rule
 
 If a recurring surprise gets fixed and becomes a standard:
 

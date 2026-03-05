@@ -169,7 +169,13 @@ export async function POST(request: Request) {
       to: inviteResult.invite.email,
     });
     inviteEmailSent = true;
-  } catch {}
+  } catch (error) {
+    console.error("Failed to send household invite email", {
+      householdId: household.id,
+      inviteId: inviteResult.invite.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   return Response.json({
     ok: true,
