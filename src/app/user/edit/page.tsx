@@ -1,24 +1,10 @@
-import { redirect } from "next/navigation";
 import DeleteAccountForm from "@/app/user/edit/DeleteAccountForm";
 import UserDetailsEditForm from "@/app/user/edit/UserDetailsEditForm";
-import { getSession } from "@/auth";
-import { getActiveHouseholdSummary } from "@/lib/repositories";
+import { requirePageActiveHousehold } from "@/lib/page-access";
 
 export default async function UserEditPage() {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    redirect("/auth");
-  }
-
-  const userId = Number(session.user.id);
-  if (!Number.isFinite(userId)) {
-    redirect("/auth");
-  }
-
-  const household = await getActiveHouseholdSummary(userId);
-  if (!household) {
-    redirect("/household/setup");
-  }
+  const access = await requirePageActiveHousehold();
+  const { household } = access;
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -33,9 +19,9 @@ export default async function UserEditPage() {
         </header>
         <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">
           <UserDetailsEditForm
-            email={session.user.email ?? ""}
+            email={access.sessionUserEmail ?? ""}
             householdTimeZone={household.timeZone}
-            initialName={session.user.name ?? ""}
+            initialName={access.sessionUserName ?? ""}
           />
         </div>
         <div className="rounded-3xl border border-[var(--danger-stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">

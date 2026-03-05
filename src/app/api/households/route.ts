@@ -1,13 +1,11 @@
 import { DateTime } from "luxon";
-
+import { requireApiHousehold, requireApiHouseholdAdmin, requireApiSession } from "@/lib/api-access";
 import { parseJsonObjectBody } from "@/lib/http";
 import {
   createHouseholdWithOwner,
-  getActiveHouseholdSummary,
   getUserMemberships,
   updateHouseholdById,
 } from "@/lib/repositories";
-import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
 
@@ -45,17 +43,12 @@ const handleUnexpectedError = (action: "load" | "create" | "update", error: unkn
 
 export async function GET() {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const householdAccess = await requireApiHousehold();
+    if (!householdAccess.ok) {
+      return householdAccess.response;
     }
 
-    const household = await getActiveHouseholdSummary(sessionContext.userId);
-    if (!household) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
-
-    return Response.json({ ok: true, household });
+    return Response.json({ ok: true, household: householdAccess.household });
   } catch (error) {
     return handleUnexpectedError("load", error);
   }
@@ -63,9 +56,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const sessionAccess = await requireApiSession();
+    if (!sessionAccess.ok) {
+      return sessionAccess.response;
     }
 
     const payload = await parseJsonObjectBody(request);
@@ -78,7 +71,7 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
     }
 
-    const memberships = await getUserMemberships(sessionContext.userId);
+    const memberships = await getUserMemberships(sessionAccess.sessionContext.userId);
     if (memberships.length) {
       return Response.json(
         { ok: false, error: "User already belongs to a household" },
@@ -89,7 +82,7 @@ export async function POST(request: Request) {
     const timeZone = toTimeZone(payload?.timeZone);
     const icon = toIcon(payload?.icon);
     const householdId = await createHouseholdWithOwner({
-      userId: sessionContext.userId,
+      userId: sessionAccess.sessionContext.userId,
       name,
       timeZone,
       icon,
@@ -103,18 +96,12 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const adminAccess = await requireApiHouseholdAdmin();
+    if (!adminAccess.ok) {
+      return adminAccess.response;
     }
 
-    const household = await getActiveHouseholdSummary(sessionContext.userId);
-    if (!household) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
-    if (household.role !== "admin") {
-      return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
-    }
+    const { household } = adminAccess;
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {

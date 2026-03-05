@@ -1,29 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import HouseholdMembersView from "@/app/household/members/HouseholdMembersView";
-import { getSession } from "@/auth";
-import {
-  getActiveHouseholdSummary,
-  listActiveHouseholdMembers,
-  listPendingHouseholdInvites,
-} from "@/lib/repositories";
+import { requirePageActiveHousehold } from "@/lib/page-access";
+import { listActiveHouseholdMembers, listPendingHouseholdInvites } from "@/lib/repositories";
 
 export default async function HouseholdMembersPage() {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    redirect("/auth");
-  }
-
-  const userId = Number(session.user.id);
-  if (!Number.isFinite(userId)) {
-    redirect("/auth");
-  }
-
-  const household = await getActiveHouseholdSummary(userId);
-  if (!household) {
-    redirect("/household/setup");
-  }
+  const { household, userId } = await requirePageActiveHousehold();
 
   const [members, pendingInvites] = await Promise.all([
     listActiveHouseholdMembers(household.id),

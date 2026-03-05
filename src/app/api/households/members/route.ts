@@ -1,18 +1,17 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { requireApiHousehold, requireApiHouseholdAdmin } from "@/lib/api-access";
 import { getHouseholdInviteExpiryDate } from "@/lib/household-invite";
 import { sendHouseholdInviteEmail } from "@/lib/household-invite-email";
 import { getAppOrigin, parseJsonObjectBody } from "@/lib/http";
 import {
   createHouseholdMemberInvite,
-  getActiveHouseholdSummary,
   listActiveHouseholdMembers,
   listPendingHouseholdInvites,
   removeActiveHouseholdMemberWithGuard,
   updateActiveHouseholdMemberRoleWithGuard,
 } from "@/lib/repositories";
 import type { HouseholdMemberRole } from "@/lib/repositories/household-repository";
-import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
 
@@ -42,15 +41,12 @@ const handleUnexpectedError = (
 
 export async function GET() {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const householdAccess = await requireApiHousehold();
+    if (!householdAccess.ok) {
+      return householdAccess.response;
     }
 
-    const household = await getActiveHouseholdSummary(sessionContext.userId);
-    if (!household) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
+    const { household, sessionContext } = householdAccess;
 
     const [members, pendingInvites] = await Promise.all([
       listActiveHouseholdMembers(household.id),
@@ -76,15 +72,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const householdAccess = await requireApiHousehold();
+    if (!householdAccess.ok) {
+      return householdAccess.response;
     }
 
-    const household = await getActiveHouseholdSummary(sessionContext.userId);
-    if (!household) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
+    const { household, sessionContext } = householdAccess;
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
@@ -174,19 +167,12 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const adminAccess = await requireApiHouseholdAdmin();
+    if (!adminAccess.ok) {
+      return adminAccess.response;
     }
 
-    const household = await getActiveHouseholdSummary(sessionContext.userId);
-    if (!household) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
-
-    if (household.role !== "admin") {
-      return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
-    }
+    const { household, sessionContext } = adminAccess;
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
@@ -234,19 +220,12 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const adminAccess = await requireApiHouseholdAdmin();
+    if (!adminAccess.ok) {
+      return adminAccess.response;
     }
 
-    const household = await getActiveHouseholdSummary(sessionContext.userId);
-    if (!household) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
-
-    if (household.role !== "admin") {
-      return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
-    }
+    const { household, sessionContext } = adminAccess;
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {

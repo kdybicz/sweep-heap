@@ -1,23 +1,8 @@
-import { redirect } from "next/navigation";
 import HouseholdSetupForm from "@/app/household/setup/HouseholdSetupForm";
-import { getSession } from "@/auth";
-import { getUserMemberships } from "@/lib/repositories";
+import { requirePageWithoutHousehold } from "@/lib/page-access";
 
 export default async function HouseholdSetupPage() {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    redirect("/auth");
-  }
-
-  const userId = Number(session.user.id);
-  if (!Number.isFinite(userId)) {
-    redirect("/auth");
-  }
-
-  const memberships = await getUserMemberships(userId);
-  if (memberships.length) {
-    redirect("/household");
-  }
+  await requirePageWithoutHousehold();
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">

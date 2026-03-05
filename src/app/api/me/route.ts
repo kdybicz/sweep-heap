@@ -1,6 +1,6 @@
+import { requireApiSession } from "@/lib/api-access";
 import { parseJsonObjectBody } from "@/lib/http";
 import { getActiveHouseholdId, getUserMemberships, updateUserNameById } from "@/lib/repositories";
-import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
 
@@ -12,20 +12,20 @@ const handleUnexpectedError = (action: "load" | "update", error: unknown) => {
 
 export async function GET() {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const sessionAccess = await requireApiSession();
+    if (!sessionAccess.ok) {
+      return sessionAccess.response;
     }
 
-    const memberships = await getUserMemberships(sessionContext.userId);
-    const activeHouseholdId = await getActiveHouseholdId(sessionContext.userId);
+    const memberships = await getUserMemberships(sessionAccess.sessionContext.userId);
+    const activeHouseholdId = await getActiveHouseholdId(sessionAccess.sessionContext.userId);
 
     return Response.json({
       ok: true,
       user: {
-        id: sessionContext.sessionUserId,
-        email: sessionContext.sessionUserEmail,
-        name: sessionContext.sessionUserName,
+        id: sessionAccess.sessionContext.sessionUserId,
+        email: sessionAccess.sessionContext.sessionUserEmail,
+        name: sessionAccess.sessionContext.sessionUserName,
       },
       memberships,
       activeHouseholdId,
@@ -37,9 +37,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const sessionAccess = await requireApiSession();
+    if (!sessionAccess.ok) {
+      return sessionAccess.response;
     }
 
     const payload = await parseJsonObjectBody(request);
@@ -52,7 +52,7 @@ export async function PATCH(request: Request) {
       return Response.json({ ok: false, error: "Name is required" }, { status: 400 });
     }
 
-    const user = await updateUserNameById({ userId: sessionContext.userId, name });
+    const user = await updateUserNameById({ userId: sessionAccess.sessionContext.userId, name });
     if (!user) {
       return Response.json({ ok: false, error: "User not found" }, { status: 404 });
     }

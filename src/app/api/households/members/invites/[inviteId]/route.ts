@@ -1,14 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { requireApiHousehold, requireApiHouseholdAdmin } from "@/lib/api-access";
 import { getHouseholdInviteExpiryDate } from "@/lib/household-invite";
 import { sendHouseholdInviteEmail } from "@/lib/household-invite-email";
 import { getAppOrigin } from "@/lib/http";
-import {
-  getActiveHouseholdSummary,
-  resendPendingHouseholdInvite,
-  revokePendingHouseholdInvite,
-} from "@/lib/repositories";
-import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
+import { resendPendingHouseholdInvite, revokePendingHouseholdInvite } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
@@ -25,15 +21,12 @@ export async function POST(
   { params }: { params: Promise<{ inviteId: string }> },
 ) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const householdAccess = await requireApiHousehold();
+    if (!householdAccess.ok) {
+      return householdAccess.response;
     }
 
-    const household = await getActiveHouseholdSummary(sessionContext.userId);
-    if (!household) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
+    const { household, sessionContext } = householdAccess;
 
     const resolvedParams = await params;
     const inviteId = parseInviteId(resolvedParams.inviteId);
@@ -104,19 +97,12 @@ export async function DELETE(
   { params }: { params: Promise<{ inviteId: string }> },
 ) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const adminAccess = await requireApiHouseholdAdmin();
+    if (!adminAccess.ok) {
+      return adminAccess.response;
     }
 
-    const household = await getActiveHouseholdSummary(sessionContext.userId);
-    if (!household) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
-
-    if (household.role !== "admin") {
-      return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
-    }
+    const { household } = adminAccess;
 
     const resolvedParams = await params;
     const inviteId = parseInviteId(resolvedParams.inviteId);

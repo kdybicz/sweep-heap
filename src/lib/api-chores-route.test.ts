@@ -1,20 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionMock, getActiveHouseholdIdMock, listChoresMock, mutateChoreMock } = vi.hoisted(
-  () => ({
+const { getSessionMock, getActiveHouseholdSummaryMock, listChoresMock, mutateChoreMock } =
+  vi.hoisted(() => ({
     getSessionMock: vi.fn(),
-    getActiveHouseholdIdMock: vi.fn(),
+    getActiveHouseholdSummaryMock: vi.fn(),
     listChoresMock: vi.fn(),
     mutateChoreMock: vi.fn(),
-  }),
-);
+  }));
 
 vi.mock("@/auth", () => ({
   getSession: getSessionMock,
 }));
 
 vi.mock("@/lib/repositories", () => ({
-  getActiveHouseholdId: getActiveHouseholdIdMock,
+  getActiveHouseholdSummary: getActiveHouseholdSummaryMock,
 }));
 
 vi.mock("@/lib/services", () => ({
@@ -27,14 +26,14 @@ import { GET, PATCH } from "@/app/api/chores/route";
 describe("GET /api/chores", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
-    getActiveHouseholdIdMock.mockReset();
+    getActiveHouseholdSummaryMock.mockReset();
     listChoresMock.mockReset();
     mutateChoreMock.mockReset();
   });
 
   it("passes integer week offsets through to listChores", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdIdMock.mockResolvedValue(11);
+    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
     listChoresMock.mockResolvedValue({
       timeZone: "UTC",
       rangeStart: "2026-01-01",
@@ -57,7 +56,7 @@ describe("GET /api/chores", () => {
 
   it("defaults to weekOffset=0 when query value is not an integer", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdIdMock.mockResolvedValue(11);
+    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
     listChoresMock.mockResolvedValue({
       timeZone: "UTC",
       rangeStart: "2026-01-01",
@@ -77,7 +76,7 @@ describe("GET /api/chores", () => {
 
   it("clamps weekOffset to supported bounds", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdIdMock.mockResolvedValue(11);
+    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
     listChoresMock.mockResolvedValue({
       timeZone: "UTC",
       rangeStart: "2026-01-01",
@@ -106,14 +105,14 @@ describe("GET /api/chores", () => {
 describe("PATCH /api/chores", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
-    getActiveHouseholdIdMock.mockReset();
+    getActiveHouseholdSummaryMock.mockReset();
     listChoresMock.mockReset();
     mutateChoreMock.mockReset();
   });
 
   it("allows repeated stay-open log calls", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdIdMock.mockResolvedValue(11);
+    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
     mutateChoreMock.mockResolvedValue({
       ok: true,
       body: {

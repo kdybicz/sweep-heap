@@ -1,7 +1,6 @@
+import { requireApiHousehold } from "@/lib/api-access";
 import { parseJsonObjectBody } from "@/lib/http";
-import { getActiveHouseholdId } from "@/lib/repositories";
 import { listChores, mutateChore } from "@/lib/services";
-import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,19 +23,15 @@ const parseWeekOffset = (value: string | null) => {
 
 export async function GET(request: Request) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const householdAccess = await requireApiHousehold();
+    if (!householdAccess.ok) {
+      return householdAccess.response;
     }
 
     const requestUrl = new URL(request.url);
-    const householdId = await getActiveHouseholdId(sessionContext.userId);
-    if (!householdId) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
     const weekOffset = parseWeekOffset(requestUrl.searchParams.get("weekOffset"));
     const listResult = await listChores({
-      householdId,
+      householdId: householdAccess.household.id,
       weekOffset,
       start: requestUrl.searchParams.get("start"),
       end: requestUrl.searchParams.get("end"),
@@ -63,21 +58,17 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const sessionContext = await getSessionContext();
-    if (!sessionContext.ok) {
-      return sessionErrorResponse(sessionContext);
+    const householdAccess = await requireApiHousehold();
+    if (!householdAccess.ok) {
+      return householdAccess.response;
     }
 
-    const householdId = await getActiveHouseholdId(sessionContext.userId);
-    if (!householdId) {
-      return Response.json({ ok: false, error: "Household required" }, { status: 403 });
-    }
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
       return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const result = await mutateChore({ householdId, payload });
+    const result = await mutateChore({ householdId: householdAccess.household.id, payload });
     if (!result.ok) {
       return Response.json(result.body, { status: result.status });
     }

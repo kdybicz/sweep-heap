@@ -1,27 +1,8 @@
-import { redirect } from "next/navigation";
 import HouseholdEditForm from "@/app/household/edit/HouseholdEditForm";
-import { getSession } from "@/auth";
-import { getActiveHouseholdSummary } from "@/lib/repositories";
+import { requirePageHouseholdAdmin } from "@/lib/page-access";
 
 export default async function HouseholdEditPage() {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    redirect("/auth");
-  }
-
-  const userId = Number(session.user.id);
-  if (!Number.isFinite(userId)) {
-    redirect("/auth");
-  }
-
-  const household = await getActiveHouseholdSummary(userId);
-  if (!household) {
-    redirect("/household/setup");
-  }
-
-  if (household.role !== "admin") {
-    redirect("/household");
-  }
+  const { household } = await requirePageHouseholdAdmin();
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">

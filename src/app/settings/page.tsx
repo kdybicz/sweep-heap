@@ -1,24 +1,9 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import AppearanceSettingsForm from "@/app/settings/AppearanceSettingsForm";
-import { getSession } from "@/auth";
-import { getActiveHouseholdSummary } from "@/lib/repositories";
+import { requirePageActiveHousehold } from "@/lib/page-access";
 
 export default async function SettingsPage() {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    redirect("/auth");
-  }
-
-  const userId = Number(session.user.id);
-  if (!Number.isFinite(userId)) {
-    redirect("/auth");
-  }
-
-  const household = await getActiveHouseholdSummary(userId);
-  if (!household) {
-    redirect("/household/setup");
-  }
+  await requirePageActiveHousehold();
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
