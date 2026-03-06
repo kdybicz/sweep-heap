@@ -10,6 +10,7 @@ import {
   generateHouseholdInviteSecret,
   hashHouseholdInviteSecret,
 } from "@/lib/household-invite-secret";
+import { getHouseholdMembersSnapshot } from "@/lib/household-members";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
 import { getAppOrigin, parseJsonObjectBody } from "@/lib/http";
 import {
@@ -28,11 +29,6 @@ import {
 import { setPendingHouseholdInviteSecretHash } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
-
-type AuthOrganizationLike = {
-  members?: OrganizationMemberLike[];
-  invitations?: OrganizationInvitationLike[];
-};
 
 const handleUnexpectedError = (
   action: "list" | "invite" | "update-role" | "remove-member",
@@ -187,22 +183,10 @@ export async function GET(request: Request) {
     }
 
     const { household, sessionContext } = householdAccess;
-    const fullOrganization = (await auth.api.getFullOrganization({
-      query: {
-        organizationId: String(household.id),
-      },
-      headers: request.headers,
-    })) as AuthOrganizationLike | null;
-
-    const members = Array.isArray(fullOrganization?.members)
-      ? fullOrganization.members.map(mapOrganizationMember)
-      : [];
-    const pendingInvites = Array.isArray(fullOrganization?.invitations)
-      ? fullOrganization.invitations
-          .filter((invite) => invite.status === "pending")
-          .filter((invite) => new Date(invite.expiresAt).getTime() > Date.now())
-          .map(mapOrganizationInvitation)
-      : [];
+    const { members, pendingInvites } = await getHouseholdMembersSnapshot({
+      householdId: household.id,
+      requestHeaders: request.headers,
+    });
 
     return Response.json({
       ok: true,

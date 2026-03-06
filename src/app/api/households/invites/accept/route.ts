@@ -1,9 +1,10 @@
 import { auth, getSession } from "@/auth";
+import { validateHouseholdInviteAcceptPayload } from "@/lib/api-payload-validation";
 import { hashHouseholdInviteSecret } from "@/lib/household-invite-secret";
+import { parseJsonObjectBody } from "@/lib/http";
 import {
   isInvitationNotFoundError,
   isOtherHouseholdError,
-  parsePositiveInt,
   toAuthApiErrorMessage,
 } from "@/lib/organization-api";
 import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
@@ -46,19 +47,17 @@ const buildSignInRedirectUrl = ({
 
 export async function POST(request: Request) {
   try {
-    const payload = (await request.json().catch(() => null)) as {
-      invitationId?: number | string;
-      secret?: string;
-    } | null;
-
-    const invitationId = parsePositiveInt(payload?.invitationId);
-    const secret = typeof payload?.secret === "string" ? payload.secret.trim() : "";
-    if (invitationId === null || !secret) {
-      return Response.json(
-        { ok: false, error: "Invitation id and secret are required" },
-        { status: 400 },
-      );
+    const payload = await parseJsonObjectBody(request);
+    if (payload === null) {
+      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
     }
+
+    const payloadValidation = validateHouseholdInviteAcceptPayload(payload);
+    if (!payloadValidation.ok) {
+      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
+    }
+
+    const { invitationId, secret } = payloadValidation.data;
 
     const secretHash = hashHouseholdInviteSecret(secret);
     const invite = await getPendingHouseholdInviteByIdAndSecret({

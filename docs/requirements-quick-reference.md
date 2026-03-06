@@ -15,6 +15,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - User can create a household only if they have no active membership.
 - Active household is latest active membership by `joined_at`.
 - Owner/admin-only: edit household, revoke invites, change roles, remove members.
+- Household create/edit validates time zone; invalid values return `400` (`Invalid time zone`).
+- Household-gated APIs use `code: "HOUSEHOLD_REQUIRED"` for missing active-household access; clients should branch on `code`, not error message text.
 - Users cannot change their own role from the members endpoint.
 - Household administrators cannot remove themselves from the members endpoint.
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).

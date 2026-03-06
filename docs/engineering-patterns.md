@@ -43,6 +43,8 @@ Rules for `secure`:
 Return a consistent JSON envelope for failures:
 
 - `{ ok: false, error: string }`
+- Add a stable machine-readable `code` field for errors that clients branch on (for example `code: "HOUSEHOLD_REQUIRED"`) so UI behavior is not tied to user-facing message text.
+- Client and server control flow must branch on `code` (and optional HTTP status), not on `error` message text.
 - Keep route handlers wrapped in top-level `try/catch` so unexpected throws still return the same envelope.
 
 Use status codes consistently:
@@ -61,7 +63,7 @@ Body parsing rule:
 
 Important contract:
 
-- When a user is authenticated but has no active household, return `403` with `error: "Household required"`.
+- When a user is authenticated but has no active household, return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
 
 ## 4) Page-Level Access Guards
 

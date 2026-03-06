@@ -7,7 +7,7 @@
 - For a compact day-to-day version, use `docs/requirements-quick-reference.md`.
 
 ## Status
-- Last reviewed against code: 2026-03-05.
+- Last reviewed against code: 2026-03-06.
 - Product phase: MVP with active iteration.
 - Current scope includes auth, households, members/invites, chores board UI, and account settings.
 
@@ -83,6 +83,8 @@
 - A signed-in user can create a household only when they currently have no active memberships.
 - Active household is derived as the latest active membership by `joined_at`.
 - Household time zone is editable by owners/admins (not immutable in current implementation).
+- Household create/update rejects invalid time zones with `400` (`Invalid time zone`) instead of silently coercing to `UTC`.
+- When an authenticated user has no active household, household-gated APIs return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
 - Non-admin members can invite and resend invites.
 - Only owners/admins can:
   - Edit household details.

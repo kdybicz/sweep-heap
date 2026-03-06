@@ -9,6 +9,7 @@ import {
   restoreTargetChore,
   updateTargetChore,
 } from "@/app/household/board/chore-actions-state";
+import { isHouseholdRequiredApiError } from "@/app/household/board/chores-query";
 import { getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem, UndoToast } from "@/app/household/board/types";
 import type {
@@ -171,8 +172,13 @@ export default function useHouseholdChoreActions({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const data = await response.json();
-        if (data?.error === "Household required") {
+        const data = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+          code?: string;
+          fieldErrors?: Record<string, string>;
+        };
+        if (isHouseholdRequiredApiError({ data })) {
           window.location.assign("/household/setup");
           return;
         }
@@ -236,8 +242,15 @@ export default function useHouseholdChoreActions({
             action: "set",
           }),
         });
-        const data = await response.json();
-        if (data?.error === "Household required") {
+        const data = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+          code?: string;
+          status?: string;
+          closed_reason?: string;
+          undo_until?: string;
+        };
+        if (isHouseholdRequiredApiError({ data })) {
           window.location.assign("/household/setup");
           return;
         }
@@ -289,8 +302,12 @@ export default function useHouseholdChoreActions({
             action: "undo",
           }),
         });
-        const data = await response.json();
-        if (data?.error === "Household required") {
+        const data = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+          code?: string;
+        };
+        if (isHouseholdRequiredApiError({ data })) {
           window.location.assign("/household/setup");
           return;
         }

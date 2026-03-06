@@ -48,8 +48,22 @@ const householdMemberEmailSchema = z
 const householdMemberUserIdSchema = z
   .unknown()
   .transform((value) => Number(value))
-  .refine((value) => Number.isFinite(value), {
+  .refine((value) => Number.isInteger(value) && value > 0, {
     message: "Member user id is required",
+  });
+
+const householdInviteIdSchema = z
+  .unknown()
+  .transform((value) => Number(value))
+  .refine((value) => Number.isInteger(value) && value > 0, {
+    message: "Invitation id and secret are required",
+  });
+
+const householdInviteSecretSchema = z
+  .unknown()
+  .transform((value) => (typeof value === "string" ? value.trim() : ""))
+  .refine((value) => value.length > 0, {
+    message: "Invitation id and secret are required",
   });
 
 const householdMemberRoleSchema = z
@@ -70,6 +84,11 @@ const householdMemberRoleUpdatePayloadSchema = z.object({
 
 const householdMemberRemovePayloadSchema = z.object({
   userId: householdMemberUserIdSchema,
+});
+
+const householdInviteAcceptPayloadSchema = z.object({
+  invitationId: householdInviteIdSchema,
+  secret: householdInviteSecretSchema,
 });
 
 const allowedActions = new Set(["create", "set", "undo"]);
@@ -118,6 +137,11 @@ export const validateHouseholdMemberRemovePayload = (
   payload: Record<string, unknown>,
 ): PayloadValidationResult<{ userId: number }> =>
   toValidationResult(householdMemberRemovePayloadSchema.safeParse(payload));
+
+export const validateHouseholdInviteAcceptPayload = (
+  payload: Record<string, unknown>,
+): PayloadValidationResult<{ invitationId: number; secret: string }> =>
+  toValidationResult(householdInviteAcceptPayloadSchema.safeParse(payload));
 
 export const validateChorePatchPayload = (
   payload: Record<string, unknown>,

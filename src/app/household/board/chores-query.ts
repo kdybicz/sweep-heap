@@ -8,6 +8,7 @@ type ChoresApiResponse = {
   rangeStart?: string;
   rangeEnd?: string;
   error?: string;
+  code?: string;
 };
 
 export type ChoresQueryData = {
@@ -24,6 +25,16 @@ export class HouseholdRequiredError extends Error {
   }
 }
 
+type ApiErrorLike = {
+  ok?: boolean;
+  error?: string;
+  code?: string;
+};
+
+export const isHouseholdRequiredApiError = ({ data }: { data: ApiErrorLike }) => {
+  return data?.code === "HOUSEHOLD_REQUIRED";
+};
+
 const toChoresQueryData = (data: ChoresApiResponse): ChoresQueryData => ({
   chores: data.chores ?? [],
   timeZone: typeof data.timeZone === "string" ? data.timeZone : null,
@@ -38,7 +49,7 @@ const parseChoresApiResponse = ({
   data: ChoresApiResponse;
   fallbackError: string;
 }) => {
-  if (data?.error === "Household required") {
+  if (isHouseholdRequiredApiError({ data })) {
     throw new HouseholdRequiredError();
   }
 

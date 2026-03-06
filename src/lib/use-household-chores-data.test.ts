@@ -20,8 +20,9 @@ const createChore = (id: number, occurrenceDate: string): ChoreItem => ({
   notes: null,
 });
 
-const createResponse = (body: unknown): Pick<Response, "json"> => ({
+const createResponse = (body: unknown, status = 200): Pick<Response, "json" | "status"> => ({
   json: vi.fn().mockResolvedValue(body),
+  status,
 });
 
 describe("household chores query helpers", () => {
@@ -94,7 +95,9 @@ describe("household chores query helpers", () => {
   it("throws HouseholdRequiredError when household is missing", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValue(createResponse({ ok: false, error: "Household required" }));
+      .mockResolvedValue(
+        createResponse({ ok: false, error: "Household required", code: "HOUSEHOLD_REQUIRED" }, 403),
+      );
 
     await expect(fetchWeekChores({ weekOffset: 0, fetchImpl })).rejects.toBeInstanceOf(
       HouseholdRequiredError,

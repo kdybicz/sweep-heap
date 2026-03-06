@@ -10,13 +10,38 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const toTimeZone = (value: unknown) => {
-  if (typeof value !== "string" || !value.trim()) {
-    return "UTC";
+const parseTimeZone = (value: unknown) => {
+  if (value === undefined || value === null) {
+    return {
+      ok: true as const,
+      timeZone: "UTC",
+    };
   }
+
+  if (typeof value !== "string") {
+    return {
+      ok: false as const,
+    };
+  }
+
   const trimmed = value.trim();
+  if (!trimmed) {
+    return {
+      ok: false as const,
+    };
+  }
+
   const valid = DateTime.local().setZone(trimmed).isValid;
-  return valid ? trimmed : "UTC";
+  if (!valid) {
+    return {
+      ok: false as const,
+    };
+  }
+
+  return {
+    ok: true as const,
+    timeZone: trimmed,
+  };
 };
 
 const toIcon = (value: unknown) => {
@@ -94,7 +119,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const timeZone = toTimeZone(payload?.timeZone);
+    const parsedTimeZone = parseTimeZone(payload?.timeZone);
+    if (!parsedTimeZone.ok) {
+      return Response.json({ ok: false, error: "Invalid time zone" }, { status: 400 });
+    }
+
+    const timeZone = parsedTimeZone.timeZone;
     const icon = toIcon(payload?.icon);
     const householdId = await createHouseholdWithOwner({
       userId: sessionAccess.sessionContext.userId,
@@ -129,7 +159,12 @@ export async function PATCH(request: Request) {
       return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
     }
 
-    const timeZone = toTimeZone(payload?.timeZone);
+    const parsedTimeZone = parseTimeZone(payload?.timeZone);
+    if (!parsedTimeZone.ok) {
+      return Response.json({ ok: false, error: "Invalid time zone" }, { status: 400 });
+    }
+
+    const timeZone = parsedTimeZone.timeZone;
     const icon = toIcon(payload?.icon);
     const updated = await updateHouseholdById({
       householdId: household.id,

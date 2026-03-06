@@ -26,7 +26,14 @@ type ApiHouseholdAccess =
   | ApiAccessFailure;
 
 const householdRequiredResponse = () =>
-  Response.json({ ok: false, error: "Household required" }, { status: 403 });
+  Response.json(
+    {
+      ok: false,
+      error: "Household required",
+      code: "HOUSEHOLD_REQUIRED",
+    },
+    { status: 403 },
+  );
 
 const forbiddenResponse = () => Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
 

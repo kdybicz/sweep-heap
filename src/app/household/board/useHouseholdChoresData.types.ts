@@ -15,7 +15,7 @@ export type LoadChoresFn = (options?: { force?: boolean }) => Promise<void>;
 export type FetchChoresFn = (
   input: RequestInfo | URL,
   init?: RequestInit,
-) => Promise<Pick<Response, "json">>;
+) => Promise<Pick<Response, "json" | "status">>;
 
 export type UseHouseholdChoresDataModel = {
   chores: ChoreItem[];

@@ -250,6 +250,15 @@ describe("/api/households/members route", () => {
     expect(updateMemberRoleMock).not.toHaveBeenCalled();
   });
 
+  it("PATCH rejects non-integer member user ids", async () => {
+    const response = await PATCH(requestWithBody("PATCH", { userId: 7.5, role: "member" }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Member user id is required" });
+    expect(updateMemberRoleMock).not.toHaveBeenCalled();
+  });
+
   it("PATCH allows assigning owner role", async () => {
     requireApiHouseholdAdminMock.mockResolvedValue({
       ok: true,
@@ -395,5 +404,14 @@ describe("/api/households/members route", () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true, removedUserId: 9 });
     expect(removeMemberMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("DELETE rejects non-positive member user ids", async () => {
+    const response = await DELETE(requestWithBody("DELETE", { userId: -9 }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Member user id is required" });
+    expect(removeMemberMock).not.toHaveBeenCalled();
   });
 });

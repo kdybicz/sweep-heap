@@ -29,6 +29,13 @@ const requestWithBody = (body: Record<string, unknown>) =>
     body: JSON.stringify(body),
   });
 
+const requestWithRawBody = (rawBody: string) =>
+  new Request("http://localhost/api/households/invites/accept", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: rawBody,
+  });
+
 describe("/api/households/invites/accept route", () => {
   beforeEach(() => {
     acceptInvitationMock.mockReset();
@@ -42,6 +49,15 @@ describe("/api/households/invites/accept route", () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ ok: false, error: "Invitation id and secret are required" });
+    expect(getPendingHouseholdInviteByIdAndSecretMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-object json payloads", async () => {
+    const response = await POST(requestWithRawBody("[]"));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ ok: false, error: "Invalid JSON body" });
     expect(getPendingHouseholdInviteByIdAndSecretMock).not.toHaveBeenCalled();
   });
 
