@@ -1,3 +1,4 @@
+import { isHouseholdElevatedRole } from "@/lib/household-roles";
 import { getActiveHouseholdSummary } from "@/lib/repositories";
 import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
@@ -71,7 +72,7 @@ export const requireApiHouseholdAdmin = async (): Promise<ApiHouseholdAccess> =>
     return householdAccess;
   }
 
-  if (householdAccess.household.role !== "admin") {
+  if (!isHouseholdElevatedRole(householdAccess.household.role)) {
     return {
       ok: false,
       response: forbiddenResponse(),

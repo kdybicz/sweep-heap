@@ -14,8 +14,10 @@ import {
 export const households = pgTable("households", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
   timeZone: text("time_zone").notNull().default("UTC"),
   icon: text("icon"),
+  metadata: text("metadata"),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -71,6 +73,7 @@ export const sessions = pgTable("sessions", {
   expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
+  activeHouseholdId: text("active_household_id"),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
@@ -139,8 +142,8 @@ export const householdMemberInvites = pgTable(
     }),
     email: text("email").notNull(),
     role: text("role").notNull().default("member"),
-    identifier: text("identifier").notNull().unique(),
-    tokenHash: text("token_hash").notNull(),
+    status: text("status").notNull().default("pending"),
+    acceptSecretHash: text("accept_secret_hash"),
     expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { mode: "date", withTimezone: true }),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
@@ -148,7 +151,7 @@ export const householdMemberInvites = pgTable(
   (table) => [
     uniqueIndex("household_member_invites_pending_email_unique")
       .on(table.householdId, sql`lower(${table.email})`)
-      .where(sql`${table.acceptedAt} is null`),
+      .where(sql`${table.status} = 'pending'`),
   ],
 );
 

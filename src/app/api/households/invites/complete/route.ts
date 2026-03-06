@@ -1,69 +1,140 @@
-import { createHash } from "node:crypto";
-
-import { getSession } from "@/auth";
-import { acceptHouseholdInvite } from "@/lib/repositories";
+import { auth, getSession } from "@/auth";
+import { hashHouseholdInviteSecret } from "@/lib/household-invite-secret";
+import {
+  isInvitationNotFoundError,
+  isInviteRecipientMismatchError,
+  isOtherHouseholdError,
+  parsePositiveInt,
+  toAuthApiErrorMessage,
+} from "@/lib/organization-api";
+import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
 const redirectTo = ({
   error,
-  identifier,
+  invitationId,
   request,
-  token,
+  secret,
 }: {
   error: "invalid" | "other-household" | "sign-in" | "unexpected";
-  identifier: string;
+  invitationId: string;
   request: Request;
-  token: string;
+  secret: string;
 }) => {
   const url = new URL("/household/invite", request.url);
-  url.searchParams.set("identifier", identifier);
-  url.searchParams.set("token", token);
+  url.searchParams.set("invitationId", invitationId);
+  url.searchParams.set("secret", secret);
   url.searchParams.set("error", error);
   return url;
 };
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const identifier = url.searchParams.get("identifier")?.trim() ?? "";
-  const token = url.searchParams.get("token")?.trim() ?? "";
-  if (!identifier || !token) {
+  const invitationId = url.searchParams.get("invitationId")?.trim() ?? "";
+  const secret = url.searchParams.get("secret")?.trim() ?? "";
+  const numericInvitationId = parsePositiveInt(invitationId);
+  if (numericInvitationId === null || !secret) {
     return Response.redirect(new URL("/auth", request.url), 302);
   }
 
   const session = await getSession();
-  const sessionEmail = session?.user?.email?.trim().toLowerCase() ?? "";
-  const sessionUserId = Number(session?.user?.id);
-  if (!sessionEmail || !Number.isFinite(sessionUserId)) {
-    return Response.redirect(redirectTo({ error: "sign-in", identifier, request, token }), 302);
-  }
-
-  const tokenHash = createHash("sha256").update(token).digest("hex");
-  const acceptResult = await acceptHouseholdInvite({
-    email: sessionEmail,
-    identifier,
-    tokenHash,
-    userId: sessionUserId,
-  });
-
-  if (acceptResult.status === "accepted") {
-    return Response.redirect(new URL("/household", request.url), 302);
-  }
-
-  if (acceptResult.status === "invalid_or_expired") {
-    return Response.redirect(redirectTo({ error: "invalid", identifier, request, token }), 302);
-  }
-
-  if (acceptResult.status === "belongs_to_other_household") {
+  if (!session?.user?.email) {
     return Response.redirect(
-      redirectTo({ error: "other-household", identifier, request, token }),
+      redirectTo({
+        error: "sign-in",
+        invitationId: String(numericInvitationId),
+        request,
+        secret,
+      }),
       302,
     );
   }
 
-  if (acceptResult.status === "email_mismatch") {
-    return Response.redirect(redirectTo({ error: "sign-in", identifier, request, token }), 302);
+  const invite = await getPendingHouseholdInviteByIdAndSecret({
+    inviteId: numericInvitationId,
+    secretHash: hashHouseholdInviteSecret(secret),
+  });
+  if (!invite) {
+    return Response.redirect(
+      redirectTo({
+        error: "invalid",
+        invitationId: String(numericInvitationId),
+        request,
+        secret,
+      }),
+      302,
+    );
   }
 
-  return Response.redirect(redirectTo({ error: "unexpected", identifier, request, token }), 302);
+  const sessionEmail = session.user.email.trim().toLowerCase();
+  if (sessionEmail !== invite.email.trim().toLowerCase()) {
+    return Response.redirect(
+      redirectTo({
+        error: "sign-in",
+        invitationId: String(numericInvitationId),
+        request,
+        secret,
+      }),
+      302,
+    );
+  }
+
+  try {
+    await auth.api.acceptInvitation({
+      body: {
+        invitationId: String(numericInvitationId),
+      },
+      headers: request.headers,
+    });
+
+    return Response.redirect(new URL("/household", request.url), 302);
+  } catch (error) {
+    const authApiErrorMessage = toAuthApiErrorMessage(error);
+    if (isInvitationNotFoundError(authApiErrorMessage)) {
+      return Response.redirect(
+        redirectTo({
+          error: "invalid",
+          invitationId: String(numericInvitationId),
+          request,
+          secret,
+        }),
+        302,
+      );
+    }
+
+    if (isOtherHouseholdError(authApiErrorMessage)) {
+      return Response.redirect(
+        redirectTo({
+          error: "other-household",
+          invitationId: String(numericInvitationId),
+          request,
+          secret,
+        }),
+        302,
+      );
+    }
+
+    if (isInviteRecipientMismatchError(authApiErrorMessage)) {
+      return Response.redirect(
+        redirectTo({
+          error: "sign-in",
+          invitationId: String(numericInvitationId),
+          request,
+          secret,
+        }),
+        302,
+      );
+    }
+
+    return Response.redirect(
+      redirectTo({
+        error: "unexpected",
+        invitationId: String(numericInvitationId),
+        request,
+        secret,
+      }),
+      302,
+    );
+  }
 }

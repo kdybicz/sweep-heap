@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { DateTime } from "luxon";
 import { requireApiHousehold, requireApiHouseholdAdmin, requireApiSession } from "@/lib/api-access";
 import { parseJsonObjectBody } from "@/lib/http";
@@ -28,6 +29,20 @@ const toIcon = (value: unknown) => {
   }
   return trimmed.slice(0, 16);
 };
+
+const toSlugBase = (value: string) => {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+
+  return normalized || "household";
+};
+
+const buildHouseholdSlug = (name: string) =>
+  `${toSlugBase(name)}-${randomBytes(4).toString("hex")}`;
 
 const handleUnexpectedError = (action: "load" | "create" | "update", error: unknown) => {
   const message =
@@ -84,6 +99,7 @@ export async function POST(request: Request) {
     const householdId = await createHouseholdWithOwner({
       userId: sessionAccess.sessionContext.userId,
       name,
+      slug: buildHouseholdSlug(name),
       timeZone,
       icon,
     });

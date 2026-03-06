@@ -5,14 +5,14 @@ import { useState } from "react";
 
 export default function HouseholdInviteAcceptanceForm({
   householdName,
-  identifier,
+  invitationId,
+  secret,
   initialError,
-  token,
 }: {
   householdName: string;
-  identifier: string;
+  invitationId: number;
+  secret: string;
   initialError: string | null;
-  token: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -30,8 +30,8 @@ export default function HouseholdInviteAcceptanceForm({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          identifier,
-          token,
+          invitationId,
+          secret,
         }),
       });
 

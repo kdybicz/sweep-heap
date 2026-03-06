@@ -45,9 +45,9 @@
 - Household member management:
   - Invite by email.
   - Resend pending invite.
-  - Revoke pending invite (admin only).
-  - Promote/demote member role (admin only).
-  - Remove member (admin only).
+  - Revoke pending invite (owner/admin only).
+  - Promote/demote member role (owner/admin only).
+  - Remove member (owner/admin only).
 - Weekly chore board:
   - Create chore series.
   - View chores for week and for today.
@@ -68,8 +68,8 @@
 ### Core entities
 - `users`: authenticated users.
 - `households`: shared container for chores and members.
-- `household_memberships`: household membership with role (`admin` or `member`) and status (`active`).
-- `household_member_invites`: invite records with token hash, expiry, optional accept metadata.
+- `household_memberships`: household membership with role (`owner`, `admin`, or `member`) and status (`active`).
+- `household_member_invites`: Better Auth organization invitation records (status, expiry, inviter, recipient).
 - `chores`: chore series definitions.
 - `chore_occurrence_overrides`: per-date exceptions (status, reason, undo window).
 - `delete_account_tokens`: one-time account deletion confirmation tokens.
@@ -82,26 +82,25 @@
 ## Identity, Membership, and Household Rules
 - A signed-in user can create a household only when they currently have no active memberships.
 - Active household is derived as the latest active membership by `joined_at`.
-- Household time zone is editable by admins (not immutable in current implementation).
+- Household time zone is editable by owners/admins (not immutable in current implementation).
 - Non-admin members can invite and resend invites.
-- Only admins can:
+- Only owners/admins can:
   - Edit household details.
   - Revoke invites.
   - Change member roles.
   - Remove members.
-- Safety rule: at least one admin must remain in a household.
-- Admins cannot change their own role through the members API.
-- Admins cannot remove themselves through the members API.
+- Users cannot change their own role through the members API.
+- Household administrators cannot remove themselves through the members API.
+- Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ## Invite Rules
-- Household invite token links are backed by `identifier + tokenHash` and expire after 7 days.
+- Household invite links require Better Auth `invitationId + secret` and pending-status expiry checks (7 days).
 - Invite create/resend delivery is best-effort: APIs return `ok: true` even when SMTP send fails, with `inviteEmailSent: false` in the response.
 - Accepting invite with active session:
   - Succeeds only when signed-in email matches invite email.
   - Fails with conflict if signed-in user belongs to another household.
 - Accepting invite without valid matching session:
-  - Starts magic-link verification handoff.
-  - Temporary verification token expires after 10 minutes.
+  - Redirects to magic-link sign-in with callback to `/api/households/invites/complete?invitationId=...&secret=...`.
 
 ## Chore Rules (Implemented)
 
@@ -154,19 +153,19 @@
 - `POST /api/households`
   - Creates household + owner membership.
 - `PATCH /api/households`
-  - Updates household (admin only).
+  - Updates household (owner/admin only).
 - `GET /api/households/members`
   - Returns active members and pending invites.
 - `POST /api/households/members`
   - Creates invite for email.
 - `PATCH /api/households/members`
-  - Updates member role (admin only).
+  - Updates member role (owner/admin only).
 - `DELETE /api/households/members`
-  - Removes member (admin only).
+  - Removes member (owner/admin only).
 - `POST /api/households/members/invites/[inviteId]`
   - Resends pending invite.
 - `DELETE /api/households/members/invites/[inviteId]`
-  - Revokes pending invite (admin only).
+  - Revokes pending invite (owner/admin only).
 - `POST /api/households/invites/accept`
   - Accept now if session/email matches, otherwise return sign-in redirect URL.
 - `GET /api/households/invites/complete`

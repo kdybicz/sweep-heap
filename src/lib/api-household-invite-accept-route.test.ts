@@ -1,31 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  acceptHouseholdInviteMock,
-  createVerificationValueMock,
-  getSessionMock,
-  getValidHouseholdInviteMock,
-} = vi.hoisted(() => ({
-  acceptHouseholdInviteMock: vi.fn(),
-  createVerificationValueMock: vi.fn(),
-  getSessionMock: vi.fn(),
-  getValidHouseholdInviteMock: vi.fn(),
-}));
+const { acceptInvitationMock, getPendingHouseholdInviteByIdAndSecretMock, getSessionMock } =
+  vi.hoisted(() => ({
+    acceptInvitationMock: vi.fn(),
+    getPendingHouseholdInviteByIdAndSecretMock: vi.fn(),
+    getSessionMock: vi.fn(),
+  }));
 
 vi.mock("@/auth", () => ({
   auth: {
-    $context: Promise.resolve({
-      internalAdapter: {
-        createVerificationValue: createVerificationValueMock,
-      },
-    }),
+    api: {
+      acceptInvitation: acceptInvitationMock,
+    },
   },
   getSession: getSessionMock,
 }));
 
 vi.mock("@/lib/repositories", () => ({
-  acceptHouseholdInvite: acceptHouseholdInviteMock,
-  getValidHouseholdInvite: getValidHouseholdInviteMock,
+  getPendingHouseholdInviteByIdAndSecret: getPendingHouseholdInviteByIdAndSecretMock,
 }));
 
 import { POST } from "@/app/api/households/invites/accept/route";
@@ -39,35 +31,34 @@ const requestWithBody = (body: Record<string, unknown>) =>
 
 describe("/api/households/invites/accept route", () => {
   beforeEach(() => {
-    acceptHouseholdInviteMock.mockReset();
-    createVerificationValueMock.mockReset();
+    acceptInvitationMock.mockReset();
     getSessionMock.mockReset();
-    getValidHouseholdInviteMock.mockReset();
+    getPendingHouseholdInviteByIdAndSecretMock.mockReset();
   });
 
-  it("rejects missing identifier or token", async () => {
-    const response = await POST(requestWithBody({ identifier: "id" }));
+  it("rejects missing invitation id or secret", async () => {
+    const response = await POST(requestWithBody({}));
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Identifier and token are required" });
-    expect(getValidHouseholdInviteMock).not.toHaveBeenCalled();
+    expect(body).toEqual({ ok: false, error: "Invitation id and secret are required" });
+    expect(getPendingHouseholdInviteByIdAndSecretMock).not.toHaveBeenCalled();
   });
 
   it("rejects invalid or expired invites", async () => {
-    getValidHouseholdInviteMock.mockResolvedValue(null);
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(null);
 
-    const response = await POST(requestWithBody({ identifier: "id", token: "token" }));
+    const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
     const body = await response.json();
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ ok: false, error: "Invalid or expired invite" });
-    expect(acceptHouseholdInviteMock).not.toHaveBeenCalled();
-    expect(createVerificationValueMock).not.toHaveBeenCalled();
+    expect(acceptInvitationMock).not.toHaveBeenCalled();
   });
 
   it("accepts invite immediately for signed-in invited user", async () => {
-    getValidHouseholdInviteMock.mockResolvedValue({
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
       householdId: 11,
       householdName: "Home",
       email: "jane@example.com",
@@ -75,25 +66,24 @@ describe("/api/households/invites/accept route", () => {
       expiresAt: new Date("2026-01-02T00:00:00.000Z"),
     });
     getSessionMock.mockResolvedValue({ user: { id: "5", email: "jane@example.com" } });
-    acceptHouseholdInviteMock.mockResolvedValue({
-      status: "accepted",
-      householdId: 11,
-      householdName: "Home",
-      wasAlreadyMember: false,
-    });
+    acceptInvitationMock.mockResolvedValue({});
 
-    const response = await POST(requestWithBody({ identifier: "id", token: "token" }));
+    const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
     const body = await response.json();
 
-    expect(acceptHouseholdInviteMock).toHaveBeenCalledTimes(1);
-    const acceptArgs = acceptHouseholdInviteMock.mock.calls[0]?.[0];
-    expect(acceptArgs).toMatchObject({
-      email: "jane@example.com",
-      identifier: "id",
-      userId: 5,
+    expect(getPendingHouseholdInviteByIdAndSecretMock).toHaveBeenCalledTimes(1);
+    expect(getPendingHouseholdInviteByIdAndSecretMock.mock.calls[0]?.[0]).toMatchObject({
+      inviteId: 12,
+      secretHash: expect.stringMatching(/^[a-f0-9]{64}$/),
     });
-    expect(acceptArgs.tokenHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(createVerificationValueMock).not.toHaveBeenCalled();
+
+    expect(acceptInvitationMock).toHaveBeenCalledTimes(1);
+    const acceptArgs = acceptInvitationMock.mock.calls[0]?.[0];
+    expect(acceptArgs).toMatchObject({
+      body: {
+        invitationId: "12",
+      },
+    });
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
@@ -101,12 +91,12 @@ describe("/api/households/invites/accept route", () => {
       redirectUrl: "/household",
       householdId: 11,
       householdName: "Home",
-      wasAlreadyMember: false,
     });
   });
 
   it("returns conflict when signed-in user belongs to another household", async () => {
-    getValidHouseholdInviteMock.mockResolvedValue({
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
       householdId: 11,
       householdName: "Home",
       email: "jane@example.com",
@@ -114,9 +104,13 @@ describe("/api/households/invites/accept route", () => {
       expiresAt: new Date("2026-01-02T00:00:00.000Z"),
     });
     getSessionMock.mockResolvedValue({ user: { id: "5", email: "jane@example.com" } });
-    acceptHouseholdInviteMock.mockResolvedValue({ status: "belongs_to_other_household" });
+    acceptInvitationMock.mockRejectedValue({
+      body: {
+        message: "You already belong to another household",
+      },
+    });
 
-    const response = await POST(requestWithBody({ identifier: "id", token: "token" }));
+    const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
     const body = await response.json();
 
     expect(response.status).toBe(409);
@@ -124,7 +118,8 @@ describe("/api/households/invites/accept route", () => {
   });
 
   it("starts auto sign-in flow when no session exists", async () => {
-    getValidHouseholdInviteMock.mockResolvedValue({
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
       householdId: 11,
       householdName: "Home",
       email: "invited@example.com",
@@ -133,30 +128,24 @@ describe("/api/households/invites/accept route", () => {
     });
     getSessionMock.mockResolvedValue(null);
 
-    const response = await POST(requestWithBody({ identifier: "id", token: "token" }));
+    const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
     const body = await response.json();
 
-    expect(acceptHouseholdInviteMock).not.toHaveBeenCalled();
-    expect(createVerificationValueMock).toHaveBeenCalledTimes(1);
-
-    const createArgs = createVerificationValueMock.mock.calls[0]?.[0];
-    expect(createArgs.identifier).toEqual(expect.any(String));
-    expect(createArgs.expiresAt).toBeInstanceOf(Date);
-    expect(JSON.parse(createArgs.value)).toEqual({ email: "invited@example.com", name: "" });
-
+    expect(acceptInvitationMock).not.toHaveBeenCalled();
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
     expect(typeof body.redirectUrl).toBe("string");
-    const redirectUrl = new URL(body.redirectUrl);
-    expect(redirectUrl.pathname).toBe("/api/auth/magic-link/verify");
-    expect(redirectUrl.searchParams.get("token")).toBe(createArgs.identifier);
+    const redirectUrl = new URL(body.redirectUrl, "http://localhost");
+    expect(redirectUrl.pathname).toBe("/auth");
+    expect(redirectUrl.searchParams.get("email")).toBe("invited@example.com");
     expect(redirectUrl.searchParams.get("callbackURL")).toBe(
-      "/api/households/invites/complete?identifier=id&token=token",
+      "/api/households/invites/complete?invitationId=12&secret=invite-secret",
     );
   });
 
   it("starts auto sign-in flow when session email does not match invite", async () => {
-    getValidHouseholdInviteMock.mockResolvedValue({
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
       householdId: 11,
       householdName: "Home",
       email: "invited@example.com",
@@ -164,27 +153,25 @@ describe("/api/households/invites/accept route", () => {
       expiresAt: new Date("2026-01-02T00:00:00.000Z"),
     });
     getSessionMock.mockResolvedValue({ user: { id: "5", email: "other@example.com" } });
-    acceptHouseholdInviteMock.mockResolvedValue({
-      status: "email_mismatch",
-      inviteEmail: "invited@example.com",
-    });
 
-    const response = await POST(requestWithBody({ identifier: "id", token: "token" }));
+    const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
     const body = await response.json();
 
-    expect(acceptHouseholdInviteMock).toHaveBeenCalledTimes(1);
-    expect(createVerificationValueMock).toHaveBeenCalledTimes(1);
+    expect(acceptInvitationMock).not.toHaveBeenCalled();
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
     expect(typeof body.redirectUrl).toBe("string");
+    const redirectUrl = new URL(body.redirectUrl, "http://localhost");
+    expect(redirectUrl.pathname).toBe("/auth");
+    expect(redirectUrl.searchParams.get("email")).toBe("invited@example.com");
   });
 
   it("returns consistent 500 envelope on unexpected errors", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      getValidHouseholdInviteMock.mockRejectedValue(new Error("db failed"));
+      getPendingHouseholdInviteByIdAndSecretMock.mockRejectedValue(new Error("db failed"));
 
-      const response = await POST(requestWithBody({ identifier: "id", token: "token" }));
+      const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
       const body = await response.json();
 
       expect(response.status).toBe(500);

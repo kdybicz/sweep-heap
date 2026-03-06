@@ -14,16 +14,16 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ### Household and roles
 - User can create a household only if they have no active membership.
 - Active household is latest active membership by `joined_at`.
-- Admin-only: edit household, revoke invites, change roles, remove members.
-- Last admin cannot be demoted or removed.
-- Admin cannot change their own role from the members endpoint.
-- Admin cannot remove themselves from the members endpoint.
+- Owner/admin-only: edit household, revoke invites, change roles, remove members.
+- Users cannot change their own role from the members endpoint.
+- Household administrators cannot remove themselves from the members endpoint.
+- Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ### Invites
-- Invite validity is `identifier + tokenHash` and expiry window (7 days).
+- Invite validity is `invitationId + secret` + pending-status expiry window (7 days).
 - Invite create/resend is best-effort for SMTP delivery; check `inviteEmailSent` in success responses.
 - Signed-in acceptance requires session email to match invited email.
-- If no matching session, API returns redirect for magic-link verification handoff.
+- If no matching session, API returns a sign-in redirect with callback to invite completion.
 
 ### Chores
 - Series fields: `title`, `type`, `startDate`, `endDate`, `repeatRule`, optional `seriesEndDate`, `notes`.

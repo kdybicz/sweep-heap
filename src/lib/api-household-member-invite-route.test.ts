@@ -1,64 +1,90 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  getActiveHouseholdSummaryMock,
-  getSessionMock,
-  resendPendingHouseholdInviteMock,
-  revokePendingHouseholdInviteMock,
+  cancelInvitationMock,
+  createInvitationMock,
+  listInvitationsMock,
+  requireApiHouseholdAdminMock,
+  requireApiHouseholdMock,
   sendHouseholdInviteEmailMock,
+  setPendingHouseholdInviteSecretHashMock,
 } = vi.hoisted(() => ({
-  getActiveHouseholdSummaryMock: vi.fn(),
-  getSessionMock: vi.fn(),
-  resendPendingHouseholdInviteMock: vi.fn(),
-  revokePendingHouseholdInviteMock: vi.fn(),
+  cancelInvitationMock: vi.fn(),
+  createInvitationMock: vi.fn(),
+  listInvitationsMock: vi.fn(),
+  requireApiHouseholdAdminMock: vi.fn(),
+  requireApiHouseholdMock: vi.fn(),
   sendHouseholdInviteEmailMock: vi.fn(),
+  setPendingHouseholdInviteSecretHashMock: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
-  getSession: getSessionMock,
+  auth: {
+    api: {
+      cancelInvitation: cancelInvitationMock,
+      createInvitation: createInvitationMock,
+      listInvitations: listInvitationsMock,
+    },
+  },
 }));
 
-vi.mock("@/lib/repositories", () => ({
-  getActiveHouseholdSummary: getActiveHouseholdSummaryMock,
-  resendPendingHouseholdInvite: resendPendingHouseholdInviteMock,
-  revokePendingHouseholdInvite: revokePendingHouseholdInviteMock,
+vi.mock("@/lib/api-access", () => ({
+  requireApiHousehold: requireApiHouseholdMock,
+  requireApiHouseholdAdmin: requireApiHouseholdAdminMock,
 }));
 
 vi.mock("@/lib/household-invite-email", () => ({
   sendHouseholdInviteEmail: sendHouseholdInviteEmailMock,
 }));
 
+vi.mock("@/lib/repositories", () => ({
+  setPendingHouseholdInviteSecretHash: setPendingHouseholdInviteSecretHashMock,
+}));
+
 import { DELETE, POST } from "@/app/api/households/members/invites/[inviteId]/route";
 
 describe("/api/households/members/invites/[inviteId] route", () => {
   beforeEach(() => {
-    getActiveHouseholdSummaryMock.mockReset();
-    getSessionMock.mockReset();
-    resendPendingHouseholdInviteMock.mockReset();
-    revokePendingHouseholdInviteMock.mockReset();
+    cancelInvitationMock.mockReset();
+    createInvitationMock.mockReset();
+    listInvitationsMock.mockReset();
+    requireApiHouseholdAdminMock.mockReset();
+    requireApiHouseholdMock.mockReset();
     sendHouseholdInviteEmailMock.mockReset();
+    setPendingHouseholdInviteSecretHashMock.mockReset();
+
+    setPendingHouseholdInviteSecretHashMock.mockResolvedValue(12);
+
+    requireApiHouseholdMock.mockResolvedValue({
+      ok: true,
+      household: { id: 11, name: "Home", role: "member" },
+      sessionContext: { sessionUserName: "Alex", sessionUserEmail: "alex@example.com" },
+    });
+    requireApiHouseholdAdminMock.mockResolvedValue({
+      ok: true,
+      household: { id: 11, name: "Home", role: "admin" },
+      sessionContext: { userId: 7 },
+    });
   });
 
   it("POST resends a pending invite", async () => {
-    getSessionMock.mockResolvedValue({
-      user: { id: "7", name: "Alex", email: "alex@example.com" },
-    });
-    getActiveHouseholdSummaryMock.mockResolvedValue({
-      id: 11,
-      name: "Home",
-      role: "member",
-      timeZone: "UTC",
-      icon: null,
-    });
-    resendPendingHouseholdInviteMock.mockResolvedValue({
+    listInvitationsMock.mockResolvedValue([
+      {
+        id: 12,
+        email: "pending@example.com",
+        role: "member",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
+      },
+    ]);
+    createInvitationMock.mockResolvedValue({
       id: 12,
-      householdId: 11,
-      householdName: "Home",
       email: "pending@example.com",
       role: "member",
-      invitedByUserId: 7,
+      status: "pending",
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      expiresAt: new Date("2026-01-09T00:00:00.000Z"),
+      expiresAt: new Date("2126-01-09T00:00:00.000Z"),
     });
 
     const response = await POST(new Request("http://localhost/api/households/members/invites/12"), {
@@ -68,34 +94,75 @@ describe("/api/households/members/invites/[inviteId] route", () => {
 
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body.invite.email).toBe("pending@example.com");
+    expect(body.invite.id).toBe(12);
+    expect(createInvitationMock).toHaveBeenCalledTimes(1);
+    expect(setPendingHouseholdInviteSecretHashMock).toHaveBeenCalledTimes(1);
     expect(sendHouseholdInviteEmailMock).toHaveBeenCalledTimes(1);
-    expect(resendPendingHouseholdInviteMock).toHaveBeenCalledTimes(1);
+    const inviteUrl = sendHouseholdInviteEmailMock.mock.calls[0]?.[0]?.inviteUrl;
+    expect(typeof inviteUrl).toBe("string");
+    const parsedInviteUrl = new URL(inviteUrl as string);
+    expect(parsedInviteUrl.searchParams.get("invitationId")).toBe("12");
+    expect(parsedInviteUrl.searchParams.get("secret")).toBeTruthy();
   });
 
-  it("POST rejects unauthenticated users", async () => {
-    getSessionMock.mockResolvedValue(null);
+  it("POST preserves owner role when resending", async () => {
+    requireApiHouseholdMock.mockResolvedValue({
+      ok: true,
+      household: { id: 11, name: "Home", role: "owner" },
+      sessionContext: { sessionUserName: "Alex", sessionUserEmail: "alex@example.com" },
+    });
+    listInvitationsMock.mockResolvedValue([
+      {
+        id: 12,
+        email: "pending@example.com",
+        role: "owner",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
+      },
+    ]);
+    createInvitationMock.mockResolvedValue({
+      id: 12,
+      email: "pending@example.com",
+      role: "owner",
+      status: "pending",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      expiresAt: new Date("2126-01-09T00:00:00.000Z"),
+    });
 
     const response = await POST(new Request("http://localhost/api/households/members/invites/12"), {
       params: Promise.resolve({ inviteId: "12" }),
     });
     const body = await response.json();
 
-    expect(response.status).toBe(401);
-    expect(body).toEqual({ ok: false, error: "Unauthorized" });
-    expect(resendPendingHouseholdInviteMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(createInvitationMock.mock.calls[0]?.[0]?.body?.role).toBe("owner");
+    expect(body.invite.role).toBe("owner");
   });
 
-  it("POST rejects invalid invite ids", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "7" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({
-      id: 11,
-      name: "Home",
-      role: "member",
-      timeZone: "UTC",
-      icon: null,
-    });
+  it("POST blocks non-owners from resending owner invite", async () => {
+    listInvitationsMock.mockResolvedValue([
+      {
+        id: 12,
+        email: "pending@example.com",
+        role: "owner",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
+      },
+    ]);
 
+    const response = await POST(new Request("http://localhost/api/households/members/invites/12"), {
+      params: Promise.resolve({ inviteId: "12" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ ok: false, error: "Only owners can manage owner roles" });
+    expect(createInvitationMock).not.toHaveBeenCalled();
+  });
+
+  it("POST rejects invalid invite id", async () => {
     const response = await POST(
       new Request("http://localhost/api/households/members/invites/not-a-number"),
       {
@@ -106,94 +173,20 @@ describe("/api/households/members/invites/[inviteId] route", () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ ok: false, error: "Invite id is required" });
-    expect(resendPendingHouseholdInviteMock).not.toHaveBeenCalled();
-  });
-
-  it("POST returns household required when user has no active household", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "7" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue(null);
-
-    const response = await POST(new Request("http://localhost/api/households/members/invites/12"), {
-      params: Promise.resolve({ inviteId: "12" }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body).toEqual({ ok: false, error: "Household required" });
-    expect(resendPendingHouseholdInviteMock).not.toHaveBeenCalled();
-  });
-
-  it("POST returns consistent 500 envelope on unexpected errors", async () => {
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    try {
-      getSessionMock.mockResolvedValue({ user: { id: "7" } });
-      getActiveHouseholdSummaryMock.mockRejectedValue(new Error("db failed"));
-
-      const response = await POST(
-        new Request("http://localhost/api/households/members/invites/12"),
-        {
-          params: Promise.resolve({ inviteId: "12" }),
-        },
-      );
-      const body = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(body).toEqual({ ok: false, error: "Failed to resend household invite" });
-      expect(consoleErrorSpy).toHaveBeenCalled();
-    } finally {
-      consoleErrorSpy.mockRestore();
-    }
-  });
-
-  it("DELETE forbids non-admin revoke", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "7" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({
-      id: 11,
-      name: "Home",
-      role: "member",
-      timeZone: "UTC",
-      icon: null,
-    });
-
-    const response = await DELETE(
-      new Request("http://localhost/api/households/members/invites/12"),
-      {
-        params: Promise.resolve({ inviteId: "12" }),
-      },
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body).toEqual({ ok: false, error: "Forbidden" });
-    expect(revokePendingHouseholdInviteMock).not.toHaveBeenCalled();
-  });
-
-  it("DELETE rejects unauthenticated users", async () => {
-    getSessionMock.mockResolvedValue(null);
-
-    const response = await DELETE(
-      new Request("http://localhost/api/households/members/invites/12"),
-      {
-        params: Promise.resolve({ inviteId: "12" }),
-      },
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(body).toEqual({ ok: false, error: "Unauthorized" });
-    expect(revokePendingHouseholdInviteMock).not.toHaveBeenCalled();
   });
 
   it("DELETE revokes pending invite for admins", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "7" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({
-      id: 11,
-      name: "Home",
-      role: "admin",
-      timeZone: "UTC",
-      icon: null,
-    });
-    revokePendingHouseholdInviteMock.mockResolvedValue(12);
+    listInvitationsMock.mockResolvedValue([
+      {
+        id: 12,
+        email: "pending@example.com",
+        role: "member",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
+      },
+    ]);
+    cancelInvitationMock.mockResolvedValue({});
 
     const response = await DELETE(
       new Request("http://localhost/api/households/members/invites/12"),
@@ -205,38 +198,60 @@ describe("/api/households/members/invites/[inviteId] route", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true, revokedInviteId: 12 });
-    expect(revokePendingHouseholdInviteMock).toHaveBeenCalledWith({
-      householdId: 11,
-      inviteId: 12,
-    });
+    expect(cancelInvitationMock).toHaveBeenCalledTimes(1);
   });
 
-  it("DELETE returns consistent 500 envelope on unexpected errors", async () => {
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    try {
-      getSessionMock.mockResolvedValue({ user: { id: "7" } });
-      getActiveHouseholdSummaryMock.mockResolvedValue({
-        id: 11,
-        name: "Home",
-        role: "admin",
-        timeZone: "UTC",
-        icon: null,
-      });
-      revokePendingHouseholdInviteMock.mockRejectedValue(new Error("db failed"));
+  it("DELETE blocks admins from revoking owner invites", async () => {
+    listInvitationsMock.mockResolvedValue([
+      {
+        id: 12,
+        email: "pending@example.com",
+        role: "owner",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
+      },
+    ]);
 
-      const response = await DELETE(
-        new Request("http://localhost/api/households/members/invites/12"),
-        {
-          params: Promise.resolve({ inviteId: "12" }),
-        },
-      );
-      const body = await response.json();
+    const response = await DELETE(
+      new Request("http://localhost/api/households/members/invites/12"),
+      {
+        params: Promise.resolve({ inviteId: "12" }),
+      },
+    );
+    const body = await response.json();
 
-      expect(response.status).toBe(500);
-      expect(body).toEqual({ ok: false, error: "Failed to revoke household invite" });
-      expect(consoleErrorSpy).toHaveBeenCalled();
-    } finally {
-      consoleErrorSpy.mockRestore();
-    }
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ ok: false, error: "Only owners can manage owner roles" });
+    expect(cancelInvitationMock).not.toHaveBeenCalled();
+  });
+
+  it("DELETE maps missing invite to 404", async () => {
+    listInvitationsMock.mockResolvedValue([
+      {
+        id: 12,
+        email: "pending@example.com",
+        role: "member",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
+      },
+    ]);
+    cancelInvitationMock.mockRejectedValue({
+      body: {
+        message: "Invitation not found",
+      },
+    });
+
+    const response = await DELETE(
+      new Request("http://localhost/api/households/members/invites/12"),
+      {
+        params: Promise.resolve({ inviteId: "12" }),
+      },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ ok: false, error: "Pending invite not found" });
   });
 });

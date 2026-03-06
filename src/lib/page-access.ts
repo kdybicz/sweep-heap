@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getSession } from "@/auth";
+import { isHouseholdElevatedRole } from "@/lib/household-roles";
 import { getActiveHouseholdSummary, getUserMemberships } from "@/lib/repositories";
 
 const redirectToAuth = () => {
@@ -45,7 +46,7 @@ export const requirePageActiveHousehold = async () => {
 
 export const requirePageHouseholdAdmin = async () => {
   const access = await requirePageActiveHousehold();
-  if (access.household.role !== "admin") {
+  if (!isHouseholdElevatedRole(access.household.role)) {
     redirect("/household");
   }
 

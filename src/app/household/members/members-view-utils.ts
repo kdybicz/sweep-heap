@@ -1,4 +1,9 @@
-export type HouseholdMemberRole = "admin" | "member";
+import {
+  type HouseholdRole as HouseholdMemberRole,
+  normalizeHouseholdRole,
+} from "@/lib/household-roles";
+
+export type { HouseholdMemberRole };
 
 export type HouseholdMember = {
   userId: number;
@@ -40,7 +45,11 @@ export const sortPendingInvites = (invites: HouseholdPendingInvite[]) =>
     return a.email.toLowerCase().localeCompare(b.email.toLowerCase());
   });
 
-export const toRoleLabel = (role: HouseholdMemberRole) => (role === "admin" ? "Admin" : "Member");
+export const toHouseholdMemberRole = (role: unknown): HouseholdMemberRole =>
+  typeof role === "string" ? normalizeHouseholdRole(role) : "member";
+
+export const toRoleLabel = (role: HouseholdMemberRole) =>
+  role === "owner" ? "Owner" : role === "admin" ? "Admin" : "Member";
 
 export const formatDate = (value: string) => {
   const date = new Date(value);

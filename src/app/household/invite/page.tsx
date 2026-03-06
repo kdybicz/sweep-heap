@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import HouseholdInviteAcceptanceForm from "@/app/household/invite/HouseholdInviteAcceptanceForm";
-import { getValidHouseholdInvite } from "@/lib/repositories";
+import { hashHouseholdInviteSecret } from "@/lib/household-invite-secret";
+import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
@@ -17,22 +17,27 @@ const inviteErrorMessages: Record<string, string> = {
 export default async function HouseholdInvitePage({
   searchParams,
 }: {
-  searchParams?: Promise<{ error?: string; identifier?: string; token?: string }>;
+  searchParams?: Promise<{ error?: string; invitationId?: string; secret?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const identifier =
-    typeof resolvedSearchParams?.identifier === "string" ? resolvedSearchParams.identifier : "";
-  const token = typeof resolvedSearchParams?.token === "string" ? resolvedSearchParams.token : "";
+  const invitationId =
+    typeof resolvedSearchParams?.invitationId === "string" ? resolvedSearchParams.invitationId : "";
+  const secret =
+    typeof resolvedSearchParams?.secret === "string" ? resolvedSearchParams.secret : "";
+  const inviteSecret = secret.trim();
   const errorCode =
     typeof resolvedSearchParams?.error === "string" ? resolvedSearchParams.error : "";
   const initialError = inviteErrorMessages[errorCode] ?? null;
 
-  if (!identifier || !token) {
+  const numericInvitationId = Number(invitationId);
+  if (!Number.isInteger(numericInvitationId) || numericInvitationId <= 0 || !inviteSecret) {
     redirect("/auth");
   }
 
-  const tokenHash = createHash("sha256").update(token).digest("hex");
-  const invite = await getValidHouseholdInvite({ identifier, tokenHash });
+  const invite = await getPendingHouseholdInviteByIdAndSecret({
+    inviteId: numericInvitationId,
+    secretHash: hashHouseholdInviteSecret(inviteSecret),
+  });
   if (!invite) {
     return (
       <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -74,9 +79,9 @@ export default async function HouseholdInvitePage({
         <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">
           <HouseholdInviteAcceptanceForm
             householdName={invite.householdName}
-            identifier={identifier}
+            invitationId={numericInvitationId}
+            secret={inviteSecret}
             initialError={initialError}
-            token={token}
           />
         </div>
       </div>

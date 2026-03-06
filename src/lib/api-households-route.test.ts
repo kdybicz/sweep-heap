@@ -131,12 +131,15 @@ describe("/api/households route", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true, householdId: 100 });
-    expect(createHouseholdWithOwnerMock).toHaveBeenCalledWith({
-      userId: 21,
-      name: "The Heap",
-      timeZone: "UTC",
-      icon: "🧹🧹🧹🧹🧹🧹🧹🧹",
-    });
+    expect(createHouseholdWithOwnerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 21,
+        name: "The Heap",
+        timeZone: "UTC",
+        icon: "🧹🧹🧹🧹🧹🧹🧹🧹",
+      }),
+    );
+    expect(createHouseholdWithOwnerMock.mock.calls[0]?.[0]?.slug).toMatch(/^the-heap-/);
   });
 
   it("POST rejects non-object json payloads", async () => {
@@ -204,7 +207,7 @@ describe("/api/households route", () => {
       name: "Flat",
       timeZone: "UTC",
       icon: "🏠",
-      role: "admin",
+      role: "owner",
     });
     updateHouseholdByIdMock.mockResolvedValue({
       id: 3,

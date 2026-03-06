@@ -34,6 +34,7 @@ describe("createHouseholdWithOwner", () => {
     const householdId = await createHouseholdWithOwner({
       userId: 9,
       name: "  Home  ",
+      slug: "home-1234",
       timeZone: "UTC",
       icon: "🏡",
     });
@@ -42,13 +43,13 @@ describe("createHouseholdWithOwner", () => {
     expect(connectMock).toHaveBeenCalledTimes(1);
     expect(client.query.mock.calls[0]?.[0]).toBe("begin");
     expect(client.query.mock.calls[1]?.[0]).toBe(
-      "insert into households (name, time_zone, icon) values ($1, $2, $3) returning id",
+      "insert into households (name, slug, time_zone, icon, metadata) values ($1, $2, $3, $4, $5) returning id",
     );
-    expect(client.query.mock.calls[1]?.[1]).toEqual(["Home", "UTC", "🏡"]);
+    expect(client.query.mock.calls[1]?.[1]).toEqual(["Home", "home-1234", "UTC", "🏡", null]);
     expect(client.query.mock.calls[2]?.[0]).toBe(
       "insert into household_memberships (household_id, user_id, role) values ($1, $2, $3)",
     );
-    expect(client.query.mock.calls[2]?.[1]).toEqual([42, 9, "admin"]);
+    expect(client.query.mock.calls[2]?.[1]).toEqual([42, 9, "owner"]);
     expect(client.query.mock.calls[3]?.[0]).toBe("commit");
     expect(client.release).toHaveBeenCalledTimes(1);
   });
@@ -69,12 +70,18 @@ describe("createHouseholdWithOwner", () => {
       .mockResolvedValueOnce({});
 
     await expect(
-      createHouseholdWithOwner({ userId: 3, name: "Home", timeZone: "UTC", icon: null }),
+      createHouseholdWithOwner({
+        userId: 3,
+        name: "Home",
+        slug: "home-0000",
+        timeZone: "UTC",
+        icon: null,
+      }),
     ).rejects.toThrow("insert failed");
 
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
-      "insert into households (name, time_zone, icon) values ($1, $2, $3) returning id",
+      "insert into households (name, slug, time_zone, icon, metadata) values ($1, $2, $3, $4, $5) returning id",
       "insert into household_memberships (household_id, user_id, role) values ($1, $2, $3)",
       "rollback",
     ]);

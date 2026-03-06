@@ -1,23 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { acceptHouseholdInviteMock, getSessionMock } = vi.hoisted(() => ({
-  acceptHouseholdInviteMock: vi.fn(),
-  getSessionMock: vi.fn(),
-}));
+const { acceptInvitationMock, getPendingHouseholdInviteByIdAndSecretMock, getSessionMock } =
+  vi.hoisted(() => ({
+    acceptInvitationMock: vi.fn(),
+    getPendingHouseholdInviteByIdAndSecretMock: vi.fn(),
+    getSessionMock: vi.fn(),
+  }));
 
 vi.mock("@/auth", () => ({
+  auth: {
+    api: {
+      acceptInvitation: acceptInvitationMock,
+    },
+  },
   getSession: getSessionMock,
 }));
 
 vi.mock("@/lib/repositories", () => ({
-  acceptHouseholdInvite: acceptHouseholdInviteMock,
+  getPendingHouseholdInviteByIdAndSecret: getPendingHouseholdInviteByIdAndSecretMock,
 }));
 
 import { GET } from "@/app/api/households/invites/complete/route";
 
 describe("/api/households/invites/complete route", () => {
   beforeEach(() => {
-    acceptHouseholdInviteMock.mockReset();
+    acceptInvitationMock.mockReset();
+    getPendingHouseholdInviteByIdAndSecretMock.mockReset();
     getSessionMock.mockReset();
   });
 
@@ -32,36 +40,46 @@ describe("/api/households/invites/complete route", () => {
     getSessionMock.mockResolvedValue(null);
 
     const response = await GET(
-      new Request("http://localhost/api/households/invites/complete?identifier=id&token=tok"),
+      new Request("http://localhost/api/households/invites/complete?invitationId=12&secret=s3cr3t"),
     );
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "http://localhost/household/invite?identifier=id&token=tok&error=sign-in",
+      "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=sign-in",
     );
   });
 
   it("redirects to household when invite is accepted", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "7", email: "jane@example.com" } });
-    acceptHouseholdInviteMock.mockResolvedValue({
-      status: "accepted",
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
       householdId: 11,
       householdName: "Home",
-      wasAlreadyMember: false,
+      email: "jane@example.com",
+      role: "member",
+      invitedByUserId: 3,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      expiresAt: new Date("2126-01-08T00:00:00.000Z"),
     });
+    acceptInvitationMock.mockResolvedValue({});
 
     const response = await GET(
-      new Request("http://localhost/api/households/invites/complete?identifier=id&token=tok"),
+      new Request("http://localhost/api/households/invites/complete?invitationId=12&secret=s3cr3t"),
     );
 
-    expect(acceptHouseholdInviteMock).toHaveBeenCalledTimes(1);
-    const acceptArgs = acceptHouseholdInviteMock.mock.calls[0]?.[0];
-    expect(acceptArgs).toMatchObject({
-      email: "jane@example.com",
-      identifier: "id",
-      userId: 7,
+    expect(getPendingHouseholdInviteByIdAndSecretMock).toHaveBeenCalledTimes(1);
+    expect(getPendingHouseholdInviteByIdAndSecretMock.mock.calls[0]?.[0]).toMatchObject({
+      inviteId: 12,
+      secretHash: expect.stringMatching(/^[a-f0-9]{64}$/),
     });
-    expect(acceptArgs.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+
+    expect(acceptInvitationMock).toHaveBeenCalledTimes(1);
+    const acceptArgs = acceptInvitationMock.mock.calls[0]?.[0];
+    expect(acceptArgs).toMatchObject({
+      body: {
+        invitationId: "12",
+      },
+    });
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("http://localhost/household");
@@ -69,46 +87,100 @@ describe("/api/households/invites/complete route", () => {
 
   it("redirects back with invalid error when invite cannot be used", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "7", email: "jane@example.com" } });
-    acceptHouseholdInviteMock.mockResolvedValue({ status: "invalid_or_expired" });
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(null);
 
     const response = await GET(
-      new Request("http://localhost/api/households/invites/complete?identifier=id&token=tok"),
+      new Request("http://localhost/api/households/invites/complete?invitationId=12&secret=s3cr3t"),
     );
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "http://localhost/household/invite?identifier=id&token=tok&error=invalid",
+      "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=invalid",
     );
+    expect(acceptInvitationMock).not.toHaveBeenCalled();
   });
 
   it("redirects back with other-household error when blocked", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "7", email: "jane@example.com" } });
-    acceptHouseholdInviteMock.mockResolvedValue({ status: "belongs_to_other_household" });
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
+      householdId: 11,
+      householdName: "Home",
+      email: "jane@example.com",
+      role: "member",
+      invitedByUserId: 3,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      expiresAt: new Date("2126-01-08T00:00:00.000Z"),
+    });
+    acceptInvitationMock.mockRejectedValue({
+      body: {
+        message: "You already belong to another household",
+      },
+    });
 
     const response = await GET(
-      new Request("http://localhost/api/households/invites/complete?identifier=id&token=tok"),
+      new Request("http://localhost/api/households/invites/complete?invitationId=12&secret=s3cr3t"),
     );
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "http://localhost/household/invite?identifier=id&token=tok&error=other-household",
+      "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=other-household",
     );
   });
 
   it("redirects back with sign-in error on email mismatch", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "7", email: "jane@example.com" } });
-    acceptHouseholdInviteMock.mockResolvedValue({
-      status: "email_mismatch",
-      inviteEmail: "other@example.com",
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
+      householdId: 11,
+      householdName: "Home",
+      email: "jane@example.com",
+      role: "member",
+      invitedByUserId: 3,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      expiresAt: new Date("2126-01-08T00:00:00.000Z"),
+    });
+    acceptInvitationMock.mockRejectedValue({
+      body: {
+        message: "You are not the recipient of the invitation",
+      },
     });
 
     const response = await GET(
-      new Request("http://localhost/api/households/invites/complete?identifier=id&token=tok"),
+      new Request("http://localhost/api/households/invites/complete?invitationId=12&secret=s3cr3t"),
     );
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "http://localhost/household/invite?identifier=id&token=tok&error=sign-in",
+      "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=sign-in",
+    );
+  });
+
+  it("redirects back with invalid error when invite is no longer pending", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "7", email: "jane@example.com" } });
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
+      householdId: 11,
+      householdName: "Home",
+      email: "jane@example.com",
+      role: "member",
+      invitedByUserId: 3,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      expiresAt: new Date("2126-01-08T00:00:00.000Z"),
+    });
+    acceptInvitationMock.mockRejectedValue({
+      body: {
+        message: "Invitation not found",
+      },
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/households/invites/complete?invitationId=12&secret=s3cr3t"),
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=invalid",
     );
   });
 });

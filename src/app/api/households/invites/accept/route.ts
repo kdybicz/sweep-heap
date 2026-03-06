@@ -1,111 +1,124 @@
-import { createHash, randomBytes } from "node:crypto";
-
 import { auth, getSession } from "@/auth";
-import { getAppOrigin, parseJsonObjectBody } from "@/lib/http";
-import { acceptHouseholdInvite, getValidHouseholdInvite } from "@/lib/repositories";
+import { hashHouseholdInviteSecret } from "@/lib/household-invite-secret";
+import {
+  isInvitationNotFoundError,
+  isOtherHouseholdError,
+  parsePositiveInt,
+  toAuthApiErrorMessage,
+} from "@/lib/organization-api";
+import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
-const inviteSigninTokenExpiryMs = 10 * 60 * 1000;
-
-const buildAuthRedirectUrl = ({
-  identifier,
-  request,
-  token,
-  verificationToken,
+const toInviteCompletePath = ({
+  invitationId,
+  secret,
 }: {
-  identifier: string;
-  request: Request;
-  token: string;
-  verificationToken: string;
+  invitationId: number;
+  secret: string;
 }) => {
-  const appOrigin = getAppOrigin(request);
-  const callbackUrl = new URL("/api/households/invites/complete", appOrigin);
-  callbackUrl.searchParams.set("identifier", identifier);
-  callbackUrl.searchParams.set("token", token);
+  const url = new URL("/api/households/invites/complete", "http://localhost");
+  url.searchParams.set("invitationId", String(invitationId));
+  url.searchParams.set("secret", secret);
+  return `${url.pathname}${url.search}`;
+};
 
-  const verifyUrl = new URL("/api/auth/magic-link/verify", appOrigin);
-  verifyUrl.searchParams.set("token", verificationToken);
-  verifyUrl.searchParams.set("callbackURL", callbackUrl.pathname + callbackUrl.search);
-
-  return verifyUrl.toString();
+const buildSignInRedirectUrl = ({
+  email,
+  invitationId,
+  secret,
+}: {
+  email: string;
+  invitationId: number;
+  secret: string;
+}) => {
+  const url = new URL("/auth", "http://localhost");
+  url.searchParams.set("email", email);
+  url.searchParams.set(
+    "callbackURL",
+    toInviteCompletePath({
+      invitationId,
+      secret,
+    }),
+  );
+  return `${url.pathname}${url.search}`;
 };
 
 export async function POST(request: Request) {
   try {
-    const payload = await parseJsonObjectBody(request);
-    if (payload === null) {
-      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
-    }
+    const payload = (await request.json().catch(() => null)) as {
+      invitationId?: number | string;
+      secret?: string;
+    } | null;
 
-    const identifier = typeof payload.identifier === "string" ? payload.identifier.trim() : "";
-    const token = typeof payload.token === "string" ? payload.token.trim() : "";
-    if (!identifier || !token) {
+    const invitationId = parsePositiveInt(payload?.invitationId);
+    const secret = typeof payload?.secret === "string" ? payload.secret.trim() : "";
+    if (invitationId === null || !secret) {
       return Response.json(
-        { ok: false, error: "Identifier and token are required" },
+        { ok: false, error: "Invitation id and secret are required" },
         { status: 400 },
       );
     }
 
-    const tokenHash = createHash("sha256").update(token).digest("hex");
-    const invite = await getValidHouseholdInvite({ identifier, tokenHash });
+    const secretHash = hashHouseholdInviteSecret(secret);
+    const invite = await getPendingHouseholdInviteByIdAndSecret({
+      inviteId: invitationId,
+      secretHash,
+    });
     if (!invite) {
       return Response.json({ ok: false, error: "Invalid or expired invite" }, { status: 400 });
     }
 
     const session = await getSession();
-    const sessionUserId = Number(session?.user?.id);
     const sessionEmail = session?.user?.email?.trim().toLowerCase() ?? "";
-    const hasActiveSession = Number.isFinite(sessionUserId) && Boolean(sessionEmail);
-
-    if (hasActiveSession) {
-      const acceptResult = await acceptHouseholdInvite({
-        email: sessionEmail,
-        identifier,
-        tokenHash,
-        userId: sessionUserId,
+    if (!sessionEmail) {
+      return Response.json({
+        ok: true,
+        redirectUrl: buildSignInRedirectUrl({
+          email: invite.email,
+          invitationId,
+          secret,
+        }),
       });
-
-      if (acceptResult.status === "invalid_or_expired") {
-        return Response.json({ ok: false, error: "Invalid or expired invite" }, { status: 400 });
-      }
-
-      if (acceptResult.status === "belongs_to_other_household") {
-        return Response.json(
-          { ok: false, error: "You already belong to another household" },
-          { status: 409 },
-        );
-      }
-
-      if (acceptResult.status === "accepted") {
-        return Response.json({
-          ok: true,
-          redirectUrl: "/household",
-          householdId: acceptResult.householdId,
-          householdName: acceptResult.householdName,
-          wasAlreadyMember: acceptResult.wasAlreadyMember,
-        });
-      }
     }
 
-    const verificationToken = randomBytes(32).toString("base64url");
-    const authContext = await auth.$context;
-    await authContext.internalAdapter.createVerificationValue({
-      identifier: verificationToken,
-      value: JSON.stringify({ email: invite.email, name: "" }),
-      expiresAt: new Date(Date.now() + inviteSigninTokenExpiryMs),
+    if (sessionEmail !== invite.email.trim().toLowerCase()) {
+      return Response.json({
+        ok: true,
+        redirectUrl: buildSignInRedirectUrl({
+          email: invite.email,
+          invitationId,
+          secret,
+        }),
+      });
+    }
+
+    await auth.api.acceptInvitation({
+      body: {
+        invitationId: String(invitationId),
+      },
+      headers: request.headers,
     });
 
     return Response.json({
       ok: true,
-      redirectUrl: buildAuthRedirectUrl({
-        identifier,
-        request,
-        token,
-        verificationToken,
-      }),
+      redirectUrl: "/household",
+      householdId: invite.householdId,
+      householdName: invite.householdName,
     });
   } catch (error) {
+    const authApiErrorMessage = toAuthApiErrorMessage(error);
+    if (isInvitationNotFoundError(authApiErrorMessage)) {
+      return Response.json({ ok: false, error: "Invalid or expired invite" }, { status: 400 });
+    }
+
+    if (isOtherHouseholdError(authApiErrorMessage)) {
+      return Response.json(
+        { ok: false, error: "You already belong to another household" },
+        { status: 409 },
+      );
+    }
+
     console.error("Failed to accept household invite", error);
     return Response.json(
       { ok: false, error: "Failed to accept household invite" },

@@ -51,7 +51,7 @@ Use status codes consistently:
 - `400`: malformed request or invalid user/session payload.
 - `403`: authenticated but not allowed (including `Household required` and role-based `Forbidden`).
 - `404`: requested resource is missing (for example member/invite/chore not found).
-- `409`: valid request conflicts with business rules (for example last-admin safety or expired undo).
+- `409`: valid request conflicts with business rules (for example owner-protection constraints or expired undo).
 
 Body parsing rule:
 
@@ -68,7 +68,7 @@ Important contract:
 Keep page-level access rules aligned with API permissions:
 
 - Server-rendered pages for privileged actions must enforce the same role checks as the API they submit to.
-- For household admin-only flows (for example `/household/edit` with `PATCH /api/households`), redirect non-admin members before rendering the edit form.
+- For household owner/admin flows (for example `/household/edit` with `PATCH /api/households`), redirect non-privileged members before rendering the edit form.
 
 ## 5) Recurrence and Occurrence Generation
 
@@ -97,11 +97,12 @@ If a recurring surprise gets fixed and becomes a standard:
 
 ## 8) Members API Consistency
 
-For `DELETE /api/households/members`:
+For household member/invite role-management routes:
 
 - Reject self-removal requests (`targetUserId === session user id`) with `400`.
 - Keep UI affordances aligned with API behavior for self-role/self-removal restrictions.
-- Apply last-admin safeguards inside a single repository transaction that locks active memberships for the household before role/remove writes.
+- Enforce owner-role protections at the API boundary (`403`): non-owners cannot manage owner memberships or owner-role invites.
+- Translate Better Auth business-rule conflicts (for example last-owner) to consistent `409` responses.
 
 ## 9) Chore Undo Contract
 
@@ -118,3 +119,13 @@ For household invite creation:
 
 - Keep email normalization (`trim().toLowerCase()`) before persistence.
 - Enforce one pending invite per `(household, email)` with a partial unique DB index and handle race conflicts by returning the already-pending invite response.
+
+## 11) Build vs Buy Recommendation Standard
+
+When proposing implementation approaches (in issues, plans, or PR summaries):
+
+- Default to proven, well-maintained libraries/tools before proposing a custom in-house implementation.
+- For non-trivial decisions, provide a concise tradeoff comparison with both options:
+  - Ready-to-import library/tool: pros and cons (reliability, maturity, ecosystem fit, integration effort, lock-in risk).
+  - In-house solution: pros and cons (control, customization, delivery time, maintenance burden, long-term risk).
+- End with a clear recommendation and rationale; choose in-house only when constraints require it (for example domain-specific requirements, licensing/compliance limits, or lack of a mature ecosystem fit).

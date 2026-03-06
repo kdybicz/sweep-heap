@@ -38,8 +38,8 @@ const seed = async () => {
   const weekNextMonday = weekStart.plus({ days: 7 });
 
   const householdResult = await pool.query(
-    "insert into households (name, time_zone) values ($1, $2) returning id",
-    ["Demo household", "Europe/Warsaw"],
+    "insert into households (name, slug, time_zone) values ($1, $2, $3) returning id",
+    ["Demo household", "demo-household", "Europe/Warsaw"],
   );
   const householdId = householdResult.rows[0]?.id;
 
@@ -51,7 +51,7 @@ const seed = async () => {
 
   await pool.query(
     "insert into household_memberships (household_id, user_id, role) values ($1, $2, $3)",
-    [householdId, userId, "admin"],
+    [householdId, userId, "owner"],
   );
 
   const chores = [

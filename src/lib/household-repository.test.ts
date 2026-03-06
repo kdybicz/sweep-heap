@@ -1,148 +1,128 @@
-import type { PoolClient } from "pg";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { connectMock } = vi.hoisted(() => ({
-  connectMock: vi.fn(),
+const { queryMock } = vi.hoisted(() => ({
+  queryMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   pool: {
-    connect: connectMock,
-    query: vi.fn(),
+    query: queryMock,
+    connect: vi.fn(),
   },
 }));
 
-import { createHouseholdMemberInvite } from "@/lib/repositories/household-repository";
+import {
+  getPendingHouseholdInviteById,
+  getPendingHouseholdInviteByIdAndSecret,
+  setPendingHouseholdInviteSecretHash,
+} from "@/lib/repositories/household-repository";
 
-describe("createHouseholdMemberInvite", () => {
+describe("getPendingHouseholdInviteById", () => {
   beforeEach(() => {
-    connectMock.mockReset();
+    queryMock.mockReset();
   });
 
-  it("retries invite insert after duplicate conflict with expired pending rows", async () => {
-    const client = {
-      query: vi.fn(),
-      release: vi.fn(),
-    };
-    connectMock.mockResolvedValue(client as unknown as PoolClient);
-
-    const duplicateInviteError = Object.assign(new Error("duplicate invite"), {
-      code: "23505",
-      constraint: "household_member_invites_pending_email_unique",
-    });
-    const createdInvite = {
-      id: 91,
-      householdId: 7,
-      householdName: "Home",
-      email: "alex@example.com",
-      role: "member" as const,
-      invitedByUserId: 11,
-      createdAt: new Date("2026-03-05T18:00:00.000Z"),
-      expiresAt: new Date("2026-03-12T18:00:00.000Z"),
-    };
-
-    client.query
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce(duplicateInviteError)
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ rows: [createdInvite] })
-      .mockResolvedValueOnce({});
-
-    const result = await createHouseholdMemberInvite({
-      email: "alex@example.com",
-      expiresAt: new Date("2026-03-12T18:00:00.000Z"),
-      householdId: 7,
-      identifier: "household-invite-7-token",
-      invitedByUserId: 11,
-      role: "member",
-      tokenHash: "hashed-token",
+  it("returns invite when pending invite exists", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          id: 12,
+          householdId: 11,
+          householdName: "Home",
+          email: "pending@example.com",
+          role: "member",
+          invitedByUserId: 7,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          expiresAt: new Date("2126-01-08T00:00:00.000Z"),
+        },
+      ],
     });
 
-    expect(result).toEqual({
-      status: "invited",
-      invite: createdInvite,
-    });
+    const invite = await getPendingHouseholdInviteById(12);
 
-    const calls = client.query.mock.calls.map((call) => call[0]);
-    const insertCalls = calls.filter(
-      (query) =>
-        typeof query === "string" && query.startsWith("insert into household_member_invites"),
-    );
-    expect(insertCalls).toHaveLength(2);
-    expect(calls).toContain("savepoint pending_invite_insert");
-    expect(calls).toContain("rollback to savepoint pending_invite_insert");
-    expect(calls).toContain("commit");
-    expect(calls).not.toContain("rollback");
-    expect(client.release).toHaveBeenCalledTimes(1);
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock.mock.calls[0]?.[1]).toEqual([12]);
+    expect(invite?.id).toBe(12);
   });
 
-  it("returns already_invited when a concurrent pending invite is found after duplicate conflict", async () => {
-    const client = {
-      query: vi.fn(),
-      release: vi.fn(),
-    };
-    connectMock.mockResolvedValue(client as unknown as PoolClient);
+  it("returns null when invite is not found", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
 
-    const duplicateInviteError = Object.assign(new Error("duplicate invite"), {
-      code: "23505",
-      constraint: "household_member_invites_pending_email_unique",
-    });
-    const existingInvite = {
-      id: 18,
-      householdId: 7,
-      householdName: "Home",
-      email: "alex@example.com",
-      role: "member" as const,
-      invitedByUserId: 3,
-      createdAt: new Date("2026-03-05T18:01:00.000Z"),
-      expiresAt: new Date("2026-03-12T18:01:00.000Z"),
-    };
+    const invite = await getPendingHouseholdInviteById(999);
 
-    client.query
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce(duplicateInviteError)
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ rows: [existingInvite] })
-      .mockResolvedValueOnce({});
+    expect(invite).toBeNull();
+  });
+});
 
-    const result = await createHouseholdMemberInvite({
-      email: "alex@example.com",
-      expiresAt: new Date("2026-03-12T18:00:00.000Z"),
-      householdId: 7,
-      identifier: "household-invite-7-token",
-      invitedByUserId: 11,
-      role: "member",
-      tokenHash: "hashed-token",
+describe("getPendingHouseholdInviteByIdAndSecret", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("returns invite when id and secret hash match", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          id: 12,
+          householdId: 11,
+          householdName: "Home",
+          email: "pending@example.com",
+          role: "member",
+          invitedByUserId: 7,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          expiresAt: new Date("2126-01-08T00:00:00.000Z"),
+        },
+      ],
     });
 
-    expect(result).toEqual({
-      status: "already_invited",
-      invite: existingInvite,
+    const invite = await getPendingHouseholdInviteByIdAndSecret({
+      inviteId: 12,
+      secretHash: "secret-hash",
     });
 
-    const calls = client.query.mock.calls.map((call) => call[0]);
-    const insertCalls = calls.filter(
-      (query) =>
-        typeof query === "string" && query.startsWith("insert into household_member_invites"),
-    );
-    expect(insertCalls).toHaveLength(1);
-    expect(calls).toContain("savepoint pending_invite_insert");
-    expect(calls).toContain("rollback to savepoint pending_invite_insert");
-    expect(calls).toContain("commit");
-    expect(calls).not.toContain("rollback");
-    expect(client.release).toHaveBeenCalledTimes(1);
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock.mock.calls[0]?.[1]).toEqual([12, "secret-hash"]);
+    expect(invite?.id).toBe(12);
+  });
+
+  it("returns null when id and secret hash do not match", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+
+    const invite = await getPendingHouseholdInviteByIdAndSecret({
+      inviteId: 12,
+      secretHash: "secret-hash",
+    });
+
+    expect(invite).toBeNull();
+  });
+});
+
+describe("setPendingHouseholdInviteSecretHash", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("stores secret hash for pending invite", async () => {
+    queryMock.mockResolvedValue({ rows: [{ id: 12 }] });
+
+    const inviteId = await setPendingHouseholdInviteSecretHash({
+      inviteId: 12,
+      secretHash: "secret-hash",
+    });
+
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock.mock.calls[0]?.[1]).toEqual(["secret-hash", 12]);
+    expect(inviteId).toBe(12);
+  });
+
+  it("returns null when invite cannot be updated", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+
+    const inviteId = await setPendingHouseholdInviteSecretHash({
+      inviteId: 12,
+      secretHash: "secret-hash",
+    });
+
+    expect(inviteId).toBeNull();
   });
 });

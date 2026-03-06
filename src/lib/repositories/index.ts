@@ -8,20 +8,16 @@ export {
   upsertChoreOccurrenceOverride,
 } from "@/lib/repositories/chore-repository";
 export {
-  acceptHouseholdInvite,
-  createHouseholdMemberInvite,
   createHouseholdWithOwner,
   getActiveHouseholdId,
   getActiveHouseholdSummary,
   getHouseholdTimeZoneById,
+  getPendingHouseholdInviteById,
+  getPendingHouseholdInviteByIdAndSecret,
   getUserMemberships,
-  getValidHouseholdInvite,
   listActiveHouseholdMembers,
   listPendingHouseholdInvites,
-  removeActiveHouseholdMemberWithGuard,
-  resendPendingHouseholdInvite,
-  revokePendingHouseholdInvite,
-  updateActiveHouseholdMemberRoleWithGuard,
+  setPendingHouseholdInviteSecretHash,
   updateHouseholdById,
 } from "@/lib/repositories/household-repository";
 export {

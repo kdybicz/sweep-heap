@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { HouseholdMemberRole } from "@/lib/repositories/household-repository";
+import { type HouseholdRole, isHouseholdRole } from "@/lib/household-roles";
 
 export type PayloadValidationResult<T> =
   | {
@@ -55,8 +55,8 @@ const householdMemberUserIdSchema = z
 const householdMemberRoleSchema = z
   .unknown()
   .transform((value) => (typeof value === "string" ? value : ""))
-  .refine((value): value is HouseholdMemberRole => value === "admin" || value === "member", {
-    message: "Role must be admin or member",
+  .refine((value): value is HouseholdRole => isHouseholdRole(value), {
+    message: "Role must be owner, admin, or member",
   });
 
 const householdInvitePayloadSchema = z.object({
@@ -111,7 +111,7 @@ export const validateHouseholdInvitePayload = (
 
 export const validateHouseholdMemberRoleUpdatePayload = (
   payload: Record<string, unknown>,
-): PayloadValidationResult<{ userId: number; role: HouseholdMemberRole }> =>
+): PayloadValidationResult<{ userId: number; role: HouseholdRole }> =>
   toValidationResult(householdMemberRoleUpdatePayloadSchema.safeParse(payload));
 
 export const validateHouseholdMemberRemovePayload = (

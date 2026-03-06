@@ -1,5 +1,7 @@
-import { betterAuth } from "better-auth";
-import { magicLink } from "better-auth/plugins";
+import { APIError, betterAuth } from "better-auth";
+import { magicLink, organization } from "better-auth/plugins";
+import { createAccessControl } from "better-auth/plugins/access";
+import { defaultStatements } from "better-auth/plugins/organization/access";
 import { headers } from "next/headers";
 import nodemailer from "nodemailer";
 
@@ -69,6 +71,73 @@ const magicLinkHtml = ({ url, host }: { url: string; host: string }) => {
 const magicLinkText = ({ url, host }: { url: string; host: string }) =>
   `Sign in to ${host}\n${url}\n\n`;
 
+const organizationAccessControl = createAccessControl(defaultStatements);
+
+const householdAdminRole = organizationAccessControl.newRole({
+  organization: ["update"],
+  member: ["create", "update", "delete"],
+  invitation: ["create", "cancel"],
+  team: ["create", "update", "delete"],
+  ac: ["create", "read", "update", "delete"],
+});
+
+const householdOwnerRole = organizationAccessControl.newRole({
+  organization: ["update", "delete"],
+  member: ["create", "update", "delete"],
+  invitation: ["create", "cancel"],
+  team: ["create", "update", "delete"],
+  ac: ["create", "read", "update", "delete"],
+});
+
+const householdMemberRole = organizationAccessControl.newRole({
+  organization: [],
+  member: [],
+  invitation: ["create"],
+  team: [],
+  ac: ["read"],
+});
+
+const toUserId = (value: unknown) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return parsed;
+};
+
+const findActiveHouseholdIdByUserId = async (userId: number) => {
+  const result = await pool.query<{ householdId: number }>(
+    "select household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by joined_at desc limit 1",
+    [userId],
+  );
+
+  return result.rows[0]?.householdId ?? null;
+};
+
+const findUserIdByEmail = async (email: string) => {
+  const result = await pool.query<{ id: number }>(
+    "select id from users where lower(email) = lower($1) limit 1",
+    [email.trim().toLowerCase()],
+  );
+
+  return result.rows[0]?.id ?? null;
+};
+
+const ensureCanJoinHousehold = async ({
+  householdId,
+  userId,
+}: {
+  householdId: number;
+  userId: number;
+}) => {
+  const activeHouseholdId = await findActiveHouseholdIdByUserId(userId);
+  if (activeHouseholdId !== null && activeHouseholdId !== householdId) {
+    throw new APIError("CONFLICT", {
+      message: "You already belong to another household",
+    });
+  }
+};
+
 export const auth = betterAuth({
   appName: "The Sweep Heap",
   baseURL: appUrl,
@@ -132,6 +201,116 @@ export const auth = betterAuth({
           text: magicLinkText({ url, host }),
           html: magicLinkHtml({ url, host }),
         });
+      },
+    }),
+    organization({
+      ac: organizationAccessControl,
+      creatorRole: "owner",
+      invitationExpiresIn: 7 * 24 * 60 * 60,
+      roles: {
+        admin: householdAdminRole,
+        owner: householdOwnerRole,
+        member: householdMemberRole,
+      },
+      allowUserToCreateOrganization: async (user) => {
+        const userId = toUserId(user.id);
+        if (userId === null) {
+          return false;
+        }
+
+        const activeHouseholdId = await findActiveHouseholdIdByUserId(userId);
+        return activeHouseholdId === null;
+      },
+      organizationHooks: {
+        beforeAcceptInvitation: async ({ invitation, user }) => {
+          const userId = toUserId(user.id);
+          const householdId = toUserId(invitation.organizationId);
+          if (userId === null || householdId === null) {
+            return;
+          }
+
+          await ensureCanJoinHousehold({ householdId, userId });
+        },
+        beforeAddMember: async ({ member }) => {
+          const userId = toUserId(member.userId);
+          const householdId = toUserId(member.organizationId);
+          if (userId === null || householdId === null) {
+            return;
+          }
+
+          await ensureCanJoinHousehold({ householdId, userId });
+        },
+        beforeCreateInvitation: async ({ invitation, organization }) => {
+          const invitedUserId = await findUserIdByEmail(invitation.email);
+          if (invitedUserId === null) {
+            return;
+          }
+
+          const householdId = toUserId(organization.id);
+          if (householdId === null) {
+            return;
+          }
+
+          await ensureCanJoinHousehold({
+            householdId,
+            userId: invitedUserId,
+          });
+        },
+      },
+      schema: {
+        session: {
+          fields: {
+            activeOrganizationId: "active_household_id",
+          },
+        },
+        organization: {
+          modelName: "households",
+          fields: {
+            name: "name",
+            slug: "slug",
+            logo: "icon",
+            metadata: "metadata",
+            createdAt: "created_at",
+          },
+          additionalFields: {
+            timeZone: {
+              type: "string",
+              fieldName: "time_zone",
+              required: true,
+              defaultValue: "UTC",
+            },
+          },
+        },
+        member: {
+          modelName: "household_memberships",
+          fields: {
+            organizationId: "household_id",
+            userId: "user_id",
+            role: "role",
+            createdAt: "joined_at",
+          },
+          additionalFields: {
+            status: {
+              type: "string",
+              fieldName: "status",
+              required: true,
+              input: false,
+              defaultValue: "active",
+            },
+          },
+        },
+        invitation: {
+          modelName: "household_member_invites",
+          fields: {
+            organizationId: "household_id",
+            email: "email",
+            role: "role",
+            status: "status",
+            expiresAt: "expires_at",
+            createdAt: "created_at",
+            inviterId: "invited_by_user_id",
+          },
+        },
       },
     }),
   ],

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import HouseholdMembersView from "@/app/household/members/HouseholdMembersView";
+import { isHouseholdElevatedRole } from "@/lib/household-roles";
 import { requirePageActiveHousehold } from "@/lib/page-access";
 import { listActiveHouseholdMembers, listPendingHouseholdInvites } from "@/lib/repositories";
 
@@ -35,13 +36,13 @@ export default async function HouseholdMembersPage() {
           <h1 className="text-3xl font-semibold">Members</h1>
           <p className="text-sm text-[var(--muted)]">
             Manage who can access {household.name.trim() || "your household"}. Search members,
-            invite new people, and set admin permissions.
+            invite new people, and set household roles.
           </p>
         </header>
 
         <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-6 shadow-[var(--shadow)] sm:p-8">
           <HouseholdMembersView
-            canAdministerMembers={household.role === "admin"}
+            canAdministerMembers={isHouseholdElevatedRole(household.role)}
             initialMembers={initialMembers}
             initialPendingInvites={initialPendingInvites}
             viewerUserId={userId}

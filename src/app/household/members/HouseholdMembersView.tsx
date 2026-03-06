@@ -10,6 +10,7 @@ import {
   type HouseholdRow,
   sortMembers,
   sortPendingInvites,
+  toHouseholdMemberRole,
   toRoleLabel,
   toSearchText,
 } from "@/app/household/members/members-view-utils";
@@ -41,6 +42,9 @@ export default function HouseholdMembersView({
   const [removingUserId, setRemovingUserId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const viewerRole = members.find((member) => member.userId === viewerUserId)?.role ?? "member";
+  const canManageOwnerRole = viewerRole === "owner";
 
   const filteredRows = useMemo(() => {
     const rows: HouseholdRow[] = [
@@ -94,7 +98,7 @@ export default function HouseholdMembersView({
           upsertPendingInvite({
             id: Number(data.existingInvite.id),
             email: String(data.existingInvite.email),
-            role: data.existingInvite.role === "admin" ? "admin" : "member",
+            role: toHouseholdMemberRole(data.existingInvite.role),
             createdAt: String(data.existingInvite.createdAt),
             expiresAt: String(data.existingInvite.expiresAt),
           });
@@ -108,7 +112,7 @@ export default function HouseholdMembersView({
         upsertPendingInvite({
           id: Number(data.invite.id),
           email: String(data.invite.email),
-          role: data.invite.role === "admin" ? "admin" : "member",
+          role: toHouseholdMemberRole(data.invite.role),
           createdAt: String(data.invite.createdAt),
           expiresAt: String(data.invite.expiresAt),
         });
@@ -149,7 +153,7 @@ export default function HouseholdMembersView({
       upsertPendingInvite({
         id: Number(data.invite.id),
         email: String(data.invite.email),
-        role: data.invite.role === "admin" ? "admin" : "member",
+        role: toHouseholdMemberRole(data.invite.role),
         createdAt: String(data.invite.createdAt),
         expiresAt: String(data.invite.expiresAt),
       });
@@ -234,7 +238,7 @@ export default function HouseholdMembersView({
         userId: Number(data.member.userId),
         name: typeof data.member.name === "string" ? data.member.name : null,
         email: String(data.member.email),
-        role: data.member.role === "admin" ? "admin" : "member",
+        role: toHouseholdMemberRole(data.member.role),
         joinedAt: String(data.member.joinedAt),
       });
       setMessage("Member role updated.");
@@ -360,7 +364,7 @@ export default function HouseholdMembersView({
 
       {!canAdministerMembers ? (
         <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold text-[var(--muted)]">
-          You can invite new members. Role changes and removals are limited to admins.
+          You can invite new members. Role changes and removals are limited to admins and owners.
         </div>
       ) : null}
 
@@ -382,8 +386,11 @@ export default function HouseholdMembersView({
                 if (row.kind === "invite") {
                   const isResending = resendingInviteId === row.invite.id;
                   const isRevoking = revokingInviteId === row.invite.id;
-                  const disableResend = isResending || isRevoking;
-                  const disableRevoke = !canAdministerMembers || isResending || isRevoking;
+                  const canManageOwnerInviteRole =
+                    canManageOwnerRole || row.invite.role !== "owner";
+                  const disableResend = isResending || isRevoking || !canManageOwnerInviteRole;
+                  const disableRevoke =
+                    !canAdministerMembers || isResending || isRevoking || !canManageOwnerInviteRole;
 
                   return (
                     <tr
@@ -440,10 +447,12 @@ export default function HouseholdMembersView({
                 const isViewer = member.userId === viewerUserId;
                 const roleIsUpdating = roleUpdatingUserId === member.userId;
                 const isRemoving = removingUserId === member.userId;
+                const canEditOwnerMembers = canManageOwnerRole || member.role !== "owner";
+                const canEditMemberRole = canAdministerMembers && canEditOwnerMembers;
                 const disableRoleChange =
-                  !canAdministerMembers || isViewer || roleIsUpdating || isRemoving;
+                  !canEditMemberRole || isViewer || roleIsUpdating || isRemoving;
                 const disableRemove =
-                  !canAdministerMembers || isViewer || roleIsUpdating || isRemoving;
+                  !canEditMemberRole || isViewer || roleIsUpdating || isRemoving;
 
                 return (
                   <tr
@@ -460,20 +469,21 @@ export default function HouseholdMembersView({
                     </td>
                     <td className="px-4 py-3 text-[var(--muted)]">{member.email}</td>
                     <td className="px-4 py-3">
-                      {canAdministerMembers ? (
+                      {canEditMemberRole ? (
                         <select
                           className="rounded-lg border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                           value={member.role}
                           onChange={(event) =>
                             handleRoleChange({
                               userId: member.userId,
-                              role: event.target.value === "admin" ? "admin" : "member",
+                              role: toHouseholdMemberRole(event.target.value),
                             })
                           }
                           disabled={disableRoleChange}
                         >
                           <option value="member">Member</option>
                           <option value="admin">Admin</option>
+                          {canManageOwnerRole ? <option value="owner">Owner</option> : null}
                         </select>
                       ) : (
                         <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
