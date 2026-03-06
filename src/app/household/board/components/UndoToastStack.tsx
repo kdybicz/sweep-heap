@@ -19,9 +19,10 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
     <div className="fixed bottom-6 left-6 right-6 z-50 mx-auto flex max-w-md flex-col gap-3">
       {undoToasts.map((toast) => {
         const remainingMs = Math.max(0, DateTime.fromISO(toast.undoUntil).toMillis() - nowMs);
+        const animationDurationMs = Math.max(CHORE_UNDO_WINDOW_MS, remainingMs);
         const elapsedMs = Math.max(
           0,
-          Math.min(CHORE_UNDO_WINDOW_MS, CHORE_UNDO_WINDOW_MS - remainingMs),
+          Math.min(animationDurationMs, animationDurationMs - remainingMs),
         );
         return (
           <div
@@ -56,7 +57,7 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
                 className="undo-progress-bar h-full rounded-full bg-[var(--accent)]"
                 style={{
                   animationDelay: `-${elapsedMs}ms`,
-                  animationDuration: `${CHORE_UNDO_WINDOW_MS}ms`,
+                  animationDuration: `${animationDurationMs}ms`,
                 }}
               />
             </div>
