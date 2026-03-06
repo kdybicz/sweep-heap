@@ -37,22 +37,50 @@ const seed = async () => {
   const weekSunday = weekStart.plus({ days: 6 });
   const weekNextMonday = weekStart.plus({ days: 7 });
 
-  const householdResult = await pool.query(
-    "insert into households (name, slug, time_zone) values ($1, $2, $3) returning id",
-    ["Demo household", "demo-household", "Europe/Warsaw"],
-  );
-  const householdId = householdResult.rows[0]?.id;
-
-  const userResult = await pool.query(
-    "insert into users (name, email, email_verified) values ($1, $2, $3) returning id",
-    ["Demo User", "demo.user@example.com", true],
-  );
-  const userId = userResult.rows[0]?.id;
-
-  await pool.query(
-    "insert into household_memberships (household_id, user_id, role) values ($1, $2, $3)",
-    [householdId, userId, "owner"],
-  );
+  const householdSeeds = [
+    {
+      name: "Demo household one",
+      slug: "demo-household-one",
+      members: [
+        {
+          name: "Demo One Owner",
+          email: "demo.one.owner@example.com",
+          role: "owner",
+        },
+        {
+          name: "Demo One Admin",
+          email: "demo.one.admin@example.com",
+          role: "admin",
+        },
+        {
+          name: "Demo One Member",
+          email: "demo.one.member@example.com",
+          role: "member",
+        },
+      ],
+    },
+    {
+      name: "Demo household two",
+      slug: "demo-household-two",
+      members: [
+        {
+          name: "Demo Two Owner",
+          email: "demo.two.owner@example.com",
+          role: "owner",
+        },
+        {
+          name: "Demo Two Admin",
+          email: "demo.two.admin@example.com",
+          role: "admin",
+        },
+        {
+          name: "Demo Two Member",
+          email: "demo.two.member@example.com",
+          role: "member",
+        },
+      ],
+    },
+  ];
 
   const chores = [
     {
@@ -111,20 +139,41 @@ const seed = async () => {
     },
   ];
 
-  for (const chore of chores) {
-    await pool.query(
-      "insert into chores (household_id, title, type, start_date, end_date, series_end_date, repeat_rule, notes) values ($1, $2, $3, $4, $5, $6, $7, $8)",
-      [
-        householdId,
-        chore.title,
-        chore.type,
-        chore.start_date,
-        chore.end_date,
-        chore.series_end_date ?? null,
-        chore.repeat_rule,
-        chore.notes ?? null,
-      ],
+  for (const householdSeed of householdSeeds) {
+    const householdResult = await pool.query(
+      "insert into households (name, slug, time_zone) values ($1, $2, $3) returning id",
+      [householdSeed.name, householdSeed.slug, timeZone],
     );
+    const householdId = householdResult.rows[0]?.id;
+
+    for (const member of householdSeed.members) {
+      const userResult = await pool.query(
+        "insert into users (name, email, email_verified) values ($1, $2, $3) returning id",
+        [member.name, member.email, true],
+      );
+      const userId = userResult.rows[0]?.id;
+
+      await pool.query(
+        "insert into household_memberships (household_id, user_id, role) values ($1, $2, $3)",
+        [householdId, userId, member.role],
+      );
+    }
+
+    for (const chore of chores) {
+      await pool.query(
+        "insert into chores (household_id, title, type, start_date, end_date, series_end_date, repeat_rule, notes) values ($1, $2, $3, $4, $5, $6, $7, $8)",
+        [
+          householdId,
+          chore.title,
+          chore.type,
+          chore.start_date,
+          chore.end_date,
+          chore.series_end_date ?? null,
+          chore.repeat_rule,
+          chore.notes ?? null,
+        ],
+      );
+    }
   }
 
   await pool.end();
