@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 
 import { getAccountShortcuts } from "@/lib/account-menu";
 
@@ -24,12 +27,35 @@ const itemClassName =
   "block rounded-md px-3 py-2 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-strong)]";
 
 export default function AccountDropdown({ canEditHousehold, userName }: AccountDropdownProps) {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const shortcuts = getAccountShortcuts(canEditHousehold);
   const label = userName.trim() || "You";
   const initials = getInitials(label);
 
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const detailsElement = detailsRef.current;
+
+      if (!detailsElement?.open) {
+        return;
+      }
+
+      if (event.target instanceof Node && detailsElement.contains(event.target)) {
+        return;
+      }
+
+      detailsElement.open = false;
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, []);
+
   return (
-    <details className="relative">
+    <details className="relative" ref={detailsRef}>
       <summary className={triggerClassName}>
         <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] text-[0.62rem] font-bold uppercase tracking-[0.08em]">
           {initials}
