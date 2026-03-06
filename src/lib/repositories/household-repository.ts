@@ -17,14 +17,6 @@ export type ActiveHouseholdSummary = {
 
 export type HouseholdMemberRole = HouseholdRole;
 
-export type HouseholdMemberRecord = {
-  userId: number;
-  name: string | null;
-  email: string;
-  role: HouseholdMemberRole;
-  joinedAt: Date;
-};
-
 export type HouseholdInviteRecord = {
   id: number;
   householdId: number;
@@ -102,30 +94,6 @@ export const getActiveHouseholdSummary = async (userId: number) => {
   const result = await pool.query<ActiveHouseholdSummary>(
     "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.status = 'active' order by hm.joined_at desc limit 1",
     [userId],
-  );
-  return result.rows[0] ?? null;
-};
-
-export const listActiveHouseholdMembers = async (householdId: number) => {
-  const result = await pool.query<HouseholdMemberRecord>(
-    "select hm.user_id as \"userId\", u.name as name, u.email as email, hm.role as role, hm.joined_at as \"joinedAt\" from household_memberships hm join users u on u.id = hm.user_id where hm.household_id = $1 and hm.status = 'active' order by lower(coalesce(u.name, '')), lower(u.email)",
-    [householdId],
-  );
-  return result.rows;
-};
-
-export const listPendingHouseholdInvites = async (householdId: number) => {
-  const result = await pool.query<HouseholdInviteRecord>(
-    'select i.id as "id", i.household_id as "householdId", h.name as "householdName", i.email as "email", i.role as "role", i.invited_by_user_id as "invitedByUserId", i.created_at as "createdAt", i.expires_at as "expiresAt" from household_member_invites i join households h on h.id = i.household_id where i.household_id = $1 and i.status = \'pending\' and i.expires_at > now() order by i.created_at desc',
-    [householdId],
-  );
-  return result.rows;
-};
-
-export const getPendingHouseholdInviteById = async (inviteId: number) => {
-  const result = await pool.query<HouseholdInviteRecord>(
-    'select i.id as "id", i.household_id as "householdId", h.name as "householdName", i.email as "email", i.role as "role", i.invited_by_user_id as "invitedByUserId", i.created_at as "createdAt", i.expires_at as "expiresAt" from household_member_invites i join households h on h.id = i.household_id where i.id = $1 and i.status = \'pending\' and i.expires_at > now() limit 1',
-    [inviteId],
   );
   return result.rows[0] ?? null;
 };

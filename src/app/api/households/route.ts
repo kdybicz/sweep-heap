@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { DateTime } from "luxon";
 import { requireApiHousehold, requireApiHouseholdAdmin, requireApiSession } from "@/lib/api-access";
+import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { parseJsonObjectBody } from "@/lib/http";
 import {
   createHouseholdWithOwner,
@@ -78,7 +79,11 @@ const handleUnexpectedError = (action: "load" | "create" | "update", error: unkn
         : "Failed to update household";
 
   console.error(message, error);
-  return Response.json({ ok: false, error: message }, { status: 500 });
+  return jsonError({
+    status: 500,
+    code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+    error: message,
+  });
 };
 
 export async function GET() {
@@ -103,25 +108,38 @@ export async function POST(request: Request) {
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
-      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_JSON_BODY,
+        error: "Invalid JSON body",
+      });
     }
 
     const name = typeof payload?.name === "string" ? payload.name.trim() : "";
     if (!name) {
-      return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.HOUSEHOLD_NAME_REQUIRED,
+        error: "Household name is required",
+      });
     }
 
     const memberships = await getUserMemberships(sessionAccess.sessionContext.userId);
     if (memberships.length) {
-      return Response.json(
-        { ok: false, error: "User already belongs to a household" },
-        { status: 409 },
-      );
+      return jsonError({
+        status: 409,
+        code: API_ERROR_CODE.HOUSEHOLD_ALREADY_EXISTS_FOR_USER,
+        error: "User already belongs to a household",
+      });
     }
 
     const parsedTimeZone = parseTimeZone(payload?.timeZone);
     if (!parsedTimeZone.ok) {
-      return Response.json({ ok: false, error: "Invalid time zone" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_TIME_ZONE,
+        error: "Invalid time zone",
+      });
     }
 
     const timeZone = parsedTimeZone.timeZone;
@@ -151,17 +169,29 @@ export async function PATCH(request: Request) {
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
-      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_JSON_BODY,
+        error: "Invalid JSON body",
+      });
     }
 
     const name = typeof payload?.name === "string" ? payload.name.trim() : "";
     if (!name) {
-      return Response.json({ ok: false, error: "Household name is required" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.HOUSEHOLD_NAME_REQUIRED,
+        error: "Household name is required",
+      });
     }
 
     const parsedTimeZone = parseTimeZone(payload?.timeZone);
     if (!parsedTimeZone.ok) {
-      return Response.json({ ok: false, error: "Invalid time zone" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_TIME_ZONE,
+        error: "Invalid time zone",
+      });
     }
 
     const timeZone = parsedTimeZone.timeZone;
@@ -174,7 +204,11 @@ export async function PATCH(request: Request) {
     });
 
     if (!updated) {
-      return Response.json({ ok: false, error: "Household not found" }, { status: 404 });
+      return jsonError({
+        status: 404,
+        code: API_ERROR_CODE.HOUSEHOLD_NOT_FOUND,
+        error: "Household not found",
+      });
     }
 
     return Response.json({ ok: true, household: updated });

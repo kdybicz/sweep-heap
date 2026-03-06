@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ERROR_CODE } from "@/lib/api-error";
 
 const {
   createInvitationMock,
@@ -213,6 +214,7 @@ describe("/api/households/members route", () => {
   it("POST maps duplicate pending invite to 409", async () => {
     createInvitationMock.mockRejectedValue({
       body: {
+        code: "USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION",
         message: "User is already invited to this organization",
       },
     });
@@ -232,6 +234,7 @@ describe("/api/households/members route", () => {
 
     expect(response.status).toBe(409);
     expect(body.ok).toBe(false);
+    expect(body.code).toBe(API_ERROR_CODE.USER_ALREADY_INVITED);
     expect(body.error).toBe(
       "Invite already pending for this email. Resend or revoke the existing invite.",
     );
@@ -245,6 +248,7 @@ describe("/api/households/members route", () => {
     expect(response.status).toBe(400);
     expect(body).toEqual({
       ok: false,
+      code: API_ERROR_CODE.SELF_ROLE_CHANGE_FORBIDDEN,
       error: "Users cannot change their own role",
     });
     expect(updateMemberRoleMock).not.toHaveBeenCalled();
@@ -255,7 +259,11 @@ describe("/api/households/members route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Member user id is required" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Member user id is required",
+    });
     expect(updateMemberRoleMock).not.toHaveBeenCalled();
   });
 
@@ -310,7 +318,11 @@ describe("/api/households/members route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body).toEqual({ ok: false, error: "Only owners can manage owner roles" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.OWNER_ROLE_MANAGEMENT_FORBIDDEN,
+      error: "Only owners can manage owner roles",
+    });
     expect(updateMemberRoleMock).not.toHaveBeenCalled();
   });
 
@@ -330,7 +342,11 @@ describe("/api/households/members route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body).toEqual({ ok: false, error: "Only owners can manage owner roles" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.OWNER_ROLE_MANAGEMENT_FORBIDDEN,
+      error: "Only owners can manage owner roles",
+    });
     expect(updateMemberRoleMock).not.toHaveBeenCalled();
   });
 
@@ -354,6 +370,7 @@ describe("/api/households/members route", () => {
     });
     updateMemberRoleMock.mockRejectedValue({
       body: {
+        code: "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER",
         message: "You cannot leave the organization as the only owner",
       },
     });
@@ -362,7 +379,11 @@ describe("/api/households/members route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(409);
-    expect(body).toEqual({ ok: false, error: "At least one household owner must remain" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.LAST_OWNER_REQUIRED,
+      error: "At least one household owner must remain",
+    });
   });
 
   it("DELETE blocks admins from removing an owner", async () => {
@@ -381,7 +402,11 @@ describe("/api/households/members route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body).toEqual({ ok: false, error: "Only owners can manage owner roles" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.OWNER_ROLE_MANAGEMENT_FORBIDDEN,
+      error: "Only owners can manage owner roles",
+    });
     expect(removeMemberMock).not.toHaveBeenCalled();
   });
 
@@ -411,7 +436,11 @@ describe("/api/households/members route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Member user id is required" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Member user id is required",
+    });
     expect(removeMemberMock).not.toHaveBeenCalled();
   });
 });

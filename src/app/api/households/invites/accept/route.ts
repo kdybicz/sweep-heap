@@ -1,11 +1,12 @@
 import { auth, getSession } from "@/auth";
+import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { validateHouseholdInviteAcceptPayload } from "@/lib/api-payload-validation";
 import { hashHouseholdInviteSecret } from "@/lib/household-invite-secret";
 import { parseJsonObjectBody } from "@/lib/http";
 import {
   isInvitationNotFoundError,
   isOtherHouseholdError,
-  toAuthApiErrorMessage,
+  toAuthApiError,
 } from "@/lib/organization-api";
 import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
 
@@ -49,12 +50,20 @@ export async function POST(request: Request) {
   try {
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
-      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_JSON_BODY,
+        error: "Invalid JSON body",
+      });
     }
 
     const payloadValidation = validateHouseholdInviteAcceptPayload(payload);
     if (!payloadValidation.ok) {
-      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: payloadValidation.error,
+      });
     }
 
     const { invitationId, secret } = payloadValidation.data;
@@ -65,7 +74,11 @@ export async function POST(request: Request) {
       secretHash,
     });
     if (!invite) {
-      return Response.json({ ok: false, error: "Invalid or expired invite" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_INVITE,
+        error: "Invalid or expired invite",
+      });
     }
 
     const session = await getSession();
@@ -106,22 +119,28 @@ export async function POST(request: Request) {
       householdName: invite.householdName,
     });
   } catch (error) {
-    const authApiErrorMessage = toAuthApiErrorMessage(error);
-    if (isInvitationNotFoundError(authApiErrorMessage)) {
-      return Response.json({ ok: false, error: "Invalid or expired invite" }, { status: 400 });
+    const authApiError = toAuthApiError(error);
+    if (isInvitationNotFoundError(authApiError)) {
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_INVITE,
+        error: "Invalid or expired invite",
+      });
     }
 
-    if (isOtherHouseholdError(authApiErrorMessage)) {
-      return Response.json(
-        { ok: false, error: "You already belong to another household" },
-        { status: 409 },
-      );
+    if (isOtherHouseholdError(authApiError)) {
+      return jsonError({
+        status: 409,
+        code: API_ERROR_CODE.USER_IN_OTHER_HOUSEHOLD,
+        error: "You already belong to another household",
+      });
     }
 
     console.error("Failed to accept household invite", error);
-    return Response.json(
-      { ok: false, error: "Failed to accept household invite" },
-      { status: 500 },
-    );
+    return jsonError({
+      status: 500,
+      code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+      error: "Failed to accept household invite",
+    });
   }
 }

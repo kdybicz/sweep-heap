@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { requireApiHousehold, requireApiHouseholdAdmin } from "@/lib/api-access";
+import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { sendHouseholdInviteEmail } from "@/lib/household-invite-email";
 import {
   generateHouseholdInviteSecret,
@@ -12,7 +13,7 @@ import {
   mapOrganizationInvitation,
   type OrganizationInvitationLike,
   parsePositiveInt,
-  toAuthApiErrorMessage,
+  toAuthApiError,
 } from "@/lib/organization-api";
 import { setPendingHouseholdInviteSecretHash } from "@/lib/repositories";
 
@@ -43,10 +44,11 @@ const mapOwnerRoleProtectionError = ({
   inviteRole: string;
 }) => {
   if (inviteRole === "owner" && actorRole !== "owner") {
-    return Response.json(
-      { ok: false, error: "Only owners can manage owner roles" },
-      { status: 403 },
-    );
+    return jsonError({
+      status: 403,
+      code: API_ERROR_CODE.OWNER_ROLE_MANAGEMENT_FORBIDDEN,
+      error: "Only owners can manage owner roles",
+    });
   }
 
   return null;
@@ -67,13 +69,21 @@ export async function POST(
     const resolvedParams = await params;
     const inviteId = parsePositiveInt(resolvedParams.inviteId);
     if (inviteId === null) {
-      return Response.json({ ok: false, error: "Invite id is required" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: "Invite id is required",
+      });
     }
 
     const pendingInvites = await listOrganizationInvites({ householdId: household.id, request });
     const invite = pendingInvites.find((pendingInvite) => Number(pendingInvite.id) === inviteId);
     if (!invite || invite.status !== "pending") {
-      return Response.json({ ok: false, error: "Pending invite not found" }, { status: 404 });
+      return jsonError({
+        status: 404,
+        code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
+        error: "Pending invite not found",
+      });
     }
 
     const ownerRoleProtectionError = mapOwnerRoleProtectionError({
@@ -144,16 +154,21 @@ export async function POST(
       inviteEmailSent,
     });
   } catch (error) {
-    const authApiErrorMessage = toAuthApiErrorMessage(error);
-    if (isInvitationNotFoundError(authApiErrorMessage)) {
-      return Response.json({ ok: false, error: "Pending invite not found" }, { status: 404 });
+    const authApiError = toAuthApiError(error);
+    if (isInvitationNotFoundError(authApiError)) {
+      return jsonError({
+        status: 404,
+        code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
+        error: "Pending invite not found",
+      });
     }
 
     console.error("Failed to resend household invite", error);
-    return Response.json(
-      { ok: false, error: "Failed to resend household invite" },
-      { status: 500 },
-    );
+    return jsonError({
+      status: 500,
+      code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+      error: "Failed to resend household invite",
+    });
   }
 }
 
@@ -170,7 +185,11 @@ export async function DELETE(
     const resolvedParams = await params;
     const inviteId = parsePositiveInt(resolvedParams.inviteId);
     if (inviteId === null) {
-      return Response.json({ ok: false, error: "Invite id is required" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: "Invite id is required",
+      });
     }
 
     const pendingInvites = await listOrganizationInvites({
@@ -179,7 +198,11 @@ export async function DELETE(
     });
     const invite = pendingInvites.find((pendingInvite) => Number(pendingInvite.id) === inviteId);
     if (!invite || invite.status !== "pending") {
-      return Response.json({ ok: false, error: "Pending invite not found" }, { status: 404 });
+      return jsonError({
+        status: 404,
+        code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
+        error: "Pending invite not found",
+      });
     }
 
     const ownerRoleProtectionError = mapOwnerRoleProtectionError({
@@ -202,15 +225,20 @@ export async function DELETE(
       revokedInviteId: inviteId,
     });
   } catch (error) {
-    const authApiErrorMessage = toAuthApiErrorMessage(error);
-    if (isInvitationNotFoundError(authApiErrorMessage)) {
-      return Response.json({ ok: false, error: "Pending invite not found" }, { status: 404 });
+    const authApiError = toAuthApiError(error);
+    if (isInvitationNotFoundError(authApiError)) {
+      return jsonError({
+        status: 404,
+        code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
+        error: "Pending invite not found",
+      });
     }
 
     console.error("Failed to revoke household invite", error);
-    return Response.json(
-      { ok: false, error: "Failed to revoke household invite" },
-      { status: 500 },
-    );
+    return jsonError({
+      status: 500,
+      code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+      error: "Failed to revoke household invite",
+    });
   }
 }

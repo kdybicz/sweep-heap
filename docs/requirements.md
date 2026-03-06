@@ -148,6 +148,7 @@
 - Primary action in chore details is disabled for past-dated occurrences.
 
 ## API Surface (Current Snapshot)
+- Failure envelope contract: API routes return `{ ok: false, code: string, error: string }` for handled errors.
 - `GET /api/health`
   - DB heartbeat check.
 - `GET /api/households`
@@ -207,7 +208,6 @@
 - Keep route handlers transport-focused (auth, parsing, response mapping).
 - Keep SQL/data access in `src/lib/repositories/*-repository.ts`.
 - Keep domain logic in `src/lib/services/*-service.ts`.
-- Legacy note: household member/invite routes still contain some domain logic; when changing those flows, prefer extracting logic into service modules instead of expanding route handlers.
 - Use barrel exports from `src/lib/repositories/index.ts` and `src/lib/services/index.ts`.
 
 ## Testing and Quality Gates

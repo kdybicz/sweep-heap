@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ERROR_CODE } from "@/lib/api-error";
 
 const {
   deleteChoreOccurrenceOverrideMock,
@@ -94,6 +95,7 @@ describe("mutateChore", () => {
       status: 400,
       body: {
         ok: false,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
         error: "Validation failed",
         fieldErrors: { title: "Title is required" },
       },
@@ -165,6 +167,7 @@ describe("mutateChore", () => {
       status: 400,
       body: {
         ok: false,
+        code: API_ERROR_CODE.MISSING_CHORE_OCCURRENCE,
         error: "Missing choreId or occurrenceDate",
       },
     });
@@ -188,6 +191,7 @@ describe("mutateChore", () => {
       status: 404,
       body: {
         ok: false,
+        code: API_ERROR_CODE.CHORE_NOT_FOUND,
         error: "Chore not found",
       },
     });
@@ -248,6 +252,7 @@ describe("mutateChore", () => {
       status: 409,
       body: {
         ok: false,
+        code: API_ERROR_CODE.UNDO_WINDOW_EXPIRED,
         error: "Undo window expired",
       },
     });
@@ -276,6 +281,7 @@ describe("mutateChore", () => {
       status: 409,
       body: {
         ok: false,
+        code: API_ERROR_CODE.UNDO_WINDOW_EXPIRED,
         error: "Undo window expired",
       },
     });
@@ -295,6 +301,7 @@ describe("mutateChore", () => {
       status: 400,
       body: {
         ok: false,
+        code: API_ERROR_CODE.ACTION_INVALID,
         error: "Action must be create, set, or undo",
       },
     });
@@ -315,6 +322,7 @@ describe("mutateChore", () => {
       status: 400,
       body: {
         ok: false,
+        code: API_ERROR_CODE.STATUS_INVALID,
         error: "Status must be open or closed",
       },
     });
@@ -447,6 +455,7 @@ describe("mutateChore", () => {
       status: 409,
       body: {
         ok: false,
+        code: API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE,
         error: "Occurrence date is outside chore schedule",
       },
     });
@@ -474,6 +483,7 @@ describe("mutateChore", () => {
       status: 409,
       body: {
         ok: false,
+        code: API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE,
         error: "Occurrence date is outside chore schedule",
       },
     });

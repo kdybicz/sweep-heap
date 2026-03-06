@@ -1,4 +1,5 @@
 import { requireApiHousehold } from "@/lib/api-access";
+import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { validateChorePatchPayload } from "@/lib/api-payload-validation";
 import { parseJsonObjectBody } from "@/lib/http";
 import { listChores, mutateChore } from "@/lib/services";
@@ -47,13 +48,11 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Failed to load chores", error);
-    return Response.json(
-      {
-        ok: false,
-        error: "Failed to load chores",
-      },
-      { status: 500 },
-    );
+    return jsonError({
+      status: 500,
+      code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+      error: "Failed to load chores",
+    });
   }
 }
 
@@ -66,12 +65,20 @@ export async function PATCH(request: Request) {
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
-      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_JSON_BODY,
+        error: "Invalid JSON body",
+      });
     }
 
     const payloadValidation = validateChorePatchPayload(payload);
     if (!payloadValidation.ok) {
-      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: payloadValidation.error,
+      });
     }
 
     const result = await mutateChore({
@@ -85,12 +92,10 @@ export async function PATCH(request: Request) {
     return Response.json(result.body);
   } catch (error) {
     console.error("Failed to update chore", error);
-    return Response.json(
-      {
-        ok: false,
-        error: "Failed to update chore",
-      },
-      { status: 500 },
-    );
+    return jsonError({
+      status: 500,
+      code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+      error: "Failed to update chore",
+    });
   }
 }

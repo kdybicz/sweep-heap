@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ERROR_CODE } from "@/lib/api-error";
 
 const { getSessionMock, getActiveHouseholdSummaryMock, listChoresMock, mutateChoreMock } =
   vi.hoisted(() => ({
@@ -173,7 +174,11 @@ describe("PATCH /api/chores", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Action must be create, set, or undo" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Action must be create, set, or undo",
+    });
     expect(mutateChoreMock).not.toHaveBeenCalled();
   });
 
@@ -191,7 +196,11 @@ describe("PATCH /api/chores", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Status must be open or closed" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Status must be open or closed",
+    });
     expect(mutateChoreMock).not.toHaveBeenCalled();
   });
 });

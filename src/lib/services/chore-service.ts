@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { API_ERROR_CODE, apiErrorBody } from "@/lib/api-error";
 import { CHORE_UNDO_WINDOW_SECONDS } from "@/lib/chore-undo";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import { toISODateOrThrow } from "@/lib/date";
@@ -195,8 +196,10 @@ export const mutateChore = async ({
       ok: false,
       status: 400,
       body: {
-        ok: false,
-        error: "Action must be create, set, or undo",
+        ...apiErrorBody({
+          code: API_ERROR_CODE.ACTION_INVALID,
+          error: "Action must be create, set, or undo",
+        }),
       },
     };
   }
@@ -207,8 +210,10 @@ export const mutateChore = async ({
       ok: false,
       status: 400,
       body: {
-        ok: false,
-        error: "Status must be open or closed",
+        ...apiErrorBody({
+          code: API_ERROR_CODE.STATUS_INVALID,
+          error: "Status must be open or closed",
+        }),
       },
     };
   }
@@ -250,7 +255,11 @@ export const mutateChore = async ({
       return {
         ok: false,
         status: 400,
-        body: { ok: false, error: "Validation failed", fieldErrors },
+        body: apiErrorBody({
+          code: API_ERROR_CODE.VALIDATION_FAILED,
+          error: "Validation failed",
+          fieldErrors,
+        }),
       };
     }
 
@@ -288,8 +297,10 @@ export const mutateChore = async ({
       ok: false,
       status: 400,
       body: {
-        ok: false,
-        error: "Missing choreId or occurrenceDate",
+        ...apiErrorBody({
+          code: API_ERROR_CODE.MISSING_CHORE_OCCURRENCE,
+          error: "Missing choreId or occurrenceDate",
+        }),
       },
     };
   }
@@ -300,8 +311,10 @@ export const mutateChore = async ({
       ok: false,
       status: 404,
       body: {
-        ok: false,
-        error: "Chore not found",
+        ...apiErrorBody({
+          code: API_ERROR_CODE.CHORE_NOT_FOUND,
+          error: "Chore not found",
+        }),
       },
     };
   }
@@ -319,8 +332,10 @@ export const mutateChore = async ({
       ok: false,
       status: 409,
       body: {
-        ok: false,
-        error: "Occurrence date is outside chore schedule",
+        ...apiErrorBody({
+          code: API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE,
+          error: "Occurrence date is outside chore schedule",
+        }),
       },
     };
   }
@@ -353,8 +368,10 @@ export const mutateChore = async ({
         ok: false,
         status: 409,
         body: {
-          ok: false,
-          error: "Undo window expired",
+          ...apiErrorBody({
+            code: API_ERROR_CODE.UNDO_WINDOW_EXPIRED,
+            error: "Undo window expired",
+          }),
         },
       };
     }

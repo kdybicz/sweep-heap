@@ -12,11 +12,8 @@ export {
   getActiveHouseholdId,
   getActiveHouseholdSummary,
   getHouseholdTimeZoneById,
-  getPendingHouseholdInviteById,
   getPendingHouseholdInviteByIdAndSecret,
   getUserMemberships,
-  listActiveHouseholdMembers,
-  listPendingHouseholdInvites,
   setPendingHouseholdInviteSecretHash,
   updateHouseholdById,
 } from "@/lib/repositories/household-repository";

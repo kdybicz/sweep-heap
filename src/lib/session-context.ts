@@ -1,4 +1,5 @@
 import { getSession } from "@/auth";
+import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 
 export type SessionContext =
   | {
@@ -12,6 +13,7 @@ export type SessionContext =
       ok: false;
       userId: null;
       status: 400 | 401;
+      code: "INVALID_USER" | "UNAUTHORIZED";
       error: "Invalid user" | "Unauthorized";
     };
 
@@ -24,6 +26,7 @@ export const getSessionContext = async (): Promise<SessionContext> => {
       ok: false,
       userId: null,
       status: 401,
+      code: API_ERROR_CODE.UNAUTHORIZED,
       error: "Unauthorized",
     };
   }
@@ -34,6 +37,7 @@ export const getSessionContext = async (): Promise<SessionContext> => {
       ok: false,
       userId: null,
       status: 400,
+      code: API_ERROR_CODE.INVALID_USER,
       error: "Invalid user",
     };
   }
@@ -47,13 +51,8 @@ export const getSessionContext = async (): Promise<SessionContext> => {
   };
 };
 
-export const sessionErrorResponse = ({ error, status }: Extract<SessionContext, { ok: false }>) =>
-  Response.json(
-    {
-      ok: false,
-      error,
-    },
-    {
-      status,
-    },
-  );
+export const sessionErrorResponse = ({
+  code,
+  error,
+  status,
+}: Extract<SessionContext, { ok: false }>) => jsonError({ status, code, error });

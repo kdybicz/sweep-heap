@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ERROR_CODE } from "@/lib/api-error";
 
 const originalAuthUrl = process.env.AUTH_URL;
 
@@ -53,7 +54,11 @@ describe("/api/me/delete-request route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({ ok: false, error: "Unauthorized" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.UNAUTHORIZED,
+      error: "Unauthorized",
+    });
     expect(createDeleteAccountTokenMock).not.toHaveBeenCalled();
     expect(sendDeleteAccountConfirmationEmailMock).not.toHaveBeenCalled();
   });
@@ -65,7 +70,11 @@ describe("/api/me/delete-request route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid user" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_USER,
+      error: "Invalid user",
+    });
     expect(createDeleteAccountTokenMock).not.toHaveBeenCalled();
     expect(sendDeleteAccountConfirmationEmailMock).not.toHaveBeenCalled();
   });
@@ -79,6 +88,7 @@ describe("/api/me/delete-request route", () => {
     expect(response.status).toBe(400);
     expect(body).toEqual({
       ok: false,
+      code: API_ERROR_CODE.EMAIL_REQUIRED,
       error: "Email is required to confirm account deletion",
     });
     expect(createDeleteAccountTokenMock).not.toHaveBeenCalled();
@@ -134,7 +144,11 @@ describe("/api/me/delete-request route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ ok: false, error: "Failed to send confirmation email" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+      error: "Failed to send confirmation email",
+    });
     expect(createDeleteAccountTokenMock).toHaveBeenCalledTimes(1);
   });
 
@@ -148,7 +162,11 @@ describe("/api/me/delete-request route", () => {
       const body = await response.json();
 
       expect(response.status).toBe(500);
-      expect(body).toEqual({ ok: false, error: "Failed to create delete account request" });
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to create delete account request",
+      });
       expect(consoleErrorSpy).toHaveBeenCalled();
       expect(sendDeleteAccountConfirmationEmailMock).not.toHaveBeenCalled();
     } finally {

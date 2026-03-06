@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ERROR_CODE } from "@/lib/api-error";
 
 const { consumeDeleteAccountTokenMock, deleteUserByIdMock } = vi.hoisted(() => ({
   consumeDeleteAccountTokenMock: vi.fn(),
@@ -45,7 +46,11 @@ describe("/api/me/delete-confirm route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid JSON body" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_JSON_BODY,
+      error: "Invalid JSON body",
+    });
     expect(consumeDeleteAccountTokenMock).not.toHaveBeenCalled();
     expect(deleteUserByIdMock).not.toHaveBeenCalled();
   });
@@ -55,7 +60,11 @@ describe("/api/me/delete-confirm route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Identifier and token are required" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Identifier and token are required",
+    });
     expect(consumeDeleteAccountTokenMock).not.toHaveBeenCalled();
     expect(deleteUserByIdMock).not.toHaveBeenCalled();
   });
@@ -65,7 +74,11 @@ describe("/api/me/delete-confirm route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid token identifier" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_TOKEN_IDENTIFIER,
+      error: "Invalid token identifier",
+    });
     expect(consumeDeleteAccountTokenMock).not.toHaveBeenCalled();
     expect(deleteUserByIdMock).not.toHaveBeenCalled();
   });
@@ -82,7 +95,11 @@ describe("/api/me/delete-confirm route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid or expired token" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.DELETE_TOKEN_INVALID,
+      error: "Invalid or expired token",
+    });
     expect(consumeDeleteAccountTokenMock).toHaveBeenCalledWith({
       identifier: "delete-account:4:nonce",
       tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -103,7 +120,11 @@ describe("/api/me/delete-confirm route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body).toEqual({ ok: false, error: "User not found" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.USER_NOT_FOUND,
+      error: "User not found",
+    });
     expect(deleteUserByIdMock).toHaveBeenCalledWith({ userId: 4 });
   });
 
@@ -145,7 +166,11 @@ describe("/api/me/delete-confirm route", () => {
       const body = await response.json();
 
       expect(response.status).toBe(500);
-      expect(body).toEqual({ ok: false, error: "Failed to confirm account deletion" });
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to confirm account deletion",
+      });
       expect(consoleErrorSpy).toHaveBeenCalled();
       expect(deleteUserByIdMock).not.toHaveBeenCalled();
     } finally {

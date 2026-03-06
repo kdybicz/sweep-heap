@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { requireApiHousehold, requireApiHouseholdAdmin } from "@/lib/api-access";
+import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import {
   validateHouseholdInvitePayload,
   validateHouseholdMemberRemovePayload,
@@ -14,6 +15,7 @@ import { getHouseholdMembersSnapshot } from "@/lib/household-members";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
 import { getAppOrigin, parseJsonObjectBody } from "@/lib/http";
 import {
+  type AuthApiError,
   isAlreadyInvitedError,
   isAlreadyMemberError,
   isLastOwnerError,
@@ -24,7 +26,7 @@ import {
   type OrganizationInvitationLike,
   type OrganizationMemberLike,
   parsePositiveInt,
-  toAuthApiErrorMessage,
+  toAuthApiError,
 } from "@/lib/organization-api";
 import { setPendingHouseholdInviteSecretHash } from "@/lib/repositories";
 
@@ -44,53 +46,55 @@ const handleUnexpectedError = (
           : "Failed to remove household member";
 
   console.error(message, error);
-  return Response.json({ ok: false, error: message }, { status: 500 });
+  return jsonError({
+    status: 500,
+    code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+    error: message,
+  });
 };
 
 const mapInviteCreateError = ({
   existingInvite,
-  message,
+  authApiError,
 }: {
-  message: string;
+  authApiError: AuthApiError;
   existingInvite: OrganizationInvitationLike | null;
 }) => {
-  if (isAlreadyMemberError(message)) {
-    return {
+  if (isAlreadyMemberError(authApiError)) {
+    return jsonError({
       status: 409,
-      body: { ok: false, error: "User is already in this household" },
-    };
+      code: API_ERROR_CODE.USER_ALREADY_IN_HOUSEHOLD,
+      error: "User is already in this household",
+    });
   }
 
-  if (isAlreadyInvitedError(message)) {
-    return {
+  if (isAlreadyInvitedError(authApiError)) {
+    return jsonError({
       status: 409,
-      body: {
-        ok: false,
-        error: "Invite already pending for this email. Resend or revoke the existing invite.",
-        existingInvite: existingInvite ? mapOrganizationInvitation(existingInvite) : undefined,
-      },
-    };
+      code: API_ERROR_CODE.USER_ALREADY_INVITED,
+      error: "Invite already pending for this email. Resend or revoke the existing invite.",
+      existingInvite: existingInvite ? mapOrganizationInvitation(existingInvite) : undefined,
+    });
   }
 
-  if (isOtherHouseholdError(message)) {
-    return {
+  if (isOtherHouseholdError(authApiError)) {
+    return jsonError({
       status: 409,
-      body: {
-        ok: false,
-        error: "User already belongs to another household",
-      },
-    };
+      code: API_ERROR_CODE.USER_IN_OTHER_HOUSEHOLD,
+      error: "User already belongs to another household",
+    });
   }
 
   return null;
 };
 
-const mapLastOwnerError = (message: string | null) => {
-  if (isLastOwnerError(message)) {
-    return Response.json(
-      { ok: false, error: "At least one household owner must remain" },
-      { status: 409 },
-    );
+const mapLastOwnerError = (authApiError: AuthApiError | null) => {
+  if (isLastOwnerError(authApiError)) {
+    return jsonError({
+      status: 409,
+      code: API_ERROR_CODE.LAST_OWNER_REQUIRED,
+      error: "At least one household owner must remain",
+    });
   }
 
   return null;
@@ -143,12 +147,16 @@ const findTargetMemberByUserId = async ({
   return members.find((member) => parsePositiveInt(member.userId) === targetUserId) ?? null;
 };
 
-const mapMemberMutationError = (message: string | null) => {
-  if (isMemberNotFoundError(message)) {
-    return Response.json({ ok: false, error: "Member not found" }, { status: 404 });
+const mapMemberMutationError = (authApiError: AuthApiError | null) => {
+  if (isMemberNotFoundError(authApiError)) {
+    return jsonError({
+      status: 404,
+      code: API_ERROR_CODE.MEMBER_NOT_FOUND,
+      error: "Member not found",
+    });
   }
 
-  const lastOwnerError = mapLastOwnerError(message);
+  const lastOwnerError = mapLastOwnerError(authApiError);
   if (lastOwnerError) {
     return lastOwnerError;
   }
@@ -166,10 +174,11 @@ const mapOwnerRoleProtectionError = ({
   nextRole?: string;
 }) => {
   if (actorRole === "admin" && (targetRole === "owner" || nextRole === "owner")) {
-    return Response.json(
-      { ok: false, error: "Only owners can manage owner roles" },
-      { status: 403 },
-    );
+    return jsonError({
+      status: 403,
+      code: API_ERROR_CODE.OWNER_ROLE_MANAGEMENT_FORBIDDEN,
+      error: "Only owners can manage owner roles",
+    });
   }
 
   return null;
@@ -216,12 +225,20 @@ export async function POST(request: Request) {
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
-      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_JSON_BODY,
+        error: "Invalid JSON body",
+      });
     }
 
     const payloadValidation = validateHouseholdInvitePayload(payload);
     if (!payloadValidation.ok) {
-      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: payloadValidation.error,
+      });
     }
 
     const { email } = payloadValidation.data;
@@ -237,12 +254,12 @@ export async function POST(request: Request) {
         headers: request.headers,
       })) as OrganizationInvitationLike;
     } catch (error) {
-      const authApiErrorMessage = toAuthApiErrorMessage(error);
-      if (authApiErrorMessage === null) {
+      const authApiError = toAuthApiError(error);
+      if (authApiError === null) {
         throw error;
       }
 
-      const existingInvite = isAlreadyInvitedError(authApiErrorMessage)
+      const existingInvite = isAlreadyInvitedError(authApiError)
         ? ((await listOrganizationInvites({ householdId: household.id, request })).find(
             (pendingInvite) =>
               pendingInvite.status === "pending" &&
@@ -251,12 +268,12 @@ export async function POST(request: Request) {
         : null;
 
       const mappedInviteError = mapInviteCreateError({
-        message: authApiErrorMessage,
+        authApiError,
         existingInvite,
       });
 
       if (mappedInviteError) {
-        return Response.json(mappedInviteError.body, { status: mappedInviteError.status });
+        return mappedInviteError;
       }
 
       throw error;
@@ -325,21 +342,30 @@ export async function PATCH(request: Request) {
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
-      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_JSON_BODY,
+        error: "Invalid JSON body",
+      });
     }
 
     const payloadValidation = validateHouseholdMemberRoleUpdatePayload(payload);
     if (!payloadValidation.ok) {
-      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: payloadValidation.error,
+      });
     }
 
     const { role, userId: targetUserId } = payloadValidation.data;
 
     if (targetUserId === sessionContext.userId) {
-      return Response.json(
-        { ok: false, error: "Users cannot change their own role" },
-        { status: 400 },
-      );
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.SELF_ROLE_CHANGE_FORBIDDEN,
+        error: "Users cannot change their own role",
+      });
     }
 
     const targetMember = await findTargetMemberByUserId({
@@ -348,7 +374,11 @@ export async function PATCH(request: Request) {
       targetUserId,
     });
     if (!targetMember) {
-      return Response.json({ ok: false, error: "Member not found" }, { status: 404 });
+      return jsonError({
+        status: 404,
+        code: API_ERROR_CODE.MEMBER_NOT_FOUND,
+        error: "Member not found",
+      });
     }
 
     const ownerRoleProtectionError = mapOwnerRoleProtectionError({
@@ -372,7 +402,7 @@ export async function PATCH(request: Request) {
 
       return Response.json({ ok: true, member: mapOrganizationMember(member) });
     } catch (error) {
-      const mappedError = mapMemberMutationError(toAuthApiErrorMessage(error));
+      const mappedError = mapMemberMutationError(toAuthApiError(error));
       if (mappedError) {
         return mappedError;
       }
@@ -395,21 +425,30 @@ export async function DELETE(request: Request) {
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
-      return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.INVALID_JSON_BODY,
+        error: "Invalid JSON body",
+      });
     }
 
     const payloadValidation = validateHouseholdMemberRemovePayload(payload);
     if (!payloadValidation.ok) {
-      return Response.json({ ok: false, error: payloadValidation.error }, { status: 400 });
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: payloadValidation.error,
+      });
     }
 
     const { userId: targetUserId } = payloadValidation.data;
 
     if (targetUserId === sessionContext.userId) {
-      return Response.json(
-        { ok: false, error: "Household administrators cannot remove themselves" },
-        { status: 400 },
-      );
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.SELF_MEMBER_REMOVAL_FORBIDDEN,
+        error: "Household administrators cannot remove themselves",
+      });
     }
 
     const targetMember = await findTargetMemberByUserId({
@@ -418,7 +457,11 @@ export async function DELETE(request: Request) {
       targetUserId,
     });
     if (!targetMember) {
-      return Response.json({ ok: false, error: "Member not found" }, { status: 404 });
+      return jsonError({
+        status: 404,
+        code: API_ERROR_CODE.MEMBER_NOT_FOUND,
+        error: "Member not found",
+      });
     }
 
     const ownerRoleProtectionError = mapOwnerRoleProtectionError({
@@ -438,7 +481,7 @@ export async function DELETE(request: Request) {
         headers: request.headers,
       });
     } catch (error) {
-      const mappedError = mapMemberMutationError(toAuthApiErrorMessage(error));
+      const mappedError = mapMemberMutationError(toAuthApiError(error));
       if (mappedError) {
         return mappedError;
       }

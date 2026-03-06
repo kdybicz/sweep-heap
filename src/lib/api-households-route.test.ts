@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ERROR_CODE } from "@/lib/api-error";
 
 const {
   getSessionMock,
@@ -87,7 +88,7 @@ describe("/api/households route", () => {
     expect(body).toEqual({
       ok: false,
       error: "Household required",
-      code: "HOUSEHOLD_REQUIRED",
+      code: API_ERROR_CODE.HOUSEHOLD_REQUIRED,
     });
   });
 
@@ -98,7 +99,11 @@ describe("/api/households route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid user" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_USER,
+      error: "Invalid user",
+    });
     expect(getActiveHouseholdSummaryMock).not.toHaveBeenCalled();
   });
 
@@ -112,7 +117,11 @@ describe("/api/households route", () => {
       const body = await response.json();
 
       expect(response.status).toBe(500);
-      expect(body).toEqual({ ok: false, error: "Failed to load household" });
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to load household",
+      });
       expect(consoleErrorSpy).toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
@@ -159,7 +168,11 @@ describe("/api/households route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid time zone" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_TIME_ZONE,
+      error: "Invalid time zone",
+    });
     expect(createHouseholdWithOwnerMock).not.toHaveBeenCalled();
   });
 
@@ -170,7 +183,11 @@ describe("/api/households route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid JSON body" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_JSON_BODY,
+      error: "Invalid JSON body",
+    });
     expect(createHouseholdWithOwnerMock).not.toHaveBeenCalled();
   });
 
@@ -190,7 +207,11 @@ describe("/api/households route", () => {
       const body = await response.json();
 
       expect(response.status).toBe(500);
-      expect(body).toEqual({ ok: false, error: "Failed to create household" });
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to create household",
+      });
       expect(consoleErrorSpy).toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
@@ -217,7 +238,11 @@ describe("/api/households route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body).toEqual({ ok: false, error: "Forbidden" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.FORBIDDEN,
+      error: "Forbidden",
+    });
     expect(updateHouseholdByIdMock).not.toHaveBeenCalled();
   });
 
@@ -284,7 +309,11 @@ describe("/api/households route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid time zone" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_TIME_ZONE,
+      error: "Invalid time zone",
+    });
     expect(updateHouseholdByIdMock).not.toHaveBeenCalled();
   });
 });

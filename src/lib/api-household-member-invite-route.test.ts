@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ERROR_CODE } from "@/lib/api-error";
 
 const {
   cancelInvitationMock,
@@ -158,7 +159,11 @@ describe("/api/households/members/invites/[inviteId] route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body).toEqual({ ok: false, error: "Only owners can manage owner roles" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.OWNER_ROLE_MANAGEMENT_FORBIDDEN,
+      error: "Only owners can manage owner roles",
+    });
     expect(createInvitationMock).not.toHaveBeenCalled();
   });
 
@@ -172,7 +177,11 @@ describe("/api/households/members/invites/[inviteId] route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invite id is required" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Invite id is required",
+    });
   });
 
   it("DELETE revokes pending invite for admins", async () => {
@@ -222,7 +231,11 @@ describe("/api/households/members/invites/[inviteId] route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body).toEqual({ ok: false, error: "Only owners can manage owner roles" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.OWNER_ROLE_MANAGEMENT_FORBIDDEN,
+      error: "Only owners can manage owner roles",
+    });
     expect(cancelInvitationMock).not.toHaveBeenCalled();
   });
 
@@ -239,6 +252,7 @@ describe("/api/households/members/invites/[inviteId] route", () => {
     ]);
     cancelInvitationMock.mockRejectedValue({
       body: {
+        code: "INVITATION_NOT_FOUND",
         message: "Invitation not found",
       },
     });
@@ -252,6 +266,10 @@ describe("/api/households/members/invites/[inviteId] route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body).toEqual({ ok: false, error: "Pending invite not found" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
+      error: "Pending invite not found",
+    });
   });
 });

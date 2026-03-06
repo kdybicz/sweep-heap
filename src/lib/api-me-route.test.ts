@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ERROR_CODE } from "@/lib/api-error";
 
 const { getSessionMock, getActiveHouseholdIdMock, getUserMembershipsMock, updateUserNameByIdMock } =
   vi.hoisted(() => ({
@@ -49,7 +50,11 @@ describe("/api/me route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({ ok: false, error: "Unauthorized" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.UNAUTHORIZED,
+      error: "Unauthorized",
+    });
     expect(getUserMembershipsMock).not.toHaveBeenCalled();
     expect(getActiveHouseholdIdMock).not.toHaveBeenCalled();
   });
@@ -61,7 +66,11 @@ describe("/api/me route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid user" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_USER,
+      error: "Invalid user",
+    });
     expect(getUserMembershipsMock).not.toHaveBeenCalled();
     expect(getActiveHouseholdIdMock).not.toHaveBeenCalled();
   });
@@ -123,7 +132,11 @@ describe("/api/me route", () => {
       const body = await response.json();
 
       expect(response.status).toBe(500);
-      expect(body).toEqual({ ok: false, error: "Failed to load user" });
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to load user",
+      });
       expect(consoleErrorSpy).toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
@@ -137,7 +150,11 @@ describe("/api/me route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({ ok: false, error: "Unauthorized" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.UNAUTHORIZED,
+      error: "Unauthorized",
+    });
     expect(updateUserNameByIdMock).not.toHaveBeenCalled();
   });
 
@@ -148,7 +165,11 @@ describe("/api/me route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid user" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_USER,
+      error: "Invalid user",
+    });
     expect(updateUserNameByIdMock).not.toHaveBeenCalled();
   });
 
@@ -159,7 +180,11 @@ describe("/api/me route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid JSON body" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_JSON_BODY,
+      error: "Invalid JSON body",
+    });
     expect(updateUserNameByIdMock).not.toHaveBeenCalled();
   });
 
@@ -170,7 +195,11 @@ describe("/api/me route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Name is required" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.NAME_REQUIRED,
+      error: "Name is required",
+    });
     expect(updateUserNameByIdMock).not.toHaveBeenCalled();
   });
 
@@ -186,7 +215,11 @@ describe("/api/me route", () => {
       name: "Alex",
     });
     expect(response.status).toBe(404);
-    expect(body).toEqual({ ok: false, error: "User not found" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.USER_NOT_FOUND,
+      error: "User not found",
+    });
   });
 
   it("PATCH updates user name", async () => {
@@ -225,7 +258,11 @@ describe("/api/me route", () => {
       const body = await response.json();
 
       expect(response.status).toBe(500);
-      expect(body).toEqual({ ok: false, error: "Failed to update user" });
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to update user",
+      });
       expect(consoleErrorSpy).toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();

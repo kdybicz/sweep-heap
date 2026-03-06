@@ -12,47 +12,9 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
-  getPendingHouseholdInviteById,
   getPendingHouseholdInviteByIdAndSecret,
   setPendingHouseholdInviteSecretHash,
 } from "@/lib/repositories/household-repository";
-
-describe("getPendingHouseholdInviteById", () => {
-  beforeEach(() => {
-    queryMock.mockReset();
-  });
-
-  it("returns invite when pending invite exists", async () => {
-    queryMock.mockResolvedValue({
-      rows: [
-        {
-          id: 12,
-          householdId: 11,
-          householdName: "Home",
-          email: "pending@example.com",
-          role: "member",
-          invitedByUserId: 7,
-          createdAt: new Date("2026-01-01T00:00:00.000Z"),
-          expiresAt: new Date("2126-01-08T00:00:00.000Z"),
-        },
-      ],
-    });
-
-    const invite = await getPendingHouseholdInviteById(12);
-
-    expect(queryMock).toHaveBeenCalledTimes(1);
-    expect(queryMock.mock.calls[0]?.[1]).toEqual([12]);
-    expect(invite?.id).toBe(12);
-  });
-
-  it("returns null when invite is not found", async () => {
-    queryMock.mockResolvedValue({ rows: [] });
-
-    const invite = await getPendingHouseholdInviteById(999);
-
-    expect(invite).toBeNull();
-  });
-});
 
 describe("getPendingHouseholdInviteByIdAndSecret", () => {
   beforeEach(() => {

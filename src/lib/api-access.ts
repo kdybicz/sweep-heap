@@ -1,3 +1,4 @@
+import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
 import { getActiveHouseholdSummary } from "@/lib/repositories";
 import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
@@ -26,16 +27,18 @@ type ApiHouseholdAccess =
   | ApiAccessFailure;
 
 const householdRequiredResponse = () =>
-  Response.json(
-    {
-      ok: false,
-      error: "Household required",
-      code: "HOUSEHOLD_REQUIRED",
-    },
-    { status: 403 },
-  );
+  jsonError({
+    status: 403,
+    code: API_ERROR_CODE.HOUSEHOLD_REQUIRED,
+    error: "Household required",
+  });
 
-const forbiddenResponse = () => Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
+const forbiddenResponse = () =>
+  jsonError({
+    status: 403,
+    code: API_ERROR_CODE.FORBIDDEN,
+    error: "Forbidden",
+  });
 
 export const requireApiSession = async (): Promise<ApiSessionAccess> => {
   const sessionContext = await getSessionContext();

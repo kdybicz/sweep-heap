@@ -114,6 +114,7 @@ describe("/api/households/invites/complete route", () => {
     });
     acceptInvitationMock.mockRejectedValue({
       body: {
+        code: "USER_IN_OTHER_HOUSEHOLD",
         message: "You already belong to another household",
       },
     });
@@ -142,6 +143,7 @@ describe("/api/households/invites/complete route", () => {
     });
     acceptInvitationMock.mockRejectedValue({
       body: {
+        code: "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION",
         message: "You are not the recipient of the invitation",
       },
     });
@@ -170,6 +172,7 @@ describe("/api/households/invites/complete route", () => {
     });
     acceptInvitationMock.mockRejectedValue({
       body: {
+        code: "INVITATION_NOT_FOUND",
         message: "Invitation not found",
       },
     });

@@ -16,6 +16,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Active household is latest active membership by `joined_at`.
 - Owner/admin-only: edit household, revoke invites, change roles, remove members.
 - Household create/edit validates time zone; invalid values return `400` (`Invalid time zone`).
+- API failures include `{ ok: false, code, error }`; control flow should branch on `code`.
 - Household-gated APIs use `code: "HOUSEHOLD_REQUIRED"` for missing active-household access; clients should branch on `code`, not error message text.
 - Users cannot change their own role from the members endpoint.
 - Household administrators cannot remove themselves from the members endpoint.
@@ -77,6 +78,6 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## Change Checklist
 - Keep route handlers thin and transport-focused.
 - Keep SQL in repositories; keep domain rules in services.
-- For legacy household member/invite routes, extract touched domain logic into services rather than adding more route-level branching.
+- For household member/invite routes, keep branching and policy checks in services rather than route handlers.
 - Add or update focused tests when behavior changes.
 - If behavior intentionally changes, update both requirements docs.

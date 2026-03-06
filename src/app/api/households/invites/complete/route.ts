@@ -5,7 +5,7 @@ import {
   isInviteRecipientMismatchError,
   isOtherHouseholdError,
   parsePositiveInt,
-  toAuthApiErrorMessage,
+  toAuthApiError,
 } from "@/lib/organization-api";
 import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
 
@@ -90,8 +90,8 @@ export async function GET(request: Request) {
 
     return Response.redirect(new URL("/household", request.url), 302);
   } catch (error) {
-    const authApiErrorMessage = toAuthApiErrorMessage(error);
-    if (isInvitationNotFoundError(authApiErrorMessage)) {
+    const authApiError = toAuthApiError(error);
+    if (isInvitationNotFoundError(authApiError)) {
       return Response.redirect(
         redirectTo({
           error: "invalid",
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
       );
     }
 
-    if (isOtherHouseholdError(authApiErrorMessage)) {
+    if (isOtherHouseholdError(authApiError)) {
       return Response.redirect(
         redirectTo({
           error: "other-household",
@@ -115,7 +115,7 @@ export async function GET(request: Request) {
       );
     }
 
-    if (isInviteRecipientMismatchError(authApiErrorMessage)) {
+    if (isInviteRecipientMismatchError(authApiError)) {
       return Response.redirect(
         redirectTo({
           error: "sign-in",

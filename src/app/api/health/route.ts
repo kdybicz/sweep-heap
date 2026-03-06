@@ -1,3 +1,4 @@
+import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { pool } from "@/lib/db";
 
 export async function GET() {
@@ -9,12 +10,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Health check failed", error);
-    return Response.json(
-      {
-        ok: false,
-        error: "Health check failed",
-      },
-      { status: 500 },
-    );
+    return jsonError({
+      status: 500,
+      code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+      error: "Health check failed",
+    });
   }
 }

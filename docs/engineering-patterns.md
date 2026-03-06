@@ -30,7 +30,7 @@ All email flows should use centralized SMTP settings from `src/lib/smtp.ts`:
 Delivery semantics:
 
 - Household invite create/resend is best-effort: persist/update invite state first, then attempt SMTP send, and return `ok: true` with `inviteEmailSent` to report delivery outcome.
-- Delete-account request is email-required: if SMTP send fails, return `500` with `{ ok: false, error: "Failed to send confirmation email" }`.
+- Delete-account request is email-required: if SMTP send fails, return `500` with `{ ok: false, code: "INTERNAL_SERVER_ERROR", error: "Failed to send confirmation email" }`.
 
 Rules for `secure`:
 
@@ -42,8 +42,8 @@ Rules for `secure`:
 
 Return a consistent JSON envelope for failures:
 
-- `{ ok: false, error: string }`
-- Add a stable machine-readable `code` field for errors that clients branch on (for example `code: "HOUSEHOLD_REQUIRED"`) so UI behavior is not tied to user-facing message text.
+- `{ ok: false, code: string, error: string }`
+- Include a stable machine-readable `code` field on every API failure response (for example `code: "HOUSEHOLD_REQUIRED"`) so UI behavior is never tied to user-facing message text.
 - Client and server control flow must branch on `code` (and optional HTTP status), not on `error` message text.
 - Keep route handlers wrapped in top-level `try/catch` so unexpected throws still return the same envelope.
 

@@ -133,6 +133,7 @@ const ensureCanJoinHousehold = async ({
   const activeHouseholdId = await findActiveHouseholdIdByUserId(userId);
   if (activeHouseholdId !== null && activeHouseholdId !== householdId) {
     throw new APIError("CONFLICT", {
+      code: "USER_IN_OTHER_HOUSEHOLD",
       message: "You already belong to another household",
     });
   }

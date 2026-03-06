@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { requireApiSession } from "@/lib/api-access";
+import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { sendDeleteAccountConfirmationEmail } from "@/lib/delete-account-email";
 import { getAppOrigin } from "@/lib/http";
 import { buildDeleteAccountTokenIdentifier, createDeleteAccountToken } from "@/lib/repositories";
@@ -17,10 +18,11 @@ export async function POST(request: Request) {
 
     const email = sessionAccess.sessionContext.sessionUserEmail?.trim();
     if (!email) {
-      return Response.json(
-        { ok: false, error: "Email is required to confirm account deletion" },
-        { status: 400 },
-      );
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.EMAIL_REQUIRED,
+        error: "Email is required to confirm account deletion",
+      });
     }
 
     const appOrigin = getAppOrigin(request);
@@ -51,18 +53,20 @@ export async function POST(request: Request) {
         expiresInMinutes: tokenExpiryInMinutes,
       });
     } catch {
-      return Response.json(
-        { ok: false, error: "Failed to send confirmation email" },
-        { status: 500 },
-      );
+      return jsonError({
+        status: 500,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to send confirmation email",
+      });
     }
 
     return Response.json({ ok: true });
   } catch (error) {
     console.error("Failed to create delete account request", error);
-    return Response.json(
-      { ok: false, error: "Failed to create delete account request" },
-      { status: 500 },
-    );
+    return jsonError({
+      status: 500,
+      code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+      error: "Failed to create delete account request",
+    });
   }
 }

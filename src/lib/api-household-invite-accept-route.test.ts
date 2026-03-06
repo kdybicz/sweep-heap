@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ERROR_CODE } from "@/lib/api-error";
 
 const { acceptInvitationMock, getPendingHouseholdInviteByIdAndSecretMock, getSessionMock } =
   vi.hoisted(() => ({
@@ -48,7 +49,11 @@ describe("/api/households/invites/accept route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invitation id and secret are required" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Invitation id and secret are required",
+    });
     expect(getPendingHouseholdInviteByIdAndSecretMock).not.toHaveBeenCalled();
   });
 
@@ -57,7 +62,11 @@ describe("/api/households/invites/accept route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid JSON body" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_JSON_BODY,
+      error: "Invalid JSON body",
+    });
     expect(getPendingHouseholdInviteByIdAndSecretMock).not.toHaveBeenCalled();
   });
 
@@ -68,7 +77,11 @@ describe("/api/households/invites/accept route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ ok: false, error: "Invalid or expired invite" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_INVITE,
+      error: "Invalid or expired invite",
+    });
     expect(acceptInvitationMock).not.toHaveBeenCalled();
   });
 
@@ -122,6 +135,7 @@ describe("/api/households/invites/accept route", () => {
     getSessionMock.mockResolvedValue({ user: { id: "5", email: "jane@example.com" } });
     acceptInvitationMock.mockRejectedValue({
       body: {
+        code: "USER_IN_OTHER_HOUSEHOLD",
         message: "You already belong to another household",
       },
     });
@@ -130,7 +144,11 @@ describe("/api/households/invites/accept route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(409);
-    expect(body).toEqual({ ok: false, error: "You already belong to another household" });
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.USER_IN_OTHER_HOUSEHOLD,
+      error: "You already belong to another household",
+    });
   });
 
   it("starts auto sign-in flow when no session exists", async () => {
@@ -191,7 +209,11 @@ describe("/api/households/invites/accept route", () => {
       const body = await response.json();
 
       expect(response.status).toBe(500);
-      expect(body).toEqual({ ok: false, error: "Failed to accept household invite" });
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to accept household invite",
+      });
       expect(consoleErrorSpy).toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
