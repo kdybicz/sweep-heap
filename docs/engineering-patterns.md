@@ -82,9 +82,14 @@ In `src/lib/occurrences.ts`:
 
 ## 6) Testing Standards for Contracts
 
+Test placement standard:
+
+- Colocate tests with the implementation file they cover.
+- Route handler contract tests live next to route files (`src/app/api/**/route.test.ts`).
+
 When you change behavior in these areas, update tests in the same PR:
 
-- API contract/status behavior (`src/lib/api-*.test.ts`).
+- API contract/status behavior (route handler tests).
 - Recurrence and date edge cases (`src/lib/occurrences.test.ts`, date-utils tests).
 - Shared config helpers (`src/lib/smtp.test.ts`).
 

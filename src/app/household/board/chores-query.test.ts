@@ -25,7 +25,7 @@ const createResponse = (body: unknown, status = 200): Pick<Response, "json" | "s
   status,
 });
 
-describe("household chores query helpers", () => {
+describe("chores-query helpers", () => {
   it("returns stable week query keys", () => {
     expect(getWeekChoresQueryKey(3)).toEqual(["household-chores", "week", 3]);
   });

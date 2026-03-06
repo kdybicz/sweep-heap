@@ -58,6 +58,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ## Key File Map
 - Routes: `src/app/api/**/route.ts`
+- Tests (colocated): `src/**/*.test.ts`, `src/**/*.test.tsx`
 - Repositories (SQL): `src/lib/repositories/*-repository.ts`
 - Services: `src/lib/services/*-service.ts`
 - Recurrence generation: `src/lib/occurrences.ts`

@@ -212,6 +212,7 @@
 
 ## Testing and Quality Gates
 - Prefer focused unit tests for service and route behavior.
+- Colocate tests with the source they validate (for example `route.ts` with `route.test.ts`).
 - Mock repositories in service tests; avoid DB in unit tests.
 - Project default gate for code changes: `make dev-fix` (format, lint fix, tests, typecheck).
 - Coverage expansion is tracked in `TODO-1` (Postgres-backed integration tests plus minimal auth/chore/account-deletion E2E flow).
