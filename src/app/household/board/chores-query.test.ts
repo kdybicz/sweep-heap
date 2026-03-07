@@ -8,11 +8,12 @@ import {
 } from "@/app/household/board/chores-query";
 import type { ChoreItem } from "@/app/household/board/types";
 
-const createChore = (id: number, occurrenceDate: string): ChoreItem => ({
+const createChore = (id: number, occurrenceStartDate: string): ChoreItem => ({
   id,
   title: `Chore ${id}`,
   type: "close_on_done",
-  occurrence_date: occurrenceDate,
+  occurrence_date: occurrenceStartDate,
+  occurrence_start_date: occurrenceStartDate,
   status: "open",
   closed_reason: null,
   undo_until: null,

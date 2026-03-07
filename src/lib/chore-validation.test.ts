@@ -49,7 +49,20 @@ describe("validateChoreCreate", () => {
       seriesEndDate: null,
     });
 
-    expect(errors.endDate).toBe("End date must be on or after start date");
+    expect(errors.endDate).toBe("End date must be after start date");
+  });
+
+  it("requires end date to be after start date", () => {
+    const errors = validateChoreCreate({
+      title: "Sweep",
+      type: "close_on_done",
+      startDate: "2026-03-10",
+      endDate: "2026-03-10",
+      repeatRule: "week",
+      seriesEndDate: null,
+    });
+
+    expect(errors.endDate).toBe("End date must be after start date");
   });
 
   it("prevents past dates", () => {
@@ -81,7 +94,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "close_on_done",
       startDate: householdToday,
-      endDate: householdToday,
+      endDate: "2026-02-11",
       repeatRule: "none",
       seriesEndDate: null,
       today: householdToday,
@@ -96,7 +109,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "close_on_done",
       startDate: "2026-03-01",
-      endDate: "2026-03-01",
+      endDate: "2026-03-02",
       repeatRule: "none",
       seriesEndDate: null,
     });
@@ -109,7 +122,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "close_on_done",
       startDate: "2026-03-02",
-      endDate: "2026-03-02",
+      endDate: "2026-03-03",
       repeatRule: "none",
       seriesEndDate: "2026-04-01",
     });
@@ -122,7 +135,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "close_on_done",
       startDate: "2026-03-10",
-      endDate: "2026-03-10",
+      endDate: "2026-03-11",
       repeatRule: "week",
       seriesEndDate: "2026-03-02",
     });
@@ -135,7 +148,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "something_else",
       startDate: "2026-03-10",
-      endDate: "2026-03-10",
+      endDate: "2026-03-11",
       repeatRule: "none",
       seriesEndDate: null,
       today: "2026-03-01",

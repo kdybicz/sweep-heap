@@ -1,10 +1,14 @@
 export {
   deleteChoreOccurrenceOverride,
   getChoreInHousehold,
+  getChoreOccurrenceExclusion,
   getChoreOccurrenceOverride,
   insertChore,
   listActiveChoreSeriesByHousehold,
+  listChoreExclusionsByHousehold,
   listChoreOverridesByHousehold,
+  updateChoreSeriesEndDate,
+  upsertChoreOccurrenceExclusion,
   upsertChoreOccurrenceOverride,
 } from "@/lib/repositories/chore-repository";
 export {

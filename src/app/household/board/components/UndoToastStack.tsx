@@ -7,7 +7,7 @@ import { CHORE_UNDO_WINDOW_MS } from "@/lib/chore-undo";
 type UndoToastStackProps = {
   undoToasts: UndoToast[];
   nowMs: number;
-  onUndo: (choreId: number, occurrenceDate: string) => void;
+  onUndo: (choreId: number, occurrenceStartDate: string) => void;
 };
 
 export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastStackProps) {
@@ -26,7 +26,7 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
         );
         return (
           <div
-            key={`${toast.choreId}-${toast.occurrenceDate}`}
+            key={`${toast.choreId}-${toast.occurrenceStartDate}`}
             className="flex flex-col gap-3 rounded-2xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-xs font-semibold text-[var(--ink)] shadow-[var(--shadow)]"
           >
             <div className="flex items-center justify-between gap-4">
@@ -46,7 +46,7 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
               </div>
               <button
                 className="rounded-full border border-[var(--stroke)] px-3 py-2 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-                onClick={() => onUndo(toast.choreId, toast.occurrenceDate)}
+                onClick={() => onUndo(toast.choreId, toast.occurrenceStartDate)}
                 type="button"
               >
                 Undo

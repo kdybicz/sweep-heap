@@ -42,11 +42,11 @@ export default function useHouseholdWeek(): UseHouseholdWeekModel {
     return weekStart.plus({ days: 6 });
   }, [rangeEnd, timeZone, weekStart]);
 
-  const days = useMemo(
-    () => Array.from({ length: 7 }, (_, index) => weekStart.plus({ days: index })),
-    [weekStart],
-  );
-  const rangeLabel = formatRange(weekStart, weekEnd);
+  const days = useMemo(() => {
+    const totalDays = Math.max(Math.round(weekEnd.diff(weekStart, "days").days) + 1, 1);
+    return Array.from({ length: totalDays }, (_, index) => weekStart.plus({ days: index }));
+  }, [weekEnd, weekStart]);
+  const rangeLabel = formatRange(weekStart);
   const today = useMemo(() => getHouseholdToday(timeZone), [timeZone]);
   const todayKey = useMemo(() => toDateKey(today) ?? "", [today]);
 

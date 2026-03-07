@@ -13,7 +13,7 @@
 
 ## Target Behavior vs Current Baseline
 - Target (product intent): deterministic calendar recurrence, explicit conflict handling, and auditable state history.
-- Current (implemented): lazy series generation + overrides, optimistic UI updates, 5-second undo window, and replace-in-place override writes.
+- Current (implemented): lazy series generation + occurrence-start keyed overrides/exclusions, optimistic UI updates, 5-second undo window, and replace-in-place override writes.
 - Important deltas to keep visible:
   - Recurrence can drift in some month/year edge cases.
   - There is no append-only chore event history yet.
@@ -61,7 +61,7 @@
 - Private chores visible only to a subset of household members.
 - Smart home integrations and monetization.
 - Advanced recurrence customizations (weekday sets, arbitrary intervals, etc.).
-- Functional skip/snooze workflow.
+- Dedicated skip/snooze UI workflow (API-level cancel is available).
 
 ## Domain Model (Current)
 
@@ -71,13 +71,14 @@
 - `household_memberships`: household membership with role (`owner`, `admin`, or `member`) and status (`active`).
 - `household_member_invites`: Better Auth organization invitation records (status, expiry, inviter, recipient).
 - `chores`: chore series definitions.
-- `chore_occurrence_overrides`: per-date exceptions (status, reason, undo window).
+- `chore_occurrence_overrides`: per-occurrence-start exceptions (status, reason, undo window).
+- `chore_occurrence_exclusions`: canceled occurrence starts (single-occurrence skips).
 - `delete_account_tokens`: one-time account deletion confirmation tokens.
 
 ### Chore terminology
 - Series: the durable chore definition (`start_date`, `end_date`, `repeat_rule`, optional `series_end_date`).
 - Occurrence day: calendar date returned by derived generation (no time-of-day).
-- Override: persisted exception for one series/date pair.
+- Override: persisted exception for one series/occurrence-start pair.
 
 ## Identity, Membership, and Household Rules
 - A signed-in user can create a household only when they currently have no active memberships.
@@ -118,7 +119,7 @@
 - `type` must be valid.
 - `startDate` and `endDate` required.
 - `startDate` and `endDate` cannot be before household-local `today`.
-- `endDate` must be on or after `startDate`.
+- `endDate` is exclusive and must be after `startDate`.
 - `seriesEndDate` is allowed only when repeat is not `none`.
 - `seriesEndDate` must be on or after `startDate` when provided.
 - `notes` is trimmed and capped at 500 chars.
@@ -126,10 +127,13 @@
 ### Occurrence generation behavior
 - Occurrences are generated lazily from series plus overrides.
 - Generation is date-only and timezone-aware (household timezone).
-- `endDate` defines span length; one occurrence can contribute multiple calendar days.
+- `endDate` is exclusive and defines span length (`startDate=2026-01-01`, `endDate=2026-01-02` is a one-day occurrence).
 - `repeatRule = none` still supports multi-day span via `endDate`.
 - `seriesEndDate = null` means no explicit repeat end, but returned data is still bounded by requested query range.
 - Week view request defaults to household-local Monday-Sunday for the requested `weekOffset`.
+- List responses include:
+  - `occurrence_date`: day cell used for calendar grouping.
+  - `occurrence_start_date`: recurrence instance identity used for set/undo/cancel actions.
 
 ### Completion and undo behavior
 - `close_on_done`:
@@ -138,10 +142,16 @@
   - Mark done writes override `status = open`, `closed_reason = done`.
   - Repeated logging is allowed.
 - Undo window is 5 seconds (not 10 seconds).
-- `action=set` and `action=undo` must target a valid generated occurrence day for that chore series.
+- `action=set` and `action=undo` must target a valid generated occurrence start date for that chore series.
 - `action=undo` is enforced against `undo_until` and returns conflict after the window expires.
 - Undo action deletes the override row for that occurrence.
 - UI shows active undo toasts with a visible countdown bar.
+
+### Cancellation behavior
+- `action=cancel` with `cancelScope=single` inserts an occurrence-start exclusion for one instance.
+- `action=cancel` with `cancelScope=following` is allowed only for repeating chores and truncates the series by setting `series_end_date` to one day before the targeted occurrence start date.
+- `action=set`/`action=undo` on excluded occurrences returns conflict.
+- Mutation payloads use `occurrenceStartDate` (not `occurrenceDate`).
 
 ### UI interaction constraints
 - Add-chore buttons are disabled for past dates.
@@ -179,6 +189,7 @@
   - `action=create`: create series.
   - `action=set`: mark occurrence done/open.
   - `action=undo`: clear occurrence override.
+  - `action=cancel`: cancel one occurrence (`single`) or this and following (`following`).
 - `GET /api/me`
   - Returns current user and memberships.
 - `PATCH /api/me`
@@ -222,7 +233,7 @@
 - No dedicated event/audit history table exists for chore state transitions; only latest override state is stored.
 - `closed_reason = schedule_end` lifecycle is not currently persisted by background process; closure is mostly represented by derived listing behavior.
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
-- For repeating multi-day chores, generation is clamped by `seriesEndDate` date boundary, so span days after the final start date may not be included.
+- Cancel actions are currently API-first; the board UI does not yet expose first-class cancel controls.
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in `TODO-3`.
 
 ## Decision Notes for Future Work

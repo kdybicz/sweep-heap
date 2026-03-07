@@ -119,7 +119,7 @@ describe("PATCH /api/chores", () => {
       body: {
         ok: true,
         choreId: 3,
-        occurrenceDate: "2026-01-03",
+        occurrenceStartDate: "2026-01-03",
         type: "stay_open",
         status: "open",
         closed_reason: "done",
@@ -129,7 +129,7 @@ describe("PATCH /api/chores", () => {
     const payload = {
       action: "set",
       choreId: 3,
-      occurrenceDate: "2026-01-03",
+      occurrenceStartDate: "2026-01-03",
       status: "closed",
     };
 
@@ -177,7 +177,7 @@ describe("PATCH /api/chores", () => {
     expect(body).toEqual({
       ok: false,
       code: API_ERROR_CODE.VALIDATION_FAILED,
-      error: "Action must be create, set, or undo",
+      error: "Action must be create, set, undo, or cancel",
     });
     expect(mutateChoreMock).not.toHaveBeenCalled();
   });
@@ -190,7 +190,7 @@ describe("PATCH /api/chores", () => {
       new Request("http://localhost/api/chores", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "set", choreId: 3, occurrenceDate: "2026-01-03" }),
+        body: JSON.stringify({ action: "set", choreId: 3, occurrenceStartDate: "2026-01-03" }),
       }),
     );
     const body = await response.json();

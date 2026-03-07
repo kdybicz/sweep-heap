@@ -30,18 +30,23 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ### Chores
 - Series fields: `title`, `type`, `startDate`, `endDate`, `repeatRule`, optional `seriesEndDate`, `notes`.
+- `endDate` is exclusive (next day for an all-day single occurrence).
 - Types: `close_on_done`, `stay_open`.
 - Repeat rules: `none`, `day`, `week`, `biweek`, `month`, `year`.
 - Create validation enforces required fields, date ordering, non-past dates, and repeat/end compatibility.
-- Occurrences are generated lazily from series (date-only, household timezone) and merged with overrides.
+- Occurrences are generated lazily from series (date-only, household timezone) and merged with occurrence-start keyed overrides/exclusions.
 
 ### Done and undo
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.
 - `stay_open`: done sets `status=open`, `closed_reason=done`.
 - Undo window is 5 seconds.
-- `action=set` and `action=undo` must target a valid generated occurrence date for the chore series.
+- `action=set` and `action=undo` must target a valid generated occurrence start date for the chore series.
 - Undo is API-enforced against `undo_until` and returns conflict after expiry.
 - Undo deletes the occurrence override row.
+- `action=cancel` supports `cancelScope=single|following` for one-instance cancel and this-and-following cancel.
+- `cancelScope=following` is valid only for repeating chores.
+- Mutation payloads use `occurrenceStartDate`.
+- Chore list rows include `occurrence_date` (calendar day) and `occurrence_start_date` (instance identity).
 
 ## API Snapshot
 - `GET /api/health`
@@ -70,7 +75,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - No append-only chore event log yet (only latest override state).
 - Concurrency conflicts are not exposed as explicit retryable responses.
 - Month/year recurrence edge cases can drift from strict start-date anchoring.
-- Skip and Snooze actions are not available yet.
+- Board UI does not yet expose first-class cancel/snooze actions (cancel is currently API-only).
 
 ## Backlog Links
 - Active execution backlog: `docs/todo.md`.

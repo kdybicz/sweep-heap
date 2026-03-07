@@ -15,7 +15,7 @@ export type UseHouseholdChoreActionsParams = {
 export type UseHouseholdChoreActionsModel = {
   nowMs: number;
   undoToasts: UndoToast[];
-  undoChoreDone: (choreId: number, occurrenceDate: string) => Promise<void>;
+  undoChoreDone: (choreId: number, occurrenceStartDate: string) => Promise<void>;
   showAddModal: boolean;
   submitError: string | null;
   fieldErrors: Record<string, string>;

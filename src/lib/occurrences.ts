@@ -12,11 +12,16 @@ export type OccurrenceInput = {
   timeZone: string;
 };
 
+export type OccurrenceInstance = {
+  occurrenceDay: string;
+  occurrenceStartDate: string;
+};
+
 const toDate = (value: string, timeZone: string) =>
   DateTime.fromISO(value, { zone: timeZone }).startOf("day");
 
 const spanDaysFromDates = (start: DateTime, end: DateTime) =>
-  Math.max(Math.round(end.diff(start, "days").days) + 1, 1);
+  Math.max(Math.round(end.diff(start, "days").days), 1);
 
 const advance = (value: DateTime, repeatRule: RepeatRule) => {
   if (repeatRule === "day") {
@@ -46,7 +51,35 @@ export const generateOccurrences = ({
   seriesEndDate,
   timeZone,
 }: OccurrenceInput) => {
+  const instances = generateOccurrenceInstances({
+    startDate,
+    endDate,
+    rangeStart,
+    rangeEnd,
+    repeatRule,
+    seriesEndDate,
+    timeZone,
+  });
+
+  const uniqueDays = new Set<string>();
+  for (const instance of instances) {
+    uniqueDays.add(instance.occurrenceDay);
+  }
+
+  return Array.from(uniqueDays).sort();
+};
+
+export const generateOccurrenceInstances = ({
+  startDate,
+  endDate,
+  rangeStart,
+  rangeEnd,
+  repeatRule,
+  seriesEndDate,
+  timeZone,
+}: OccurrenceInput): OccurrenceInstance[] => {
   const occurrenceSet = new Set<string>();
+  const instances: OccurrenceInstance[] = [];
   const start = toDate(startDate, timeZone);
   const end = toDate(endDate, timeZone);
   const from = toDate(rangeStart, timeZone);
@@ -54,18 +87,25 @@ export const generateOccurrences = ({
   const seriesEnd = seriesEndDate ? toDate(seriesEndDate, timeZone) : to;
 
   if (!start.isValid || !end.isValid || !from.isValid || !to.isValid || !seriesEnd.isValid) {
-    return [];
+    return instances;
   }
 
-  if (seriesEnd < from || start > to) {
-    return [];
+  const spanDays = spanDaysFromDates(start, end);
+  const latestOverlappingDay = seriesEnd.plus({ days: spanDays - 1 });
+
+  if (latestOverlappingDay < from || start > to) {
+    return instances;
   }
 
   const clampStart = start > from ? start : from;
-  const clampEnd = seriesEnd < to ? seriesEnd : to;
-  const spanDays = spanDaysFromDates(start, end);
+  const clampEnd = to;
 
   const addOccurrenceSpan = (occurrenceStart: DateTime) => {
+    const occurrenceStartIso = occurrenceStart.toISODate();
+    if (!occurrenceStartIso) {
+      return;
+    }
+
     for (let offset = 0; offset < spanDays; offset += 1) {
       const day = occurrenceStart.plus({ days: offset });
       if (day < clampStart || day > clampEnd) {
@@ -73,7 +113,15 @@ export const generateOccurrences = ({
       }
       const iso = day.toISODate();
       if (iso) {
-        occurrenceSet.add(iso);
+        const key = `${occurrenceStartIso}:${iso}`;
+        if (occurrenceSet.has(key)) {
+          continue;
+        }
+        occurrenceSet.add(key);
+        instances.push({
+          occurrenceDay: iso,
+          occurrenceStartDate: occurrenceStartIso,
+        });
       }
     }
   };
@@ -83,23 +131,34 @@ export const generateOccurrences = ({
     if (singleOccurrenceEnds >= clampStart && start <= clampEnd) {
       addOccurrenceSpan(start);
     }
-    return Array.from(occurrenceSet).sort();
+    return instances.sort((a, b) =>
+      a.occurrenceDay === b.occurrenceDay
+        ? a.occurrenceStartDate.localeCompare(b.occurrenceStartDate)
+        : a.occurrenceDay.localeCompare(b.occurrenceDay),
+    );
   }
 
+  const earliestRelevantStart = clampStart.minus({ days: spanDays - 1 });
+  const latestStart = seriesEnd < clampEnd ? seriesEnd : clampEnd;
   let cursor = start;
+
   while (true) {
     const nextCursor = advance(cursor, repeatRule);
     if (nextCursor.equals(cursor)) {
       break;
     }
-    if (nextCursor > clampStart) {
+    if (nextCursor > earliestRelevantStart) {
       break;
     }
     cursor = nextCursor;
   }
 
-  while (cursor <= clampEnd) {
-    addOccurrenceSpan(cursor);
+  while (cursor <= latestStart) {
+    const occurrenceEnds = cursor.plus({ days: spanDays - 1 });
+    if (occurrenceEnds >= clampStart && cursor <= clampEnd) {
+      addOccurrenceSpan(cursor);
+    }
+
     const nextCursor = advance(cursor, repeatRule);
     if (nextCursor.equals(cursor)) {
       break;
@@ -107,5 +166,9 @@ export const generateOccurrences = ({
     cursor = nextCursor;
   }
 
-  return Array.from(occurrenceSet).sort();
+  return instances.sort((a, b) =>
+    a.occurrenceDay === b.occurrenceDay
+      ? a.occurrenceStartDate.localeCompare(b.occurrenceStartDate)
+      : a.occurrenceDay.localeCompare(b.occurrenceDay),
+  );
 };

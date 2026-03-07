@@ -77,6 +77,7 @@ Keep page-level access rules aligned with API permissions:
 In `src/lib/occurrences.ts`:
 
 - Non-repeating (`repeatRule === "none"`) chores must include any day where the chore span overlaps the query range.
+- Treat `endDate` as exclusive for span math.
 - Recurrence cursor loops must guard against non-advancing values (`nextCursor.equals(cursor)`) to avoid hangs.
 - Keep date math timezone-aware and day-based (`Luxon`, `startOf("day")`, ISO date keys).
 
@@ -117,7 +118,9 @@ For `PATCH /api/chores` with `action: "undo"`:
 
 - Undo must be enforced server-side using `undo_until` (not only by UI toast timing).
 - Return `409` with a conflict error when the undo window is no longer active.
-- For `action: "set"` and `action: "undo"`, validate that `occurrenceDate` is a generated series occurrence day for the chore and return `409` when it is outside schedule.
+- For `action: "set"` and `action: "undo"`, validate that `occurrenceStartDate` is a generated series occurrence start date for the chore and return `409` when it is outside schedule.
+- For `action: "cancel"`, support `cancelScope: "single" | "following"` and keep behavior deterministic (single inserts exclusion, following truncates series).
+- For `action: "cancel"` with `cancelScope: "following"`, require a repeating chore (`repeatRule !== "none"`) and return `409` for non-repeating chores.
 - Keep undo timing centralized via `CHORE_UNDO_WINDOW_SECONDS`/`CHORE_UNDO_WINDOW_MS` (`src/lib/chore-undo.ts`) and consume those constants in API service logic and UI countdown rendering.
 
 ## 10) Invite Deduplication Contract
@@ -136,3 +139,12 @@ When proposing implementation approaches (in issues, plans, or PR summaries):
   - Ready-to-import library/tool: pros and cons (reliability, maturity, ecosystem fit, integration effort, lock-in risk).
   - In-house solution: pros and cons (control, customization, delivery time, maintenance burden, long-term risk).
 - End with a clear recommendation and rationale; choose in-house only when constraints require it (for example domain-specific requirements, licensing/compliance limits, or lack of a mature ecosystem fit).
+
+## 12) PoC Database Compatibility Policy
+
+Current project posture:
+
+- This repository is a Proof of Concept (PoC) with no production data yet.
+- We do not require backward-compatible schema migrations across historical local/dev data.
+- It is acceptable for schema changes to break old local data, as long as the current version works correctly end-to-end.
+- When schema-breaking changes are introduced, prefer clear reset/seed instructions in the same PR so teammates can get back to a working state quickly.

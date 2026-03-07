@@ -29,7 +29,7 @@ export type WeekModel = {
 export type UndoModel = {
   nowMs: number;
   undoToasts: UndoToast[];
-  onUndo: (choreId: number, occurrenceDate: string) => Promise<void>;
+  onUndo: (choreId: number, occurrenceStartDate: string) => Promise<void>;
 };
 
 export type AddChoreModalModel = {

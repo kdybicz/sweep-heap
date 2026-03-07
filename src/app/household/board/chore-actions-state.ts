@@ -3,55 +3,58 @@ import type { ChoreItem } from "@/app/household/board/types";
 const matchesTargetChore = ({
   chore,
   choreId,
-  occurrenceDate,
+  occurrenceStartDate,
 }: {
   chore: ChoreItem;
   choreId: number;
-  occurrenceDate: string;
-}) => chore.id === choreId && chore.occurrence_date === occurrenceDate;
+  occurrenceStartDate: string;
+}) => chore.id === choreId && chore.occurrence_start_date === occurrenceStartDate;
 
-export const findTargetChore = ({
+const getChoreRowKey = (chore: ChoreItem) =>
+  `${chore.id}:${chore.occurrence_start_date}:${chore.occurrence_date}`;
+
+export const findTargetChores = ({
   chores,
   choreId,
-  occurrenceDate,
+  occurrenceStartDate,
 }: {
   chores: ChoreItem[];
   choreId: number;
-  occurrenceDate: string;
-}) => chores.find((chore) => matchesTargetChore({ chore, choreId, occurrenceDate }));
+  occurrenceStartDate: string;
+}) => chores.filter((chore) => matchesTargetChore({ chore, choreId, occurrenceStartDate }));
 
 export const updateTargetChore = ({
   chores,
   choreId,
-  occurrenceDate,
+  occurrenceStartDate,
   map,
 }: {
   chores: ChoreItem[];
   choreId: number;
-  occurrenceDate: string;
+  occurrenceStartDate: string;
   map: (chore: ChoreItem) => ChoreItem;
 }) =>
   chores.map((chore) =>
-    matchesTargetChore({ chore, choreId, occurrenceDate }) ? map(chore) : chore,
+    matchesTargetChore({ chore, choreId, occurrenceStartDate }) ? map(chore) : chore,
   );
 
 export const applyOptimisticDone = ({
   chores,
   choreId,
-  occurrenceDate,
+  occurrenceStartDate,
   optimisticStatus,
   undoUntil,
 }: {
   chores: ChoreItem[];
   choreId: number;
-  occurrenceDate: string;
+  occurrenceStartDate: string;
   optimisticStatus: "open" | "closed";
   undoUntil: string | null;
 }) =>
   updateTargetChore({
     chores,
     choreId,
-    occurrenceDate,
+    occurrenceStartDate,
     map: (chore) => ({
       ...chore,
       status: optimisticStatus,
@@ -64,16 +67,16 @@ export const applyOptimisticDone = ({
 export const applyOptimisticUndo = ({
   chores,
   choreId,
-  occurrenceDate,
+  occurrenceStartDate,
 }: {
   chores: ChoreItem[];
   choreId: number;
-  occurrenceDate: string;
+  occurrenceStartDate: string;
 }) =>
   updateTargetChore({
     chores,
     choreId,
-    occurrenceDate,
+    occurrenceStartDate,
     map: (chore) => ({
       ...chore,
       status: "open",
@@ -83,20 +86,24 @@ export const applyOptimisticUndo = ({
     }),
   });
 
-export const restoreTargetChore = ({
+export const restoreTargetChores = ({
   chores,
   choreId,
-  occurrenceDate,
+  occurrenceStartDate,
   previous,
 }: {
   chores: ChoreItem[];
   choreId: number;
-  occurrenceDate: string;
-  previous: ChoreItem;
-}) =>
-  updateTargetChore({
-    chores,
-    choreId,
-    occurrenceDate,
-    map: () => previous,
+  occurrenceStartDate: string;
+  previous: ChoreItem[];
+}) => {
+  const previousByRowKey = new Map(previous.map((chore) => [getChoreRowKey(chore), chore]));
+
+  return chores.map((chore) => {
+    if (!matchesTargetChore({ chore, choreId, occurrenceStartDate })) {
+      return chore;
+    }
+
+    return previousByRowKey.get(getChoreRowKey(chore)) ?? chore;
   });
+};

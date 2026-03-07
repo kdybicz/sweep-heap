@@ -59,7 +59,7 @@ export default function DayColumn({
               const isLogged = completed && chore.type === "stay_open";
               return (
                 <button
-                  key={`${chore.id}-${chore.occurrence_date}`}
+                  key={`${chore.id}-${chore.occurrence_start_date}-${chore.occurrence_date}`}
                   className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-left text-[0.7rem] font-semibold transition ${
                     showLineThrough || isClosed
                       ? "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--muted)]"

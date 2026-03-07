@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { generateOccurrences, type RepeatRule } from "@/lib/occurrences";
+import {
+  generateOccurrenceInstances,
+  generateOccurrences,
+  type RepeatRule,
+} from "@/lib/occurrences";
 
 const timeZone = "Europe/Warsaw";
 
@@ -8,7 +12,7 @@ describe("generateOccurrences", () => {
   it("returns weekly single-day occurrences", () => {
     const occurrences = generateOccurrences({
       startDate: "2026-02-23",
-      endDate: "2026-02-23",
+      endDate: "2026-02-24",
       rangeStart: "2026-03-02",
       rangeEnd: "2026-03-08",
       repeatRule: "week",
@@ -36,7 +40,7 @@ describe("generateOccurrences", () => {
   it("returns two-day weekly occurrences", () => {
     const occurrences = generateOccurrences({
       startDate: "2026-02-27",
-      endDate: "2026-02-28",
+      endDate: "2026-03-01",
       rangeStart: "2026-03-02",
       rangeEnd: "2026-03-08",
       repeatRule: "week",
@@ -50,7 +54,7 @@ describe("generateOccurrences", () => {
   it("includes span days that start before the range", () => {
     const occurrences = generateOccurrences({
       startDate: "2026-03-01",
-      endDate: "2026-03-02",
+      endDate: "2026-03-03",
       rangeStart: "2026-03-02",
       rangeEnd: "2026-03-08",
       repeatRule: "week",
@@ -64,7 +68,7 @@ describe("generateOccurrences", () => {
   it("repeats monthly with a multi-day span", () => {
     const occurrences = generateOccurrences({
       startDate: "2025-01-01",
-      endDate: "2025-01-08",
+      endDate: "2025-01-09",
       rangeStart: "2025-02-01",
       rangeEnd: "2025-02-10",
       repeatRule: "month",
@@ -149,6 +153,20 @@ describe("generateOccurrences", () => {
     ]);
   });
 
+  it("keeps overlaps when final start is before range start", () => {
+    const occurrences = generateOccurrences({
+      startDate: "2026-01-01",
+      endDate: "2026-01-10",
+      rangeStart: "2026-01-05",
+      rangeEnd: "2026-01-07",
+      repeatRule: "week",
+      seriesEndDate: "2026-01-01",
+      timeZone,
+    });
+
+    expect(occurrences).toEqual(["2026-01-05", "2026-01-06", "2026-01-07"]);
+  });
+
   it("does not loop forever for unexpected repeat values", () => {
     const occurrences = generateOccurrences({
       startDate: "2026-03-02",
@@ -161,5 +179,28 @@ describe("generateOccurrences", () => {
     });
 
     expect(occurrences).toEqual(["2026-03-02"]);
+  });
+
+  it("returns occurrence start identity for overlapping daily spans", () => {
+    const instances = generateOccurrenceInstances({
+      startDate: "2026-01-01",
+      endDate: "2026-01-03",
+      rangeStart: "2026-01-02",
+      rangeEnd: "2026-01-02",
+      repeatRule: "day",
+      seriesEndDate: null,
+      timeZone,
+    });
+
+    expect(instances).toEqual([
+      {
+        occurrenceDay: "2026-01-02",
+        occurrenceStartDate: "2026-01-01",
+      },
+      {
+        occurrenceDay: "2026-01-02",
+        occurrenceStartDate: "2026-01-02",
+      },
+    ]);
   });
 });

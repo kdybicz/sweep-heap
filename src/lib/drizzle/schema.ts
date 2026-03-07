@@ -178,13 +178,34 @@ export const choreOccurrenceOverrides = pgTable(
     choreId: integer("chore_id")
       .notNull()
       .references(() => chores.id, { onDelete: "cascade" }),
-    occurrenceDate: date("occurrence_date").notNull(),
+    occurrenceStartDate: date("occurrence_start_date").notNull(),
     status: text("status").notNull(),
     closedReason: text("closed_reason"),
     undoUntil: timestamp("undo_until", { mode: "date", withTimezone: true }),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    unique("chore_occurrence_overrides_chore_date_unique").on(table.choreId, table.occurrenceDate),
+    unique("chore_occurrence_overrides_chore_start_unique").on(
+      table.choreId,
+      table.occurrenceStartDate,
+    ),
+  ],
+);
+
+export const choreOccurrenceExclusions = pgTable(
+  "chore_occurrence_exclusions",
+  {
+    id: serial("id").primaryKey(),
+    choreId: integer("chore_id")
+      .notNull()
+      .references(() => chores.id, { onDelete: "cascade" }),
+    occurrenceStartDate: date("occurrence_start_date").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("chore_occurrence_exclusions_chore_start_unique").on(
+      table.choreId,
+      table.occurrenceStartDate,
+    ),
   ],
 );

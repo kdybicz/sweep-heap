@@ -55,8 +55,8 @@ export const validateChoreCreate = ({
   if (todayValue && endDate && endDate < todayValue) {
     fieldErrors.endDate = "End date cannot be in the past";
   }
-  if (startDate && endDate && endDate < startDate) {
-    fieldErrors.endDate = "End date must be on or after start date";
+  if (startDate && endDate && endDate <= startDate) {
+    fieldErrors.endDate = "End date must be after start date";
   }
   if (!allowedRepeatRules.has(repeatRule)) {
     fieldErrors.repeatRule = "Invalid repeat rule";

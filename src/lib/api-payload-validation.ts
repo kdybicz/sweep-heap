@@ -91,13 +91,14 @@ const householdInviteAcceptPayloadSchema = z.object({
   secret: householdInviteSecretSchema,
 });
 
-const allowedActions = new Set(["create", "set", "undo"]);
+const allowedActions = new Set(["create", "set", "undo", "cancel"]);
+const allowedCancelScopes = new Set(["single", "following"]);
 
 const choreActionSchema = z
   .unknown()
   .transform((value) => (typeof value === "string" ? value.trim().toLowerCase() : null))
   .refine((value) => value === null || allowedActions.has(value), {
-    message: "Action must be create, set, or undo",
+    message: "Action must be create, set, undo, or cancel",
   });
 
 const choreStatusSchema = z
@@ -108,16 +109,33 @@ const chorePatchPayloadSchema = z
   .object({
     action: choreActionSchema.optional(),
     status: choreStatusSchema.optional(),
+    cancelScope: z
+      .unknown()
+      .transform((value) => (typeof value === "string" ? value.trim().toLowerCase() : null))
+      .optional(),
   })
   .catchall(z.unknown())
   .superRefine((payload, ctx) => {
     const action = payload.action ?? null;
     const status = payload.status ?? null;
+    const cancelScope = payload.cancelScope ?? null;
+
     if ((action ?? "set") === "set" && status !== "open" && status !== "closed") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Status must be open or closed",
         path: ["status"],
+      });
+    }
+
+    if (
+      action === "cancel" &&
+      (typeof cancelScope !== "string" || !allowedCancelScopes.has(cancelScope))
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "cancelScope must be single or following",
+        path: ["cancelScope"],
       });
     }
   })

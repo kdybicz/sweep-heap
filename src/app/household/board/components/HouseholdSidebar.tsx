@@ -85,7 +85,7 @@ export default function HouseholdSidebar({
             <>
               {todayChores.slice(0, 3).map((chore) => (
                 <div
-                  key={`${chore.id}-${chore.occurrence_date}-today`}
+                  key={`${chore.id}-${chore.occurrence_start_date}-${chore.occurrence_date}-today`}
                   className="flex items-center justify-between rounded-xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-3 py-2 text-xs font-semibold"
                 >
                   <div className="flex flex-col gap-1">

@@ -9,9 +9,17 @@ export const getHouseholdToday = (timeZone: string) =>
 export const getHouseholdTodayKey = (timeZone: string) =>
   toDateKey(getHouseholdToday(timeZone)) ?? LuxonDateTime.utc().toISODate() ?? "";
 
+export const addDaysToDateKey = (dateKey: string, days: number) => {
+  const parsed = LuxonDateTime.fromISO(dateKey, { zone: "UTC" }).startOf("day");
+  if (!parsed.isValid) {
+    return dateKey;
+  }
+  return parsed.plus({ days }).toISODate() ?? dateKey;
+};
+
 export const startOfWeek = (date: DateTime) =>
   date.minus({ days: date.weekday - 1 }).startOf("day");
 
-export const formatRange = (start: DateTime, _end?: DateTime) => start.toFormat("LLLL yyyy");
+export const formatRange = (start: DateTime) => start.toFormat("LLLL yyyy");
 
 export const formatWeekdayLabel = (date: DateTime) => date.toFormat("ccc d");

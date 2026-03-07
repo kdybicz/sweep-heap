@@ -5,6 +5,7 @@ export type ChoreItem = {
   title: string;
   type: ChoreType;
   occurrence_date: string;
+  occurrence_start_date: string;
   status: string;
   closed_reason?: string | null;
   undo_until?: string | null;
@@ -14,7 +15,7 @@ export type ChoreItem = {
 
 export type UndoToast = {
   choreId: number;
-  occurrenceDate: string;
+  occurrenceStartDate: string;
   title: string;
   type: ChoreType;
   undoUntil: string;
