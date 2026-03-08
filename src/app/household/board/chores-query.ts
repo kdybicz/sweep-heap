@@ -1,5 +1,9 @@
 import type { ChoreItem } from "@/app/household/board/types";
 import type { FetchChoresFn } from "@/app/household/board/useHouseholdChoresData.types";
+import {
+  getHouseholdContextRedirectError,
+  readApiJsonResponse,
+} from "@/app/household/household-context-client";
 
 type ChoresApiResponse = {
   ok?: boolean;
@@ -18,23 +22,6 @@ export type ChoresQueryData = {
   rangeEnd: string | null;
 };
 
-export class HouseholdRequiredError extends Error {
-  constructor() {
-    super("Household required");
-    this.name = "HouseholdRequiredError";
-  }
-}
-
-type ApiErrorLike = {
-  ok?: boolean;
-  error?: string;
-  code?: string;
-};
-
-export const isHouseholdRequiredApiError = ({ data }: { data: ApiErrorLike }) => {
-  return data?.code === "HOUSEHOLD_REQUIRED";
-};
-
 const toChoresQueryData = (data: ChoresApiResponse): ChoresQueryData => ({
   chores: data.chores ?? [],
   timeZone: typeof data.timeZone === "string" ? data.timeZone : null,
@@ -49,8 +36,9 @@ const parseChoresApiResponse = ({
   data: ChoresApiResponse;
   fallbackError: string;
 }) => {
-  if (isHouseholdRequiredApiError({ data })) {
-    throw new HouseholdRequiredError();
+  const redirectError = getHouseholdContextRedirectError(data);
+  if (redirectError) {
+    throw redirectError;
   }
 
   if (!data?.ok) {
@@ -79,7 +67,7 @@ export const fetchWeekChores = async ({
     cache: "no-store",
     signal,
   });
-  const data = (await response.json()) as ChoresApiResponse;
+  const data = (await readApiJsonResponse<ChoresApiResponse>(response)) ?? {};
   return parseChoresApiResponse({
     data,
     fallbackError: "Failed to load chores",
@@ -99,7 +87,7 @@ export const fetchTodayChores = async ({
     cache: "no-store",
     signal,
   });
-  const data = (await response.json()) as ChoresApiResponse;
+  const data = (await readApiJsonResponse<ChoresApiResponse>(response)) ?? {};
   return parseChoresApiResponse({
     data,
     fallbackError: "Failed to load today's chores",

@@ -3,6 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import {
+  readApiJsonResponse,
+  recoverFromHouseholdContextError,
+} from "@/app/household/household-context-client";
+
 type HouseholdOption = {
   id: number;
   icon: string | null;
@@ -28,8 +33,13 @@ export default function HouseholdSelectionList({ households }: { households: Hou
         },
         body: JSON.stringify({ householdId }),
       });
-      const contentType = response.headers.get("content-type") ?? "";
-      const data = contentType.includes("application/json") ? await response.json() : null;
+      const data = await readApiJsonResponse<{ ok?: boolean; error?: string; code?: string }>(
+        response,
+      );
+      if (recoverFromHouseholdContextError(data)) {
+        setActiveHouseholdId(null);
+        return;
+      }
       if (!response.ok || !data?.ok) {
         setError(data?.error ?? "Failed to switch household");
         setActiveHouseholdId(null);

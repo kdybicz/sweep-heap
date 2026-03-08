@@ -18,10 +18,11 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Owner-only: delete household, and only when no other active members remain.
 - Household create/edit validates time zone; invalid values return `400` (`Invalid time zone`).
 - Household time zone is required in storage and household lookups should fail loudly rather than silently defaulting when a household record is missing.
-- `POST /api/households` fails with `500` (`Failed to activate new household`) if session activation does not succeed after the household is created.
+- `POST /api/households` rolls back the new household if session activation fails and restores the prior active household when one existed; if rollback cannot be completed, it returns `500` with `Failed to activate new household and roll back create`.
 - API failures include `{ ok: false, code, error }`; control flow should branch on `code`.
 - Household-gated APIs use `code: "HOUSEHOLD_REQUIRED"` for missing active-household access; clients should branch on `code`, not error message text.
 - Household selection uses session `active_household_id` as the primary context; when multiple memberships exist without an active selection, redirect to `/household/select` or handle `HOUSEHOLD_SELECTION_REQUIRED`.
+- Client fetch flows that lose household context mid-request should recover by redirecting to `/household/setup` for `HOUSEHOLD_REQUIRED`, or `/household/select` for `HOUSEHOLD_SELECTION_REQUIRED` and `HOUSEHOLD_NOT_FOUND`.
 - `/api/me` also reconciles stale `active_household_id` when request headers are available.
 - Signed-in users without an active household should stay in the auth/onboarding flow until setup or invite acceptance completes.
 - Settings, profile, and board pages stay behind active-household access.
@@ -73,7 +74,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Account deletion is blocked while the user still owns a household with other active members.
 - Owner transfer is not implemented yet, so blocked account deletion currently means removing other active members rather than completing an in-app transfer flow.
 - Delete-request email delivery is required; SMTP failures return `500`.
-- Household deletion falls back to `/household/select` if reactivating the sole remaining household fails.
+- Household deletion still returns to `/household` if reactivating the sole remaining household fails; one-household bootstrap fallback covers the stale-session gap, with best-effort healing on a later household-scoped API request.
+- If post-delete remaining-household inspection fails entirely, household deletion falls back to `/household/select`.
 
 ## Key File Map
 - Routes: `src/app/api/**/route.ts`
@@ -93,7 +95,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ## Backlog Links
 - Active execution backlog: `docs/todo.md`.
-- Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`, `TODO-4`, `TODO-5`, `TODO-6`.
+- Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`, `TODO-4`.
 
 ## Change Checklist
 - Keep route handlers thin and transport-focused.

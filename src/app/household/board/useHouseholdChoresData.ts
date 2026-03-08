@@ -1,13 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo } from "react";
-
 import {
   type ChoresQueryData,
   fetchTodayChores,
   fetchWeekChores,
   getTodayChoresQueryKey,
   getWeekChoresQueryKey,
-  HouseholdRequiredError,
 } from "@/app/household/board/chores-query";
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
@@ -15,16 +13,13 @@ import type {
   UseHouseholdChoresDataModel,
   UseHouseholdChoresDataParams,
 } from "@/app/household/board/useHouseholdChoresData.types";
+import { HouseholdContextRedirectError } from "@/app/household/household-context-client";
 
 export type {
   LoadChoresFn,
   UseHouseholdChoresDataModel,
   UseHouseholdChoresDataParams,
 } from "@/app/household/board/useHouseholdChoresData.types";
-
-const redirectToHouseholdSetup = () => {
-  window.location.assign("/household/setup");
-};
 
 const toNextChores = ({
   previous,
@@ -143,8 +138,8 @@ export default function useHouseholdChoresData({
       return;
     }
 
-    if (error instanceof HouseholdRequiredError) {
-      redirectToHouseholdSetup();
+    if (error instanceof HouseholdContextRedirectError) {
+      window.location.assign(error.redirectPath);
       return;
     }
 
@@ -157,8 +152,8 @@ export default function useHouseholdChoresData({
       return;
     }
 
-    if (error instanceof HouseholdRequiredError) {
-      redirectToHouseholdSetup();
+    if (error instanceof HouseholdContextRedirectError) {
+      window.location.assign(error.redirectPath);
       return;
     }
 

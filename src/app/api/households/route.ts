@@ -9,7 +9,11 @@ import {
   listActiveHouseholdsForUser,
   updateHouseholdById,
 } from "@/lib/repositories";
-import { householdHasOtherActiveMembers, withHouseholdMutationLock } from "@/lib/services";
+import {
+  householdHasOtherActiveMembers,
+  resolveActiveHousehold,
+  withHouseholdMutationLock,
+} from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +75,20 @@ const toSlugBase = (value: string) => {
 
 const buildHouseholdSlug = (name: string) =>
   `${toSlugBase(name)}-${randomBytes(4).toString("hex")}`;
+
+const assertOkResponse = (response: Response, message: string) => {
+  if (!response.ok) {
+    throw new Error(`${message} (status ${response.status})`);
+  }
+};
+
+const appendSetCookieHeaders = (target: Headers, source: Headers) => {
+  for (const [key, value] of source.entries()) {
+    if (key.toLowerCase() === "set-cookie") {
+      target.append(key, value);
+    }
+  }
+};
 
 const handleUnexpectedError = (
   action: "load" | "create" | "update" | "delete",
@@ -149,6 +167,10 @@ export async function POST(request: Request) {
 
     const timeZone = parsedTimeZone.timeZone;
     const icon = toIcon(payload?.icon);
+    const previousActiveHousehold = await resolveActiveHousehold({
+      sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
+      userId: sessionAccess.sessionContext.userId,
+    });
     const householdId = await createHouseholdWithOwner({
       userId: sessionAccess.sessionContext.userId,
       name,
@@ -166,14 +188,48 @@ export async function POST(request: Request) {
         },
         headers: request.headers,
       });
-      for (const [key, value] of setActiveResponse.headers.entries()) {
-        if (key.toLowerCase() === "set-cookie") {
-          responseHeaders.append(key, value);
-        }
-      }
+      appendSetCookieHeaders(responseHeaders, setActiveResponse.headers);
+      assertOkResponse(setActiveResponse, "Activate new household failed");
     } catch (error) {
       console.error("Failed to set active household after create", error);
+      try {
+        const rollbackResponse = await auth.api.deleteOrganization({
+          asResponse: true,
+          body: {
+            organizationId: String(householdId),
+          },
+          headers: request.headers,
+        });
+        appendSetCookieHeaders(responseHeaders, rollbackResponse.headers);
+        assertOkResponse(rollbackResponse, "Rollback household create failed");
+        if (previousActiveHousehold.status === "resolved") {
+          const restoreActiveResponse = await auth.api.setActiveOrganization({
+            asResponse: true,
+            body: {
+              organizationId: String(previousActiveHousehold.household.id),
+            },
+            headers: request.headers,
+          });
+          appendSetCookieHeaders(responseHeaders, restoreActiveResponse.headers);
+          assertOkResponse(
+            restoreActiveResponse,
+            "Restore previous household after rollback failed",
+          );
+        }
+      } catch (rollbackError) {
+        console.error(
+          "Failed to roll back household after create activation failure",
+          rollbackError,
+        );
+        return jsonError({
+          headers: responseHeaders,
+          status: 500,
+          code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+          error: "Failed to activate new household and roll back create",
+        });
+      }
       return jsonError({
+        headers: responseHeaders,
         status: 500,
         code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
         error: "Failed to activate new household",
@@ -288,7 +344,7 @@ export async function DELETE(request: Request) {
           });
         }
 
-        const responseHeaders = new Headers(householdAccess.responseHeaders);
+        responseHeaders = new Headers(householdAccess.responseHeaders);
         const deleteResponse = await auth.api.deleteOrganization({
           asResponse: true,
           body: {
@@ -296,11 +352,8 @@ export async function DELETE(request: Request) {
           },
           headers: request.headers,
         });
-        for (const [key, value] of deleteResponse.headers.entries()) {
-          if (key.toLowerCase() === "set-cookie") {
-            responseHeaders.append(key, value);
-          }
-        }
+        appendSetCookieHeaders(responseHeaders, deleteResponse.headers);
+        assertOkResponse(deleteResponse, "Delete household failed");
 
         let nextPath = "/household/setup";
         let activeHouseholdActivated = false;
@@ -317,16 +370,13 @@ export async function DELETE(request: Request) {
                 },
                 headers: request.headers,
               });
-              for (const [key, value] of setActiveResponse.headers.entries()) {
-                if (key.toLowerCase() === "set-cookie") {
-                  responseHeaders.append(key, value);
-                }
-              }
+              appendSetCookieHeaders(responseHeaders, setActiveResponse.headers);
+              assertOkResponse(setActiveResponse, "Activate remaining household failed");
               nextPath = "/household";
               activeHouseholdActivated = true;
             } catch (error) {
               console.error("Failed to activate remaining household after delete", error);
-              nextPath = "/household/select";
+              nextPath = "/household";
             }
           } else if (remainingHouseholds.length > 1) {
             nextPath = "/household/select";

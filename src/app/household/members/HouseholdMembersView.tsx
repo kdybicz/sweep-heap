@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 
 import {
+  readApiJsonResponse,
+  recoverFromHouseholdContextError,
+} from "@/app/household/household-context-client";
+import {
   formatDate,
   type HouseholdMember,
   type HouseholdMemberRole,
@@ -20,6 +24,34 @@ type HouseholdMembersViewProps = {
   initialMembers: HouseholdMember[];
   initialPendingInvites: HouseholdPendingInvite[];
   viewerUserId: number;
+};
+
+type HouseholdMembersApiResponse = {
+  ok?: boolean;
+  error?: string;
+  code?: string;
+  existingInvite?: {
+    id: number | string;
+    email: string;
+    role: string;
+    createdAt: string;
+    expiresAt: string;
+  };
+  invite?: {
+    id: number | string;
+    email: string;
+    role: string;
+    createdAt: string;
+    expiresAt: string;
+  };
+  inviteEmailSent?: boolean;
+  member?: {
+    userId: number | string;
+    name?: string | null;
+    email: string;
+    role: string;
+    joinedAt: string;
+  };
 };
 
 export default function HouseholdMembersView({
@@ -92,7 +124,10 @@ export default function HouseholdMembersView({
           email: inviteEmail,
         }),
       });
-      const data = await response.json();
+      const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      if (recoverFromHouseholdContextError(data)) {
+        return;
+      }
       if (!data?.ok) {
         if (data?.existingInvite) {
           upsertPendingInvite({
@@ -143,7 +178,10 @@ export default function HouseholdMembersView({
       const response = await fetch(`/api/households/members/invites/${invite.id}`, {
         method: "POST",
       });
-      const data = await response.json();
+      const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      if (recoverFromHouseholdContextError(data)) {
+        return;
+      }
       if (!data?.ok || !data?.invite) {
         setError(data?.error ?? "Failed to resend invite");
         setResendingInviteId(null);
@@ -185,7 +223,10 @@ export default function HouseholdMembersView({
       const response = await fetch(`/api/households/members/invites/${invite.id}`, {
         method: "DELETE",
       });
-      const data = await response.json();
+      const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      if (recoverFromHouseholdContextError(data)) {
+        return;
+      }
       if (!data?.ok) {
         setError(data?.error ?? "Failed to revoke invite");
         setRevokingInviteId(null);
@@ -227,7 +268,10 @@ export default function HouseholdMembersView({
           role,
         }),
       });
-      const data = await response.json();
+      const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      if (recoverFromHouseholdContextError(data)) {
+        return;
+      }
       if (!data?.ok || !data?.member) {
         setError(data?.error ?? "Failed to update member role");
         setRoleUpdatingUserId(null);
@@ -272,7 +316,10 @@ export default function HouseholdMembersView({
           userId: member.userId,
         }),
       });
-      const data = await response.json();
+      const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      if (recoverFromHouseholdContextError(data)) {
+        return;
+      }
       if (!data?.ok) {
         setError(data?.error ?? "Failed to remove member");
         setRemovingUserId(null);

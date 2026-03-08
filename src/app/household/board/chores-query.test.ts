@@ -4,9 +4,9 @@ import {
   fetchWeekChores,
   getTodayChoresQueryKey,
   getWeekChoresQueryKey,
-  HouseholdRequiredError,
 } from "@/app/household/board/chores-query";
 import type { ChoreItem } from "@/app/household/board/types";
+import { HouseholdContextRedirectError } from "@/app/household/household-context-client";
 
 const createChore = (id: number, occurrenceStartDate: string): ChoreItem => ({
   id,
@@ -21,7 +21,12 @@ const createChore = (id: number, occurrenceStartDate: string): ChoreItem => ({
   notes: null,
 });
 
-const createResponse = (body: unknown, status = 200): Pick<Response, "json" | "status"> => ({
+const createResponse = (
+  body: unknown,
+  status = 200,
+  contentType = "application/json",
+): Pick<Response, "headers" | "json" | "status"> => ({
+  headers: new Headers({ "content-type": contentType }),
   json: vi.fn().mockResolvedValue(body),
   status,
 });
@@ -93,7 +98,7 @@ describe("chores-query helpers", () => {
     });
   });
 
-  it("throws HouseholdRequiredError when household is missing", async () => {
+  it("throws HouseholdContextRedirectError when household is missing", async () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(
@@ -101,8 +106,25 @@ describe("chores-query helpers", () => {
       );
 
     await expect(fetchWeekChores({ weekOffset: 0, fetchImpl })).rejects.toBeInstanceOf(
-      HouseholdRequiredError,
+      HouseholdContextRedirectError,
     );
+  });
+
+  it("throws HouseholdContextRedirectError when household selection is required", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      createResponse(
+        {
+          ok: false,
+          error: "Active household selection required",
+          code: "HOUSEHOLD_SELECTION_REQUIRED",
+        },
+        409,
+      ),
+    );
+
+    await expect(fetchTodayChores({ todayKey: "2026-03-05", fetchImpl })).rejects.toMatchObject({
+      redirectPath: "/household/select",
+    });
   });
 
   it("throws fallback error when response is not ok", async () => {
@@ -110,6 +132,14 @@ describe("chores-query helpers", () => {
 
     await expect(fetchTodayChores({ todayKey: "2026-03-05", fetchImpl })).rejects.toThrow(
       "Failed to load today's chores",
+    );
+  });
+
+  it("throws fallback error when response is not json", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(createResponse("<html></html>", 500, "text/html"));
+
+    await expect(fetchWeekChores({ weekOffset: 0, fetchImpl })).rejects.toThrow(
+      "Failed to load chores",
     );
   });
 });

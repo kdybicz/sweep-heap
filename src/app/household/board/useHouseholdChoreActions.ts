@@ -1,7 +1,6 @@
 import { DateTime } from "luxon";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
 import {
   applyOptimisticDone,
   applyOptimisticUndo,
@@ -9,13 +8,16 @@ import {
   restoreTargetChores,
   updateTargetChore,
 } from "@/app/household/board/chore-actions-state";
-import { isHouseholdRequiredApiError } from "@/app/household/board/chores-query";
 import { addDaysToDateKey, getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem, UndoToast } from "@/app/household/board/types";
 import type {
   UseHouseholdChoreActionsModel,
   UseHouseholdChoreActionsParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
+import {
+  readApiJsonResponse,
+  recoverFromHouseholdContextError,
+} from "@/app/household/household-context-client";
 import type { ChoreType } from "@/lib/chore-ui-state";
 import { CHORE_UNDO_WINDOW_SECONDS } from "@/lib/chore-undo";
 
@@ -23,6 +25,16 @@ export type {
   UseHouseholdChoreActionsModel,
   UseHouseholdChoreActionsParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
+
+type ChoreMutationResponse = {
+  ok?: boolean;
+  error?: string;
+  code?: string;
+  fieldErrors?: Record<string, string>;
+  status?: string;
+  closed_reason?: string;
+  undo_until?: string;
+};
 
 export default function useHouseholdChoreActions({
   chores,
@@ -194,14 +206,9 @@ export default function useHouseholdChoreActions({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const data = (await response.json()) as {
-          ok?: boolean;
-          error?: string;
-          code?: string;
-          fieldErrors?: Record<string, string>;
-        };
-        if (isHouseholdRequiredApiError({ data })) {
-          window.location.assign("/household/setup");
+        const data = await readApiJsonResponse<ChoreMutationResponse>(response);
+        if (recoverFromHouseholdContextError(data)) {
+          setSubmitting(false);
           return;
         }
         if (!data?.ok) {
@@ -264,16 +271,13 @@ export default function useHouseholdChoreActions({
             action: "set",
           }),
         });
-        const data = (await response.json()) as {
-          ok?: boolean;
-          error?: string;
-          code?: string;
-          status?: string;
-          closed_reason?: string;
-          undo_until?: string;
-        };
-        if (isHouseholdRequiredApiError({ data })) {
-          window.location.assign("/household/setup");
+        const data = await readApiJsonResponse<ChoreMutationResponse>(response);
+        if (recoverFromHouseholdContextError(data)) {
+          if (previous.length > 0) {
+            setChores((prev) =>
+              restoreTargetChores({ chores: prev, choreId, occurrenceStartDate, previous }),
+            );
+          }
           return;
         }
         if (!data?.ok) {
@@ -324,13 +328,13 @@ export default function useHouseholdChoreActions({
             action: "undo",
           }),
         });
-        const data = (await response.json()) as {
-          ok?: boolean;
-          error?: string;
-          code?: string;
-        };
-        if (isHouseholdRequiredApiError({ data })) {
-          window.location.assign("/household/setup");
+        const data = await readApiJsonResponse<ChoreMutationResponse>(response);
+        if (recoverFromHouseholdContextError(data)) {
+          if (previous.length > 0) {
+            setChores((prev) =>
+              restoreTargetChores({ chores: prev, choreId, occurrenceStartDate, previous }),
+            );
+          }
           return;
         }
         if (!data?.ok) {

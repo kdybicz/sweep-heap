@@ -28,7 +28,6 @@
   - `TODO-2`: API rate limiting and abuse protections.
   - `TODO-3`: stricter DB constraints with a staged migration rollout.
   - `TODO-4`: household ownership and deletion lifecycle.
-  - `TODO-5`: household create/activate atomicity.
 - Workflow rule: when completing a TODO item, update this file in the same change if behavior, constraints, or caveats changed.
 
 ## Tech and Architecture Baseline
@@ -91,10 +90,10 @@
 - Household time zone is editable by owners/admins (not immutable in current implementation).
 - Household create/update rejects invalid time zones with `400` (`Invalid time zone`) instead of silently coercing to `UTC`.
 - When an authenticated user has no active household, household-gated APIs return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
+- Client fetch flows that lose household context mid-request should branch on `code` and recover to `/household/setup` for `HOUSEHOLD_REQUIRED`, or `/household/select` for `HOUSEHOLD_SELECTION_REQUIRED` and `HOUSEHOLD_NOT_FOUND`.
 - Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household.
 - Settings, profile, and board pages stay household-gated; only auth, invite acceptance, and household setup remain available during onboarding.
-- Public entry points like `/` and `/auth` should immediately redirect signed-in users to `/household` or `/household/setup` based on whether onboarding is complete.
-- If onboarding is complete but household selection is still required, signed-in users should be redirected to `/household/select`.
+- Public entry points like `/` and `/auth` should immediately redirect signed-in users to `/household`, `/household/select`, or `/household/setup` based on active-household state and onboarding completeness.
 - Default magic-link sign-in should return through an entry point that applies the same onboarding redirect policy; invite sign-in should keep its explicit callback to `/api/households/invites/complete`.
 - Non-admin members can invite and resend invites.
 - Only owners/admins can:
@@ -180,13 +179,15 @@
   - Sets the active household for the current session.
 - `POST /api/households`
   - Creates household + owner membership, then switches session active household to the new household.
-  - Returns `500` with `Failed to activate new household` if the follow-up active-household session switch fails.
+  - If the follow-up active-household session switch fails, the route attempts a compensating household delete and restores the previous active household when one existed before returning `500` with `Failed to activate new household`.
+  - If both activation and compensating delete fail, the route returns `500` with `Failed to activate new household and roll back create`.
 - `PATCH /api/households`
   - Updates household (owner/admin only).
 - `DELETE /api/households`
   - Deletes the active household (owner only, and only when no other active members remain).
   - Clears active context, redirects to `/household/setup` when none remain, `/household/select` when multiple remain, and re-activates the sole remaining household when possible.
-  - If sole-remaining-household activation fails, response still succeeds but falls back to `nextPath: "/household/select"` instead of claiming board context is ready.
+  - If sole-remaining-household activation fails, response still succeeds with `nextPath: "/household"`; page/API bootstrap fallback can still resolve the only remaining household, and session healing is best-effort until a later household-scoped API request.
+  - If the remaining-households lookup itself fails after delete, response still succeeds but falls back to `nextPath: "/household/select"`.
 - `GET /api/households/members`
   - Returns active members and pending invites.
 - `POST /api/households/members`
@@ -237,7 +238,7 @@
 - On confirmed delete:
   - User row is removed.
   - Any households that become empty (no active memberships) are also removed.
- - Current remediation is limited: owner transfer is not implemented yet, so blocked owners can remove other active members but cannot complete a transfer flow in-app today.
+- Current remediation is limited: owner transfer is not implemented yet, so blocked owners can remove other active members but cannot complete a transfer flow in-app today.
 
 ## Planned Ownership and Deletion Rules
 - Deleting a user's last household should leave the user in onboarding with no active household; they may create a new household afterward.
@@ -264,7 +265,6 @@
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
 - Cancel actions are currently API-first; the board UI does not yet expose first-class cancel controls.
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in `TODO-3`.
-- Household creation now fails fast when active-household switching fails, but the DB write and session update are still not atomic; full hardening is tracked in `TODO-5`.
 
 ## Decision Notes for Future Work
 - If recurrence behavior is changed, update both `generateOccurrences` and tests first, then align API and UI assumptions.

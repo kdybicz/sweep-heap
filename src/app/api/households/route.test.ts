@@ -89,6 +89,7 @@ describe("/api/households route", () => {
     householdHasOtherActiveMembersMock.mockResolvedValue(false);
     listActiveHouseholdsForUserMock.mockResolvedValue([]);
     reconcileActiveHouseholdSessionMock.mockResolvedValue(new Headers());
+    resolveActiveHouseholdMock.mockResolvedValue({ status: "none" });
     setActiveOrganizationMock.mockResolvedValue(
       new Response(null, {
         headers: {
@@ -244,9 +245,23 @@ describe("/api/households route", () => {
   it("POST fails when switching the active household fails", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      getSessionMock.mockResolvedValue({ user: { id: "21" } });
+      getSessionMock.mockResolvedValue({
+        user: { id: "21" },
+        session: { activeOrganizationId: "77" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "session",
+        household: {
+          id: 77,
+          name: "Main House",
+          timeZone: "UTC",
+          icon: null,
+          role: "owner",
+        },
+      });
       createHouseholdWithOwnerMock.mockResolvedValue(102);
-      setActiveOrganizationMock.mockRejectedValue(new Error("session update failed"));
+      setActiveOrganizationMock.mockRejectedValueOnce(new Error("session update failed"));
 
       const response = await POST(
         requestWithBody("POST", {
@@ -262,10 +277,359 @@ describe("/api/households route", () => {
         code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
         error: "Failed to activate new household",
       });
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=deleted");
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=abc");
       expect(createHouseholdWithOwnerMock).toHaveBeenCalled();
+      expect(deleteOrganizationMock).toHaveBeenCalledWith({
+        asResponse: true,
+        body: {
+          organizationId: "102",
+        },
+        headers: expect.any(Headers),
+      });
+      expect(setActiveOrganizationMock).toHaveBeenNthCalledWith(2, {
+        asResponse: true,
+        body: {
+          organizationId: "77",
+        },
+        headers: expect.any(Headers),
+      });
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         "Failed to set active household after create",
         expect.any(Error),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("POST treats non-ok activation response as failure and rolls back create", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "21" },
+        session: { activeOrganizationId: "77" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "session",
+        household: {
+          id: 77,
+          name: "Main House",
+          timeZone: "UTC",
+          icon: null,
+          role: "owner",
+        },
+      });
+      createHouseholdWithOwnerMock.mockResolvedValue(103);
+      setActiveOrganizationMock.mockResolvedValueOnce(
+        new Response(null, {
+          status: 500,
+          headers: {
+            "set-cookie": "better-auth.session=failed-activate; Path=/; HttpOnly",
+          },
+        }),
+      );
+
+      const response = await POST(
+        requestWithBody("POST", {
+          name: "The Annex",
+          timeZone: "UTC",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to activate new household",
+      });
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=failed-activate");
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=deleted");
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=abc");
+      expect(deleteOrganizationMock).toHaveBeenCalledWith({
+        asResponse: true,
+        body: {
+          organizationId: "103",
+        },
+        headers: expect.any(Headers),
+      });
+      expect(setActiveOrganizationMock).toHaveBeenNthCalledWith(2, {
+        asResponse: true,
+        body: {
+          organizationId: "77",
+        },
+        headers: expect.any(Headers),
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to set active household after create",
+        expect.any(Error),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("POST returns dedicated rollback error when activation and rollback both fail", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "21" },
+        session: { activeOrganizationId: "77" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "session",
+        household: {
+          id: 77,
+          name: "Main House",
+          timeZone: "UTC",
+          icon: null,
+          role: "owner",
+        },
+      });
+      createHouseholdWithOwnerMock.mockResolvedValue(104);
+      setActiveOrganizationMock.mockRejectedValue(new Error("session update failed"));
+      deleteOrganizationMock.mockRejectedValue(new Error("rollback failed"));
+
+      const response = await POST(
+        requestWithBody("POST", {
+          name: "The Annex",
+          timeZone: "UTC",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to activate new household and roll back create",
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to set active household after create",
+        expect.any(Error),
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to roll back household after create activation failure",
+        expect.any(Error),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("POST returns dedicated rollback error when rollback returns non-ok response", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "21" },
+        session: { activeOrganizationId: "77" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "session",
+        household: {
+          id: 77,
+          name: "Main House",
+          timeZone: "UTC",
+          icon: null,
+          role: "owner",
+        },
+      });
+      createHouseholdWithOwnerMock.mockResolvedValue(105);
+      setActiveOrganizationMock.mockRejectedValue(new Error("session update failed"));
+      deleteOrganizationMock.mockResolvedValue(
+        new Response(null, {
+          status: 500,
+          headers: {
+            "set-cookie": "better-auth.session=deleted; Path=/; HttpOnly",
+          },
+        }),
+      );
+
+      const response = await POST(
+        requestWithBody("POST", {
+          name: "The Annex",
+          timeZone: "UTC",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to activate new household and roll back create",
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to roll back household after create activation failure",
+        expect.any(Error),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("POST returns dedicated rollback error when restoring previous active household fails", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "21" },
+        session: { activeOrganizationId: "77" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "session",
+        household: {
+          id: 77,
+          name: "Main House",
+          timeZone: "UTC",
+          icon: null,
+          role: "owner",
+        },
+      });
+      createHouseholdWithOwnerMock.mockResolvedValue(106);
+      setActiveOrganizationMock
+        .mockRejectedValueOnce(new Error("session update failed"))
+        .mockResolvedValueOnce(new Response(null, { status: 500 }));
+
+      const response = await POST(
+        requestWithBody("POST", {
+          name: "The Annex",
+          timeZone: "UTC",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to activate new household and roll back create",
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to roll back household after create activation failure",
+        expect.any(Error),
+      );
+      expect(setActiveOrganizationMock).toHaveBeenNthCalledWith(2, {
+        asResponse: true,
+        body: {
+          organizationId: "77",
+        },
+        headers: expect.any(Headers),
+      });
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("POST restores the sole fallback household when activation rollback runs", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "21" },
+        session: { activeOrganizationId: null },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "fallback",
+        household: {
+          id: 88,
+          name: "Cabin",
+          timeZone: "UTC",
+          icon: null,
+          role: "member",
+        },
+      });
+      createHouseholdWithOwnerMock.mockResolvedValue(107);
+      setActiveOrganizationMock.mockRejectedValueOnce(new Error("session update failed"));
+
+      const response = await POST(
+        requestWithBody("POST", {
+          name: "The Annex",
+          timeZone: "UTC",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to activate new household",
+      });
+      expect(setActiveOrganizationMock).toHaveBeenNthCalledWith(2, {
+        asResponse: true,
+        body: {
+          organizationId: "88",
+        },
+        headers: expect.any(Headers),
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to set active household after create",
+        expect.any(Error),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("POST does not fail rollback when previous active household is stale", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "21" },
+        session: { activeOrganizationId: "77" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "selection-required",
+        households: [
+          {
+            id: 88,
+            name: "Cabin",
+            timeZone: "UTC",
+            icon: null,
+            role: "member",
+          },
+          {
+            id: 89,
+            name: "Flat",
+            timeZone: "UTC",
+            icon: null,
+            role: "owner",
+          },
+        ],
+      });
+      createHouseholdWithOwnerMock.mockResolvedValue(108);
+      setActiveOrganizationMock.mockRejectedValueOnce(new Error("session update failed"));
+
+      const response = await POST(
+        requestWithBody("POST", {
+          name: "The Annex",
+          timeZone: "UTC",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to activate new household",
+      });
+      expect(setActiveOrganizationMock).toHaveBeenCalledTimes(1);
+      expect(deleteOrganizationMock).toHaveBeenCalledWith({
+        asResponse: true,
+        body: {
+          organizationId: "108",
+        },
+        headers: expect.any(Headers),
+      });
+      expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+        "Failed to roll back household after create activation failure",
+        expect.anything(),
       );
     } finally {
       consoleErrorSpy.mockRestore();
@@ -626,6 +990,52 @@ describe("/api/households route", () => {
     });
   });
 
+  it("DELETE returns 500 when Better Auth delete returns non-ok response", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "9" },
+        session: { activeOrganizationId: "3" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "session",
+        household: {
+          id: 3,
+          name: "Flat",
+          timeZone: "UTC",
+          icon: null,
+          role: "owner",
+        },
+      });
+      deleteOrganizationMock.mockResolvedValue(
+        new Response(null, {
+          status: 500,
+          headers: {
+            "set-cookie": "better-auth.session=deleted; Path=/; HttpOnly",
+          },
+        }),
+      );
+
+      const response = await DELETE(
+        new Request("http://localhost/api/households", { method: "DELETE" }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to delete household",
+      });
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=deleted");
+      expect(listActiveHouseholdsForUserMock).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it("DELETE sends users to selector when multiple households remain", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "9" }, session: { activeOrganizationId: "3" } });
     resolveActiveHouseholdMock.mockResolvedValue({
@@ -712,7 +1122,7 @@ describe("/api/households route", () => {
     }
   });
 
-  it("DELETE falls back to selector when sole-remaining household activation fails", async () => {
+  it("DELETE still returns household path when sole-remaining household activation fails", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "9" }, session: { activeOrganizationId: "3" } });
     resolveActiveHouseholdMock.mockResolvedValue({
       status: "resolved",
@@ -746,8 +1156,58 @@ describe("/api/households route", () => {
       ok: true,
       deletedHouseholdId: 3,
       activeHouseholdActivated: false,
-      nextPath: "/household/select",
+      nextPath: "/household",
     });
+  });
+
+  it("DELETE keeps household fallback path when activation returns non-ok response", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "9" },
+        session: { activeOrganizationId: "3" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "session",
+        household: {
+          id: 3,
+          name: "Flat",
+          timeZone: "UTC",
+          icon: null,
+          role: "owner",
+        },
+      });
+      listActiveHouseholdsForUserMock.mockResolvedValue([
+        {
+          id: 7,
+          name: "Cabin",
+          timeZone: "UTC",
+          icon: "🏕",
+          role: "member",
+        },
+      ]);
+      setActiveOrganizationMock.mockResolvedValueOnce(new Response(null, { status: 500 }));
+
+      const response = await DELETE(
+        new Request("http://localhost/api/households", { method: "DELETE" }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toEqual({
+        ok: true,
+        deletedHouseholdId: 3,
+        activeHouseholdActivated: false,
+        nextPath: "/household",
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to activate remaining household after delete",
+        expect.any(Error),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("GET returns selection required when multiple households exist without an active choice", async () => {

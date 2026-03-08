@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import HouseholdIconPicker from "@/app/household/components/HouseholdIconPicker";
+import {
+  readApiJsonResponse,
+  recoverFromHouseholdContextError,
+} from "@/app/household/household-context-client";
 import { householdTimeZones } from "@/lib/time-zones";
 
 type HouseholdEditFormProps = {
@@ -44,7 +48,13 @@ export default function HouseholdEditForm({
           timeZone,
         }),
       });
-      const data = await response.json();
+      const data = await readApiJsonResponse<{ ok?: boolean; error?: string; code?: string }>(
+        response,
+      );
+      if (recoverFromHouseholdContextError(data)) {
+        setLoading(false);
+        return;
+      }
       if (!data?.ok) {
         setError(data?.error ?? "Failed to update household");
         setLoading(false);
@@ -75,8 +85,16 @@ export default function HouseholdEditForm({
       const response = await fetch("/api/households", {
         method: "DELETE",
       });
-      const contentType = response.headers.get("content-type") ?? "";
-      const data = contentType.includes("application/json") ? await response.json() : null;
+      const data = await readApiJsonResponse<{
+        ok?: boolean;
+        error?: string;
+        code?: string;
+        nextPath?: string;
+      }>(response);
+      if (recoverFromHouseholdContextError(data)) {
+        setDeleteLoading(false);
+        return;
+      }
       if (!data?.ok) {
         setError(data?.error ?? "Failed to delete household");
         setDeleteLoading(false);
