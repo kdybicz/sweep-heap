@@ -1,25 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ERROR_CODE } from "@/lib/api-error";
 
-const { getSessionMock, getActiveHouseholdSummaryMock, listChoresMock, mutateChoreMock } =
-  vi.hoisted(() => ({
+const { getSessionMock, listChoresMock, mutateChoreMock, resolveActiveHouseholdMock } = vi.hoisted(
+  () => ({
     getSessionMock: vi.fn(),
-    getActiveHouseholdSummaryMock: vi.fn(),
     listChoresMock: vi.fn(),
     mutateChoreMock: vi.fn(),
-  }));
+    resolveActiveHouseholdMock: vi.fn(),
+  }),
+);
 
 vi.mock("@/auth", () => ({
   getSession: getSessionMock,
 }));
 
-vi.mock("@/lib/repositories", () => ({
-  getActiveHouseholdSummary: getActiveHouseholdSummaryMock,
-}));
-
 vi.mock("@/lib/services", () => ({
   listChores: listChoresMock,
   mutateChore: mutateChoreMock,
+  resolveActiveHousehold: resolveActiveHouseholdMock,
 }));
 
 import { GET, PATCH } from "@/app/api/chores/route";
@@ -27,14 +25,21 @@ import { GET, PATCH } from "@/app/api/chores/route";
 describe("GET /api/chores", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
-    getActiveHouseholdSummaryMock.mockReset();
     listChoresMock.mockReset();
     mutateChoreMock.mockReset();
+    resolveActiveHouseholdMock.mockReset();
   });
 
   it("passes integer week offsets through to listChores", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11 },
+    });
     listChoresMock.mockResolvedValue({
       timeZone: "UTC",
       rangeStart: "2026-01-01",
@@ -56,8 +61,15 @@ describe("GET /api/chores", () => {
   });
 
   it("defaults to weekOffset=0 when query value is not an integer", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11 },
+    });
     listChoresMock.mockResolvedValue({
       timeZone: "UTC",
       rangeStart: "2026-01-01",
@@ -76,8 +88,15 @@ describe("GET /api/chores", () => {
   });
 
   it("clamps weekOffset to supported bounds", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11 },
+    });
     listChoresMock.mockResolvedValue({
       timeZone: "UTC",
       rangeStart: "2026-01-01",
@@ -106,14 +125,21 @@ describe("GET /api/chores", () => {
 describe("PATCH /api/chores", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
-    getActiveHouseholdSummaryMock.mockReset();
     listChoresMock.mockReset();
     mutateChoreMock.mockReset();
+    resolveActiveHouseholdMock.mockReset();
   });
 
   it("allows repeated stay-open log calls", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11 },
+    });
     mutateChoreMock.mockResolvedValue({
       ok: true,
       body: {
@@ -161,8 +187,15 @@ describe("PATCH /api/chores", () => {
   });
 
   it("rejects unsupported action values before service mutation", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11 },
+    });
 
     const response = await PATCH(
       new Request("http://localhost/api/chores", {
@@ -183,8 +216,15 @@ describe("PATCH /api/chores", () => {
   });
 
   it("rejects missing status for set-style mutations before service mutation", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({ id: 11 });
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11 },
+    });
 
     const response = await PATCH(
       new Request("http://localhost/api/chores", {

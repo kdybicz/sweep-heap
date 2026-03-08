@@ -32,3 +32,22 @@ Use `docs/requirements-quick-reference.md` when you need the short version while
 - Scope:
   - Revisit strict DB schema constraints (check constraints/enums/date invariants).
   - Define a staged migration/backfill strategy so constraints can be adopted safely.
+
+## TODO-4 - Household Ownership and Deletion Lifecycle
+- Requirement links:
+  - [Identity, Membership, and Household Rules](requirements.md#identity-membership-and-household-rules)
+  - [Account Deletion Requirements (Current)](requirements.md#account-deletion-requirements-current)
+  - [Planned Ownership and Deletion Rules](requirements.md#planned-ownership-and-deletion-rules)
+- Scope:
+  - Add owner-only household deletion, including the rule that a household cannot be deleted while other active members remain.
+  - Ensure active-household state is cleared or re-resolved when memberships or households are removed.
+  - Block account deletion for owners while their household still contains other active members.
+
+## TODO-5 - Household Create/Activate Atomicity
+- Requirement links:
+  - [Identity, Membership, and Household Rules](requirements.md#identity-membership-and-household-rules)
+  - [API Surface (Current Snapshot)](requirements.md#api-surface-current-snapshot)
+  - [Known Gaps and Implementation Caveats](requirements.md#known-gaps-and-implementation-caveats)
+- Scope:
+  - Eliminate partial-success behavior where household creation succeeds in storage but active-household session switching fails afterward.
+  - Define an atomic or compensating strategy for create-and-activate so users never end up with a hidden newly created household after a failed activation step.

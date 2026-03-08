@@ -15,9 +15,11 @@ export {
   createHouseholdWithOwner,
   getActiveHouseholdId,
   getActiveHouseholdSummary,
+  getHouseholdSummaryForUser,
   getHouseholdTimeZoneById,
   getPendingHouseholdInviteByIdAndSecret,
   getUserMemberships,
+  listActiveHouseholdsForUser,
   setPendingHouseholdInviteSecretHash,
   updateHouseholdById,
 } from "@/lib/repositories/household-repository";

@@ -1,16 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { acceptInvitationMock, getPendingHouseholdInviteByIdAndSecretMock, getSessionMock } =
-  vi.hoisted(() => ({
-    acceptInvitationMock: vi.fn(),
-    getPendingHouseholdInviteByIdAndSecretMock: vi.fn(),
-    getSessionMock: vi.fn(),
-  }));
+const {
+  acceptInvitationMock,
+  getPendingHouseholdInviteByIdAndSecretMock,
+  getSessionMock,
+  setActiveOrganizationMock,
+} = vi.hoisted(() => ({
+  acceptInvitationMock: vi.fn(),
+  getPendingHouseholdInviteByIdAndSecretMock: vi.fn(),
+  getSessionMock: vi.fn(),
+  setActiveOrganizationMock: vi.fn(),
+}));
 
 vi.mock("@/auth", () => ({
   auth: {
     api: {
       acceptInvitation: acceptInvitationMock,
+      setActiveOrganization: setActiveOrganizationMock,
     },
   },
   getSession: getSessionMock,
@@ -25,8 +31,17 @@ import { GET } from "@/app/api/households/invites/complete/route";
 describe("/api/households/invites/complete route", () => {
   beforeEach(() => {
     acceptInvitationMock.mockReset();
+    setActiveOrganizationMock.mockReset();
     getPendingHouseholdInviteByIdAndSecretMock.mockReset();
     getSessionMock.mockReset();
+
+    setActiveOrganizationMock.mockResolvedValue(
+      new Response(null, {
+        headers: {
+          "set-cookie": "better-auth.session=abc; Path=/; HttpOnly",
+        },
+      }),
+    );
   });
 
   it("redirects to auth when invite params are missing", async () => {
@@ -80,9 +95,17 @@ describe("/api/households/invites/complete route", () => {
         invitationId: "12",
       },
     });
+    expect(setActiveOrganizationMock).toHaveBeenCalledWith({
+      asResponse: true,
+      body: {
+        organizationId: "11",
+      },
+      headers: expect.any(Headers),
+    });
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("http://localhost/household");
+    expect(response.headers.get("set-cookie")).toContain("better-auth.session=abc");
   });
 
   it("redirects back with invalid error when invite cannot be used", async () => {
@@ -98,6 +121,7 @@ describe("/api/households/invites/complete route", () => {
       "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=invalid",
     );
     expect(acceptInvitationMock).not.toHaveBeenCalled();
+    expect(setActiveOrganizationMock).not.toHaveBeenCalled();
   });
 
   it("redirects back with other-household error when blocked", async () => {
@@ -127,6 +151,7 @@ describe("/api/households/invites/complete route", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=other-household",
     );
+    expect(setActiveOrganizationMock).not.toHaveBeenCalled();
   });
 
   it("redirects back with sign-in error on email mismatch", async () => {
@@ -156,6 +181,7 @@ describe("/api/households/invites/complete route", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=sign-in",
     );
+    expect(setActiveOrganizationMock).not.toHaveBeenCalled();
   });
 
   it("redirects back with invalid error when invite is no longer pending", async () => {
@@ -184,6 +210,32 @@ describe("/api/households/invites/complete route", () => {
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
       "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=invalid",
+    );
+    expect(setActiveOrganizationMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects back with unexpected error when active household switch fails", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "7", email: "jane@example.com" } });
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
+      householdId: 11,
+      householdName: "Home",
+      email: "jane@example.com",
+      role: "member",
+      invitedByUserId: 3,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      expiresAt: new Date("2126-01-08T00:00:00.000Z"),
+    });
+    acceptInvitationMock.mockResolvedValue({});
+    setActiveOrganizationMock.mockRejectedValue(new Error("session update failed"));
+
+    const response = await GET(
+      new Request("http://localhost/api/households/invites/complete?invitationId=12&secret=s3cr3t"),
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=unexpected",
     );
   });
 });

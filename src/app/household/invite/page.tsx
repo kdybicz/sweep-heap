@@ -71,8 +71,8 @@ export default async function HouseholdInvitePage({
           <div className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">Invite</div>
           <h1 className="text-3xl font-semibold">Join {invite.householdName}</h1>
           <p className="text-sm text-[var(--muted)]">
-            This invite is for {invite.email}. Accepting it will create your account and sign you
-            in.
+            This invite is for {invite.email}. Accepting it will sign you in if needed and switch
+            you into this household.
           </p>
         </header>
 

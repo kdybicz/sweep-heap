@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { createContext, useContext } from "react";
 
 type HouseholdViewerContextValue = {
+  canSwitchHouseholds: boolean;
   isHouseholdAdmin: boolean;
   householdName: string;
   householdIcon: string;
@@ -11,6 +12,7 @@ type HouseholdViewerContextValue = {
 };
 
 const HouseholdViewerContext = createContext<HouseholdViewerContextValue>({
+  canSwitchHouseholds: false,
   isHouseholdAdmin: false,
   householdName: "Your household",
   householdIcon: "",
@@ -18,12 +20,14 @@ const HouseholdViewerContext = createContext<HouseholdViewerContextValue>({
 });
 
 export function HouseholdViewerProvider({
+  canSwitchHouseholds,
   children,
   isHouseholdAdmin,
   householdName,
   householdIcon,
   userName,
 }: {
+  canSwitchHouseholds: boolean;
   children: ReactNode;
   isHouseholdAdmin: boolean;
   householdName: string;
@@ -33,6 +37,7 @@ export function HouseholdViewerProvider({
   return (
     <HouseholdViewerContext.Provider
       value={{
+        canSwitchHouseholds,
         isHouseholdAdmin,
         householdName,
         householdIcon,

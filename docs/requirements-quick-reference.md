@@ -12,15 +12,17 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## Core Rules
 
 ### Household and roles
-- User can create a household only if they have no active membership.
-- Active household is latest active membership by `joined_at`.
+- Any signed-in user can create a household, including users who already belong to another active household.
+- Active household comes from session `active_household_id`, with one-household bootstrap fallback when the session selection is missing or stale.
 - Owner/admin-only: edit household, revoke invites, change roles, remove members.
 - Household create/edit validates time zone; invalid values return `400` (`Invalid time zone`).
+- `POST /api/households` fails with `500` (`Failed to activate new household`) if session activation does not succeed after the household is created.
 - API failures include `{ ok: false, code, error }`; control flow should branch on `code`.
 - Household-gated APIs use `code: "HOUSEHOLD_REQUIRED"` for missing active-household access; clients should branch on `code`, not error message text.
+- Household selection uses session `active_household_id` as the primary context; when multiple memberships exist without an active selection, redirect to `/household/select` or handle `HOUSEHOLD_SELECTION_REQUIRED`.
 - Signed-in users without an active household should stay in the auth/onboarding flow until setup or invite acceptance completes.
 - Settings, profile, and board pages stay behind active-household access.
-- `/` and `/auth` should bounce signed-in users into `/household` or `/household/setup`.
+- `/` and `/auth` should bounce signed-in users into `/household`, `/household/select`, or `/household/setup` based on context.
 - Plain magic-link sign-in should return through the same onboarding redirect entry point; invite sign-in keeps the invite-complete callback.
 - Users cannot change their own role from the members endpoint.
 - Household administrators cannot remove themselves from the members endpoint.
@@ -30,6 +32,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Invite validity is `invitationId + secret` + pending-status expiry window (7 days).
 - Invite create/resend is best-effort for SMTP delivery; check `inviteEmailSent` in success responses.
 - Signed-in acceptance requires session email to match invited email.
+- Accepting an invite can add a user to an additional household and switches active context to the accepted household.
 - If no matching session, API returns a sign-in redirect with callback to invite completion.
 
 ### Chores
@@ -55,6 +58,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## API Snapshot
 - `GET /api/health`
 - `GET|POST|PATCH /api/households`
+- `POST /api/households/active`
 - `GET|POST|PATCH|DELETE /api/households/members`
 - `POST|DELETE /api/households/members/invites/[inviteId]`
 - `POST /api/households/invites/accept`
@@ -83,7 +87,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ## Backlog Links
 - Active execution backlog: `docs/todo.md`.
-- Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`.
+- Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`, `TODO-4`, `TODO-5`.
 
 ## Change Checklist
 - Keep route handlers thin and transport-focused.

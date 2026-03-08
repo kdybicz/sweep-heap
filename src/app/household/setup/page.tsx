@@ -1,8 +1,8 @@
 import HouseholdSetupForm from "@/app/household/setup/HouseholdSetupForm";
-import { requirePageWithoutHousehold } from "@/lib/page-access";
+import { requirePageSessionUser } from "@/lib/page-access";
 
 export default async function HouseholdSetupPage() {
-  await requirePageWithoutHousehold();
+  await requirePageSessionUser();
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">

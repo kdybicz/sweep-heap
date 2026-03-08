@@ -7,6 +7,7 @@ import { getAccountShortcuts } from "@/lib/account-menu";
 
 type AccountDropdownProps = {
   canEditHousehold: boolean;
+  canSwitchHouseholds: boolean;
   userName: string;
 };
 
@@ -26,9 +27,13 @@ const triggerClassName =
 const itemClassName =
   "block rounded-md px-3 py-2 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-strong)]";
 
-export default function AccountDropdown({ canEditHousehold, userName }: AccountDropdownProps) {
+export default function AccountDropdown({
+  canEditHousehold,
+  canSwitchHouseholds,
+  userName,
+}: AccountDropdownProps) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
-  const shortcuts = getAccountShortcuts(canEditHousehold);
+  const shortcuts = getAccountShortcuts(canEditHousehold, canSwitchHouseholds);
   const label = userName.trim() || "You";
   const initials = getInitials(label);
 

@@ -44,6 +44,14 @@ export const getActiveHouseholdId = async (userId: number) => {
   return result.rows[0]?.householdId ?? null;
 };
 
+export const listActiveHouseholdsForUser = async (userId: number) => {
+  const result = await pool.query<ActiveHouseholdSummary>(
+    "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.status = 'active' order by hm.joined_at desc, h.id desc",
+    [userId],
+  );
+  return result.rows;
+};
+
 export const createHouseholdWithOwner = async ({
   userId,
   name,
@@ -94,6 +102,20 @@ export const getActiveHouseholdSummary = async (userId: number) => {
   const result = await pool.query<ActiveHouseholdSummary>(
     "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.status = 'active' order by hm.joined_at desc limit 1",
     [userId],
+  );
+  return result.rows[0] ?? null;
+};
+
+export const getHouseholdSummaryForUser = async ({
+  householdId,
+  userId,
+}: {
+  householdId: number;
+  userId: number;
+}) => {
+  const result = await pool.query<ActiveHouseholdSummary>(
+    "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.household_id = $2 and hm.status = 'active' limit 1",
+    [userId, householdId],
   );
   return result.rows[0] ?? null;
 };

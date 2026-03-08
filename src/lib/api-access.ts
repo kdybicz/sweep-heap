@@ -1,10 +1,13 @@
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
-import { getActiveHouseholdSummary } from "@/lib/repositories";
+import { resolveActiveHousehold } from "@/lib/services";
 import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 type SessionContextOk = Extract<Awaited<ReturnType<typeof getSessionContext>>, { ok: true }>;
-type ActiveHouseholdSummary = NonNullable<Awaited<ReturnType<typeof getActiveHouseholdSummary>>>;
+type ActiveHouseholdSummary = Extract<
+  Awaited<ReturnType<typeof resolveActiveHousehold>>,
+  { status: "resolved" }
+>["household"];
 
 type ApiAccessFailure = {
   ok: false;
@@ -31,6 +34,13 @@ const householdRequiredResponse = () =>
     status: 403,
     code: API_ERROR_CODE.HOUSEHOLD_REQUIRED,
     error: "Household required",
+  });
+
+const householdSelectionRequiredResponse = () =>
+  jsonError({
+    status: 409,
+    code: API_ERROR_CODE.HOUSEHOLD_SELECTION_REQUIRED,
+    error: "Active household selection required",
   });
 
 const forbiddenResponse = () =>
@@ -61,18 +71,28 @@ export const requireApiHousehold = async (): Promise<ApiHouseholdAccess> => {
     return sessionAccess;
   }
 
-  const household = await getActiveHouseholdSummary(sessionAccess.sessionContext.userId);
-  if (!household) {
+  const activeHousehold = await resolveActiveHousehold({
+    sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
+    userId: sessionAccess.sessionContext.userId,
+  });
+  if (activeHousehold.status === "none") {
     return {
       ok: false,
       response: householdRequiredResponse(),
     };
   }
 
+  if (activeHousehold.status === "selection-required") {
+    return {
+      ok: false,
+      response: householdSelectionRequiredResponse(),
+    };
+  }
+
   return {
     ok: true,
     sessionContext: sessionAccess.sessionContext,
-    household,
+    household: activeHousehold.household,
   };
 };
 

@@ -76,11 +76,14 @@ export async function GET(request: Request) {
   }
 
   const acceptance = await acceptHouseholdInvite({
+    householdId: invite.householdId,
     invitationId: numericInvitationId,
     requestHeaders: request.headers,
   });
   if (acceptance.ok) {
-    return Response.redirect(new URL("/household", request.url), 302);
+    const headers = new Headers(acceptance.responseHeaders);
+    headers.set("location", new URL("/household", request.url).toString());
+    return new Response(null, { status: 302, headers });
   }
 
   if (acceptance.reason === "invalid") {

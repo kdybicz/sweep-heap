@@ -1,4 +1,4 @@
-import { APIError, betterAuth } from "better-auth";
+import { betterAuth } from "better-auth";
 import { magicLink, organization } from "better-auth/plugins";
 import { createAccessControl } from "better-auth/plugins/access";
 import { defaultStatements } from "better-auth/plugins/organization/access";
@@ -105,40 +105,6 @@ const toUserId = (value: unknown) => {
   return parsed;
 };
 
-const findActiveHouseholdIdByUserId = async (userId: number) => {
-  const result = await pool.query<{ householdId: number }>(
-    "select household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by joined_at desc limit 1",
-    [userId],
-  );
-
-  return result.rows[0]?.householdId ?? null;
-};
-
-const findUserIdByEmail = async (email: string) => {
-  const result = await pool.query<{ id: number }>(
-    "select id from users where lower(email) = lower($1) limit 1",
-    [email.trim().toLowerCase()],
-  );
-
-  return result.rows[0]?.id ?? null;
-};
-
-const ensureCanJoinHousehold = async ({
-  householdId,
-  userId,
-}: {
-  householdId: number;
-  userId: number;
-}) => {
-  const activeHouseholdId = await findActiveHouseholdIdByUserId(userId);
-  if (activeHouseholdId !== null && activeHouseholdId !== householdId) {
-    throw new APIError("CONFLICT", {
-      code: "USER_IN_OTHER_HOUSEHOLD",
-      message: "You already belong to another household",
-    });
-  }
-};
-
 export const auth = betterAuth({
   appName: "The Sweep Heap",
   baseURL: appUrl,
@@ -215,48 +181,7 @@ export const auth = betterAuth({
       },
       allowUserToCreateOrganization: async (user) => {
         const userId = toUserId(user.id);
-        if (userId === null) {
-          return false;
-        }
-
-        const activeHouseholdId = await findActiveHouseholdIdByUserId(userId);
-        return activeHouseholdId === null;
-      },
-      organizationHooks: {
-        beforeAcceptInvitation: async ({ invitation, user }) => {
-          const userId = toUserId(user.id);
-          const householdId = toUserId(invitation.organizationId);
-          if (userId === null || householdId === null) {
-            return;
-          }
-
-          await ensureCanJoinHousehold({ householdId, userId });
-        },
-        beforeAddMember: async ({ member }) => {
-          const userId = toUserId(member.userId);
-          const householdId = toUserId(member.organizationId);
-          if (userId === null || householdId === null) {
-            return;
-          }
-
-          await ensureCanJoinHousehold({ householdId, userId });
-        },
-        beforeCreateInvitation: async ({ invitation, organization }) => {
-          const invitedUserId = await findUserIdByEmail(invitation.email);
-          if (invitedUserId === null) {
-            return;
-          }
-
-          const householdId = toUserId(organization.id);
-          if (householdId === null) {
-            return;
-          }
-
-          await ensureCanJoinHousehold({
-            householdId,
-            userId: invitedUserId,
-          });
-        },
+        return userId !== null;
       },
       schema: {
         session: {

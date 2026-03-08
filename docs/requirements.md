@@ -7,7 +7,7 @@
 - For a compact day-to-day version, use `docs/requirements-quick-reference.md`.
 
 ## Status
-- Last reviewed against code: 2026-03-06.
+- Last reviewed against code: 2026-03-08.
 - Product phase: MVP with active iteration.
 - Current scope includes auth, households, members/invites, chores board UI, and account settings.
 
@@ -27,6 +27,8 @@
   - `TODO-1`: integration and end-to-end coverage hardening.
   - `TODO-2`: API rate limiting and abuse protections.
   - `TODO-3`: stricter DB constraints with a staged migration rollout.
+  - `TODO-4`: household ownership and deletion lifecycle.
+  - `TODO-5`: household create/activate atomicity.
 - Workflow rule: when completing a TODO item, update this file in the same change if behavior, constraints, or caveats changed.
 
 ## Tech and Architecture Baseline
@@ -81,14 +83,18 @@
 - Override: persisted exception for one series/occurrence-start pair.
 
 ## Identity, Membership, and Household Rules
-- A signed-in user can create a household only when they currently have no active memberships.
-- Active household is derived as the latest active membership by `joined_at`.
+- A signed-in user can create additional households while already belonging to other active households.
+- The household setup page is also the signed-in create-household entry point for existing members who want to add another household.
+- `active_household_id` is the primary acting-household context.
+- When `active_household_id` is missing or stale and the user has exactly one active household, the app may bootstrap from that sole membership.
+- When multiple active households exist and no valid `active_household_id` is available, the user must choose a household before household-scoped actions continue.
 - Household time zone is editable by owners/admins (not immutable in current implementation).
 - Household create/update rejects invalid time zones with `400` (`Invalid time zone`) instead of silently coercing to `UTC`.
 - When an authenticated user has no active household, household-gated APIs return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
 - Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household.
 - Settings, profile, and board pages stay household-gated; only auth, invite acceptance, and household setup remain available during onboarding.
 - Public entry points like `/` and `/auth` should immediately redirect signed-in users to `/household` or `/household/setup` based on whether onboarding is complete.
+- If onboarding is complete but household selection is still required, signed-in users should be redirected to `/household/select`.
 - Default magic-link sign-in should return through an entry point that applies the same onboarding redirect policy; invite sign-in should keep its explicit callback to `/api/households/invites/complete`.
 - Non-admin members can invite and resend invites.
 - Only owners/admins can:
@@ -105,7 +111,7 @@
 - Invite create/resend delivery is best-effort: APIs return `ok: true` even when SMTP send fails, with `inviteEmailSent: false` in the response.
 - Accepting invite with active session:
   - Succeeds only when signed-in email matches invite email.
-  - Fails with conflict if signed-in user belongs to another household.
+  - Can add the user to another household and switch active context to the accepted household.
 - Accepting invite without valid matching session:
   - Redirects to magic-link sign-in with callback to `/api/households/invites/complete?invitationId=...&secret=...`.
 
@@ -167,8 +173,11 @@
   - DB heartbeat check.
 - `GET /api/households`
   - Returns active household summary for current user.
+- `POST /api/households/active`
+  - Sets the active household for the current session.
 - `POST /api/households`
-  - Creates household + owner membership.
+  - Creates household + owner membership, then switches session active household to the new household.
+  - Returns `500` with `Failed to activate new household` if the follow-up active-household session switch fails.
 - `PATCH /api/households`
   - Updates household (owner/admin only).
 - `GET /api/households/members`
@@ -219,6 +228,14 @@
   - User row is removed.
   - Any households that become empty (no active memberships) are also removed.
 
+## Planned Ownership and Deletion Rules
+- Household deletion will be owner-only.
+- A household cannot be deleted while it still has any active members besides the acting owner.
+- Deleting a user's last household should leave the user in onboarding with no active household; they may create a new household afterward.
+- Account deletion must be blocked when the user owns any household that still has active members besides that owner.
+- When an active household is deleted or the user's membership in it ends, `active_household_id` must be cleared or re-resolved before the next household-scoped action.
+- Multi-household support should treat `active_household_id` as the acting context; membership list and ownership checks must be evaluated against the targeted household, not inferred by latest membership.
+
 ## Code Organization Conventions
 - Keep route handlers transport-focused (auth, parsing, response mapping).
 - Keep SQL/data access in `src/lib/repositories/*-repository.ts`.
@@ -239,6 +256,7 @@
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
 - Cancel actions are currently API-first; the board UI does not yet expose first-class cancel controls.
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in `TODO-3`.
+- Household creation now fails fast when active-household switching fails, but the DB write and session update are still not atomic; full hardening is tracked in `TODO-5`.
 
 ## Decision Notes for Future Work
 - If recurrence behavior is changed, update both `generateOccurrences` and tests first, then align API and UI assumptions.

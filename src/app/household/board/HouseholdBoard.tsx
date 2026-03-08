@@ -34,7 +34,8 @@ export default function HouseholdBoard() {
 
 function HouseholdBoardContent() {
   const board = useHouseholdBoard();
-  const { householdIcon, householdName, isHouseholdAdmin, userName } = useHouseholdViewer();
+  const { canSwitchHouseholds, householdIcon, householdName, isHouseholdAdmin, userName } =
+    useHouseholdViewer();
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -53,6 +54,7 @@ function HouseholdBoardContent() {
         <section className="flex flex-col gap-6">
           <AccountHeader
             canEditHousehold={isHouseholdAdmin}
+            canSwitchHouseholds={canSwitchHouseholds}
             householdIcon={householdIcon}
             householdName={householdName}
             userName={userName}

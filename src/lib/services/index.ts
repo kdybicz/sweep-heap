@@ -1,3 +1,4 @@
+export { resolveActiveHousehold } from "@/lib/services/active-household-service";
 export { listChores, mutateChore } from "@/lib/services/chore-service";
 export {
   acceptHouseholdInvite,

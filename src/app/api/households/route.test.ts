@@ -2,28 +2,35 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ERROR_CODE } from "@/lib/api-error";
 
 const {
+  setActiveOrganizationMock,
   getSessionMock,
   createHouseholdWithOwnerMock,
-  getActiveHouseholdSummaryMock,
-  getUserMembershipsMock,
+  resolveActiveHouseholdMock,
   updateHouseholdByIdMock,
 } = vi.hoisted(() => ({
+  setActiveOrganizationMock: vi.fn(),
   getSessionMock: vi.fn(),
   createHouseholdWithOwnerMock: vi.fn(),
-  getActiveHouseholdSummaryMock: vi.fn(),
-  getUserMembershipsMock: vi.fn(),
+  resolveActiveHouseholdMock: vi.fn(),
   updateHouseholdByIdMock: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
+  auth: {
+    api: {
+      setActiveOrganization: setActiveOrganizationMock,
+    },
+  },
   getSession: getSessionMock,
 }));
 
 vi.mock("@/lib/repositories", () => ({
   createHouseholdWithOwner: createHouseholdWithOwnerMock,
-  getActiveHouseholdSummary: getActiveHouseholdSummaryMock,
-  getUserMemberships: getUserMembershipsMock,
   updateHouseholdById: updateHouseholdByIdMock,
+}));
+
+vi.mock("@/lib/services", () => ({
+  resolveActiveHousehold: resolveActiveHouseholdMock,
 }));
 
 import { GET, PATCH, POST } from "@/app/api/households/route";
@@ -44,21 +51,36 @@ const requestWithRawBody = (method: "POST" | "PATCH", rawBody: string) =>
 
 describe("/api/households route", () => {
   beforeEach(() => {
+    setActiveOrganizationMock.mockReset();
     getSessionMock.mockReset();
     createHouseholdWithOwnerMock.mockReset();
-    getActiveHouseholdSummaryMock.mockReset();
-    getUserMembershipsMock.mockReset();
+    resolveActiveHouseholdMock.mockReset();
     updateHouseholdByIdMock.mockReset();
+
+    setActiveOrganizationMock.mockResolvedValue(
+      new Response(null, {
+        headers: {
+          "set-cookie": "better-auth.session=abc; Path=/; HttpOnly",
+        },
+      }),
+    );
   });
 
   it("GET returns active household for authenticated user", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "7" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({
-      id: 11,
-      name: "Home",
-      timeZone: "Europe/Warsaw",
-      icon: "🏡",
-      role: "admin",
+    getSessionMock.mockResolvedValue({
+      user: { id: "7" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: {
+        id: 11,
+        name: "Home",
+        timeZone: "Europe/Warsaw",
+        icon: "🏡",
+        role: "admin",
+      },
     });
 
     const response = await GET();
@@ -78,8 +100,11 @@ describe("/api/households route", () => {
   });
 
   it("GET returns household required when user has no active household", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "7" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue(null);
+    getSessionMock.mockResolvedValue({
+      user: { id: "7" },
+      session: { activeOrganizationId: null },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({ status: "none" });
 
     const response = await GET();
     const body = await response.json();
@@ -104,14 +129,14 @@ describe("/api/households route", () => {
       code: API_ERROR_CODE.INVALID_USER,
       error: "Invalid user",
     });
-    expect(getActiveHouseholdSummaryMock).not.toHaveBeenCalled();
+    expect(resolveActiveHouseholdMock).not.toHaveBeenCalled();
   });
 
   it("GET returns consistent 500 envelope on unexpected errors", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       getSessionMock.mockResolvedValue({ user: { id: "7" } });
-      getActiveHouseholdSummaryMock.mockRejectedValue(new Error("db failed"));
+      resolveActiveHouseholdMock.mockRejectedValue(new Error("db failed"));
 
       const response = await GET();
       const body = await response.json();
@@ -130,7 +155,6 @@ describe("/api/households route", () => {
 
   it("POST normalizes icon and creates household", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getUserMembershipsMock.mockResolvedValue([]);
     createHouseholdWithOwnerMock.mockResolvedValue(100);
 
     const response = await POST(
@@ -144,6 +168,7 @@ describe("/api/households route", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true, householdId: 100 });
+    expect(response.headers.get("set-cookie")).toContain("better-auth.session=abc");
     expect(createHouseholdWithOwnerMock).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 21,
@@ -153,11 +178,70 @@ describe("/api/households route", () => {
       }),
     );
     expect(createHouseholdWithOwnerMock.mock.calls[0]?.[0]?.slug).toMatch(/^the-heap-/);
+    expect(setActiveOrganizationMock).toHaveBeenCalledWith({
+      asResponse: true,
+      body: {
+        organizationId: "100",
+      },
+      headers: expect.any(Headers),
+    });
+  });
+
+  it("POST still creates a household for users who already belong to another one", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
+    createHouseholdWithOwnerMock.mockResolvedValue(101);
+
+    const response = await POST(
+      requestWithBody("POST", {
+        name: "Side Project",
+        timeZone: "UTC",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ ok: true, householdId: 101 });
+    expect(createHouseholdWithOwnerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 21,
+        name: "Side Project",
+      }),
+    );
+  });
+
+  it("POST fails when switching the active household fails", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "21" } });
+      createHouseholdWithOwnerMock.mockResolvedValue(102);
+      setActiveOrganizationMock.mockRejectedValue(new Error("session update failed"));
+
+      const response = await POST(
+        requestWithBody("POST", {
+          name: "The Annex",
+          timeZone: "UTC",
+        }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to activate new household",
+      });
+      expect(createHouseholdWithOwnerMock).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to set active household after create",
+        expect.any(Error),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("POST rejects invalid time zone", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
-    getUserMembershipsMock.mockResolvedValue([]);
 
     const response = await POST(
       requestWithBody("POST", {
@@ -195,7 +279,6 @@ describe("/api/households route", () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       getSessionMock.mockResolvedValue({ user: { id: "21" } });
-      getUserMembershipsMock.mockResolvedValue([]);
       createHouseholdWithOwnerMock.mockRejectedValue(new Error("insert failed"));
 
       const response = await POST(
@@ -219,13 +302,17 @@ describe("/api/households route", () => {
   });
 
   it("PATCH rejects non-admin users", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "9" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({
-      id: 3,
-      name: "Flat",
-      timeZone: "UTC",
-      icon: null,
-      role: "member",
+    getSessionMock.mockResolvedValue({ user: { id: "9" }, session: { activeOrganizationId: "3" } });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: {
+        id: 3,
+        name: "Flat",
+        timeZone: "UTC",
+        icon: null,
+        role: "member",
+      },
     });
 
     const response = await PATCH(
@@ -247,13 +334,17 @@ describe("/api/households route", () => {
   });
 
   it("PATCH updates household and clears empty icon", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "9" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({
-      id: 3,
-      name: "Flat",
-      timeZone: "UTC",
-      icon: "🏠",
-      role: "owner",
+    getSessionMock.mockResolvedValue({ user: { id: "9" }, session: { activeOrganizationId: "3" } });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: {
+        id: 3,
+        name: "Flat",
+        timeZone: "UTC",
+        icon: "🏠",
+        role: "owner",
+      },
     });
     updateHouseholdByIdMock.mockResolvedValue({
       id: 3,
@@ -290,13 +381,17 @@ describe("/api/households route", () => {
   });
 
   it("PATCH rejects invalid time zone", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "9" } });
-    getActiveHouseholdSummaryMock.mockResolvedValue({
-      id: 3,
-      name: "Flat",
-      timeZone: "UTC",
-      icon: "🏠",
-      role: "owner",
+    getSessionMock.mockResolvedValue({ user: { id: "9" }, session: { activeOrganizationId: "3" } });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: {
+        id: 3,
+        name: "Flat",
+        timeZone: "UTC",
+        icon: "🏠",
+        role: "owner",
+      },
     });
 
     const response = await PATCH(
@@ -315,5 +410,26 @@ describe("/api/households route", () => {
       error: "Invalid time zone",
     });
     expect(updateHouseholdByIdMock).not.toHaveBeenCalled();
+  });
+
+  it("GET returns selection required when multiple households exist without an active choice", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "7" },
+      session: { activeOrganizationId: null },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "selection-required",
+      households: [],
+    });
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.HOUSEHOLD_SELECTION_REQUIRED,
+      error: "Active household selection required",
+    });
   });
 });

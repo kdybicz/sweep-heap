@@ -77,9 +77,11 @@ export const hasMatchingHouseholdInviteSession = async (inviteEmail: string) => 
 };
 
 export const acceptHouseholdInvite = async ({
+  householdId,
   invitationId,
   requestHeaders,
 }: {
+  householdId: number;
   invitationId: number;
   requestHeaders: Headers;
 }) => {
@@ -91,8 +93,23 @@ export const acceptHouseholdInvite = async ({
       headers: requestHeaders,
     });
 
+    const setActiveResponse = await auth.api.setActiveOrganization({
+      asResponse: true,
+      body: {
+        organizationId: String(householdId),
+      },
+      headers: requestHeaders,
+    });
+    const responseHeaders = new Headers();
+    for (const [key, value] of setActiveResponse.headers.entries()) {
+      if (key.toLowerCase() === "set-cookie") {
+        responseHeaders.append(key, value);
+      }
+    }
+
     return {
       ok: true as const,
+      responseHeaders,
     };
   } catch (error) {
     const authApiError = toAuthApiError(error);

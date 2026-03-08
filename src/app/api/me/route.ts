@@ -1,7 +1,8 @@
 import { requireApiSession } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { parseJsonObjectBody } from "@/lib/http";
-import { getActiveHouseholdId, getUserMemberships, updateUserNameById } from "@/lib/repositories";
+import { getUserMemberships, updateUserNameById } from "@/lib/repositories";
+import { resolveActiveHousehold } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,12 @@ export async function GET() {
     }
 
     const memberships = await getUserMemberships(sessionAccess.sessionContext.userId);
-    const activeHouseholdId = await getActiveHouseholdId(sessionAccess.sessionContext.userId);
+    const activeHousehold = await resolveActiveHousehold({
+      sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
+      userId: sessionAccess.sessionContext.userId,
+    });
+    const activeHouseholdId =
+      activeHousehold.status === "resolved" ? activeHousehold.household.id : null;
 
     return Response.json({
       ok: true,

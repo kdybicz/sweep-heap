@@ -1,22 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ERROR_CODE } from "@/lib/api-error";
 
-const { getSessionMock, getActiveHouseholdIdMock, getUserMembershipsMock, updateUserNameByIdMock } =
-  vi.hoisted(() => ({
-    getSessionMock: vi.fn(),
-    getActiveHouseholdIdMock: vi.fn(),
-    getUserMembershipsMock: vi.fn(),
-    updateUserNameByIdMock: vi.fn(),
-  }));
+const {
+  getSessionMock,
+  getUserMembershipsMock,
+  resolveActiveHouseholdMock,
+  updateUserNameByIdMock,
+} = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
+  getUserMembershipsMock: vi.fn(),
+  resolveActiveHouseholdMock: vi.fn(),
+  updateUserNameByIdMock: vi.fn(),
+}));
 
 vi.mock("@/auth", () => ({
   getSession: getSessionMock,
 }));
 
 vi.mock("@/lib/repositories", () => ({
-  getActiveHouseholdId: getActiveHouseholdIdMock,
   getUserMemberships: getUserMembershipsMock,
   updateUserNameById: updateUserNameByIdMock,
+}));
+
+vi.mock("@/lib/services", () => ({
+  resolveActiveHousehold: resolveActiveHouseholdMock,
 }));
 
 import { GET, PATCH } from "@/app/api/me/route";
@@ -38,8 +45,8 @@ const invalidJsonPatchRequest = () =>
 describe("/api/me route", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
-    getActiveHouseholdIdMock.mockReset();
     getUserMembershipsMock.mockReset();
+    resolveActiveHouseholdMock.mockReset();
     updateUserNameByIdMock.mockReset();
   });
 
@@ -56,7 +63,7 @@ describe("/api/me route", () => {
       error: "Unauthorized",
     });
     expect(getUserMembershipsMock).not.toHaveBeenCalled();
-    expect(getActiveHouseholdIdMock).not.toHaveBeenCalled();
+    expect(resolveActiveHouseholdMock).not.toHaveBeenCalled();
   });
 
   it("GET rejects non-numeric user ids", async () => {
@@ -72,7 +79,7 @@ describe("/api/me route", () => {
       error: "Invalid user",
     });
     expect(getUserMembershipsMock).not.toHaveBeenCalled();
-    expect(getActiveHouseholdIdMock).not.toHaveBeenCalled();
+    expect(resolveActiveHouseholdMock).not.toHaveBeenCalled();
   });
 
   it("GET returns user details and memberships", async () => {
@@ -82,6 +89,9 @@ describe("/api/me route", () => {
         name: "Alex",
         email: "alex@example.com",
       },
+      session: {
+        activeOrganizationId: "12",
+      },
     });
     getUserMembershipsMock.mockResolvedValue([
       {
@@ -90,7 +100,17 @@ describe("/api/me route", () => {
         status: "active",
       },
     ]);
-    getActiveHouseholdIdMock.mockResolvedValue(12);
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: {
+        id: 12,
+        name: "Home",
+        role: "admin",
+        icon: null,
+        timeZone: "UTC",
+      },
+    });
 
     const response = await GET();
     const body = await response.json();
@@ -113,7 +133,45 @@ describe("/api/me route", () => {
       activeHouseholdId: 12,
     });
     expect(getUserMembershipsMock).toHaveBeenCalledWith(4);
-    expect(getActiveHouseholdIdMock).toHaveBeenCalledWith(4);
+    expect(resolveActiveHouseholdMock).toHaveBeenCalledWith({
+      sessionActiveHouseholdId: 12,
+      userId: 4,
+    });
+  });
+
+  it("GET returns null active household when user must select one", async () => {
+    getSessionMock.mockResolvedValue({
+      user: {
+        id: "4",
+        name: "Alex",
+        email: "alex@example.com",
+      },
+      session: {
+        activeOrganizationId: null,
+      },
+    });
+    getUserMembershipsMock.mockResolvedValue([
+      {
+        householdId: 12,
+        role: "admin",
+        status: "active",
+      },
+      {
+        householdId: 14,
+        role: "member",
+        status: "active",
+      },
+    ]);
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "selection-required",
+      households: [],
+    });
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.activeHouseholdId).toBeNull();
   });
 
   it("GET returns consistent 500 envelope on unexpected errors", async () => {

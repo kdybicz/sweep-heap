@@ -4,6 +4,7 @@ import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 export type SessionContext =
   | {
       ok: true;
+      sessionActiveHouseholdId: number | null;
       userId: number;
       sessionUserId: string;
       sessionUserName: string | null;
@@ -42,8 +43,22 @@ export const getSessionContext = async (): Promise<SessionContext> => {
     };
   }
 
+  const rawSessionActiveHouseholdId = session?.session?.activeOrganizationId;
+  const sessionActiveHouseholdId =
+    rawSessionActiveHouseholdId === undefined ||
+    rawSessionActiveHouseholdId === null ||
+    rawSessionActiveHouseholdId === ""
+      ? null
+      : Number(rawSessionActiveHouseholdId);
+
   return {
     ok: true,
+    sessionActiveHouseholdId:
+      typeof sessionActiveHouseholdId === "number" &&
+      Number.isInteger(sessionActiveHouseholdId) &&
+      sessionActiveHouseholdId > 0
+        ? sessionActiveHouseholdId
+        : null,
     userId,
     sessionUserId: String(rawUserId),
     sessionUserName: typeof sessionUser.name === "string" ? sessionUser.name : null,

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getSession } from "@/auth";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
-import { getActiveHouseholdSummary, getUserMemberships } from "@/lib/repositories";
+import { resolveActiveHousehold } from "@/lib/services";
 
 const redirectToAuth = () => {
   redirect("/auth");
@@ -21,7 +21,21 @@ export const requirePageSessionUser = async () => {
     redirectToAuth();
   }
 
+  const rawSessionActiveHouseholdId = session?.session?.activeOrganizationId;
+  const sessionActiveHouseholdId =
+    rawSessionActiveHouseholdId === undefined ||
+    rawSessionActiveHouseholdId === null ||
+    rawSessionActiveHouseholdId === ""
+      ? null
+      : Number(rawSessionActiveHouseholdId);
+
   return {
+    sessionActiveHouseholdId:
+      typeof sessionActiveHouseholdId === "number" &&
+      Number.isInteger(sessionActiveHouseholdId) &&
+      sessionActiveHouseholdId > 0
+        ? sessionActiveHouseholdId
+        : null,
     sessionUserId: String(rawUserId),
     sessionUserName: typeof user?.name === "string" ? user.name : null,
     sessionUserEmail: typeof user?.email === "string" ? user.email : null,
@@ -41,22 +55,47 @@ export const redirectSignedInUserToApp = async () => {
     return;
   }
 
-  const household = await getActiveHouseholdSummary(userId);
-  redirect(household ? "/household" : "/household/setup");
+  const rawSessionActiveHouseholdId = session?.session?.activeOrganizationId;
+  const sessionActiveHouseholdId =
+    rawSessionActiveHouseholdId === undefined ||
+    rawSessionActiveHouseholdId === null ||
+    rawSessionActiveHouseholdId === ""
+      ? null
+      : Number(rawSessionActiveHouseholdId);
+
+  const activeHousehold = await resolveActiveHousehold({
+    sessionActiveHouseholdId:
+      typeof sessionActiveHouseholdId === "number" &&
+      Number.isInteger(sessionActiveHouseholdId) &&
+      sessionActiveHouseholdId > 0
+        ? sessionActiveHouseholdId
+        : null,
+    userId,
+  });
+  if (activeHousehold.status === "resolved") {
+    redirect("/household");
+  }
+
+  redirect(
+    activeHousehold.status === "selection-required" ? "/household/select" : "/household/setup",
+  );
 };
 
 export const requirePageActiveHousehold = async () => {
   const access = await requirePageSessionUser();
-  const { userId } = access;
-  const household = await getActiveHouseholdSummary(userId);
-  if (!household) {
-    redirect("/household/setup");
+  const activeHousehold = await resolveActiveHousehold({
+    sessionActiveHouseholdId: access.sessionActiveHouseholdId,
+    userId: access.userId,
+  });
+  if (activeHousehold.status !== "resolved") {
+    redirect(
+      activeHousehold.status === "selection-required" ? "/household/select" : "/household/setup",
+    );
   }
 
   return {
     ...access,
-    userId,
-    household,
+    household: activeHousehold.household,
   };
 };
 
@@ -71,9 +110,16 @@ export const requirePageHouseholdAdmin = async () => {
 
 export const requirePageWithoutHousehold = async () => {
   const access = await requirePageSessionUser();
-  const memberships = await getUserMemberships(access.userId);
-  if (memberships.length) {
+  const activeHousehold = await resolveActiveHousehold({
+    sessionActiveHouseholdId: access.sessionActiveHouseholdId,
+    userId: access.userId,
+  });
+  if (activeHousehold.status === "resolved") {
     redirect("/household");
+  }
+
+  if (activeHousehold.status === "selection-required") {
+    redirect("/household/select");
   }
 
   return access;

@@ -54,6 +54,7 @@ export async function POST(request: Request) {
     }
 
     const acceptance = await acceptHouseholdInvite({
+      householdId: invite.householdId,
       invitationId,
       requestHeaders: request.headers,
     });
@@ -92,12 +93,15 @@ export async function POST(request: Request) {
       throw new Error("Unhandled household invite acceptance result");
     }
 
-    return Response.json({
-      ok: true,
-      redirectUrl: "/household",
-      householdId: invite.householdId,
-      householdName: invite.householdName,
-    });
+    return Response.json(
+      {
+        ok: true,
+        redirectUrl: "/household",
+        householdId: invite.householdId,
+        householdName: invite.householdName,
+      },
+      { headers: acceptance.responseHeaders },
+    );
   } catch (error) {
     console.error("Failed to accept household invite", error);
     return jsonError({

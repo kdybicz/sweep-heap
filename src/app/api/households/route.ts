@@ -1,13 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { DateTime } from "luxon";
+import { auth } from "@/auth";
 import { requireApiHousehold, requireApiHouseholdAdmin, requireApiSession } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { parseJsonObjectBody } from "@/lib/http";
-import {
-  createHouseholdWithOwner,
-  getUserMemberships,
-  updateHouseholdById,
-} from "@/lib/repositories";
+import { createHouseholdWithOwner, updateHouseholdById } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
@@ -124,15 +121,6 @@ export async function POST(request: Request) {
       });
     }
 
-    const memberships = await getUserMemberships(sessionAccess.sessionContext.userId);
-    if (memberships.length) {
-      return jsonError({
-        status: 409,
-        code: API_ERROR_CODE.HOUSEHOLD_ALREADY_EXISTS_FOR_USER,
-        error: "User already belongs to a household",
-      });
-    }
-
     const parsedTimeZone = parseTimeZone(payload?.timeZone);
     if (!parsedTimeZone.ok) {
       return jsonError({
@@ -152,7 +140,30 @@ export async function POST(request: Request) {
       icon,
     });
 
-    return Response.json({ ok: true, householdId });
+    const responseHeaders = new Headers();
+    try {
+      const setActiveResponse = await auth.api.setActiveOrganization({
+        asResponse: true,
+        body: {
+          organizationId: String(householdId),
+        },
+        headers: request.headers,
+      });
+      for (const [key, value] of setActiveResponse.headers.entries()) {
+        if (key.toLowerCase() === "set-cookie") {
+          responseHeaders.append(key, value);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to set active household after create", error);
+      return jsonError({
+        status: 500,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to activate new household",
+      });
+    }
+
+    return Response.json({ ok: true, householdId }, { headers: responseHeaders });
   } catch (error) {
     return handleUnexpectedError("create", error);
   }

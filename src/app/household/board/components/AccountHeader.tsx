@@ -2,6 +2,7 @@ import AccountDropdown from "@/app/household/board/components/AccountDropdown";
 
 type AccountHeaderProps = {
   canEditHousehold: boolean;
+  canSwitchHouseholds: boolean;
   householdName: string;
   householdIcon: string;
   userName: string;
@@ -9,6 +10,7 @@ type AccountHeaderProps = {
 
 export default function AccountHeader({
   canEditHousehold,
+  canSwitchHouseholds,
   householdName,
   householdIcon,
   userName,
@@ -31,7 +33,11 @@ export default function AccountHeader({
           </span>
         </div>
         <div className="shrink-0">
-          <AccountDropdown canEditHousehold={canEditHousehold} userName={userName} />
+          <AccountDropdown
+            canEditHousehold={canEditHousehold}
+            canSwitchHouseholds={canSwitchHouseholds}
+            userName={userName}
+          />
         </div>
       </div>
     </header>
