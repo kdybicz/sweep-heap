@@ -70,6 +70,9 @@ Important contract:
 Keep page-level access rules aligned with API permissions:
 
 - Server-rendered pages for privileged actions must enforce the same role checks as the API they submit to.
+- Household-scoped product pages (board, profile, settings, household management) should require an active household before rendering.
+- The pre-household onboarding surface is limited to auth, invite acceptance, and household setup.
+- Public entry points such as `/` and `/auth` should redirect signed-in users to `/household` or `/household/setup` rather than leaving them on public pages.
 - For household owner/admin flows (for example `/household/edit` with `PATCH /api/households`), redirect non-privileged members before rendering the edit form.
 
 ## 5) Recurrence and Occurrence Generation

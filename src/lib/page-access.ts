@@ -29,6 +29,22 @@ export const requirePageSessionUser = async () => {
   };
 };
 
+export const redirectSignedInUserToApp = async () => {
+  const session = await getSession();
+  const rawUserId = session?.user?.id;
+  if (!rawUserId) {
+    return;
+  }
+
+  const userId = Number(rawUserId);
+  if (!Number.isFinite(userId)) {
+    return;
+  }
+
+  const household = await getActiveHouseholdSummary(userId);
+  redirect(household ? "/household" : "/household/setup");
+};
+
 export const requirePageActiveHousehold = async () => {
   const access = await requirePageSessionUser();
   const { userId } = access;

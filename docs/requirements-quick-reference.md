@@ -18,6 +18,10 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Household create/edit validates time zone; invalid values return `400` (`Invalid time zone`).
 - API failures include `{ ok: false, code, error }`; control flow should branch on `code`.
 - Household-gated APIs use `code: "HOUSEHOLD_REQUIRED"` for missing active-household access; clients should branch on `code`, not error message text.
+- Signed-in users without an active household should stay in the auth/onboarding flow until setup or invite acceptance completes.
+- Settings, profile, and board pages stay behind active-household access.
+- `/` and `/auth` should bounce signed-in users into `/household` or `/household/setup`.
+- Plain magic-link sign-in should return through the same onboarding redirect entry point; invite sign-in keeps the invite-complete callback.
 - Users cannot change their own role from the members endpoint.
 - Household administrators cannot remove themselves from the members endpoint.
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).

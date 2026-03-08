@@ -1,8 +1,11 @@
 import Link from "next/link";
 
 import AuthForm from "@/app/auth/AuthForm";
+import { redirectSignedInUserToApp } from "@/lib/page-access";
 
-export default function AuthPage() {
+export default async function AuthPage() {
+  await redirectSignedInUserToApp();
+
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,_var(--glow-1),_transparent_55%),radial-gradient(circle_at_80%_10%,_var(--glow-3),_transparent_45%),linear-gradient(180deg,_var(--glow-2),_transparent_55%)]" />

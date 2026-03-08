@@ -86,6 +86,10 @@
 - Household time zone is editable by owners/admins (not immutable in current implementation).
 - Household create/update rejects invalid time zones with `400` (`Invalid time zone`) instead of silently coercing to `UTC`.
 - When an authenticated user has no active household, household-gated APIs return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
+- Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household.
+- Settings, profile, and board pages stay household-gated; only auth, invite acceptance, and household setup remain available during onboarding.
+- Public entry points like `/` and `/auth` should immediately redirect signed-in users to `/household` or `/household/setup` based on whether onboarding is complete.
+- Default magic-link sign-in should return through an entry point that applies the same onboarding redirect policy; invite sign-in should keep its explicit callback to `/api/households/invites/complete`.
 - Non-admin members can invite and resend invites.
 - Only owners/admins can:
   - Edit household details.

@@ -1,13 +1,9 @@
-import { auth, getSession } from "@/auth";
-import { hashHouseholdInviteSecret } from "@/lib/household-invite-secret";
+import { parsePositiveInt } from "@/lib/organization-api";
 import {
-  isInvitationNotFoundError,
-  isInviteRecipientMismatchError,
-  isOtherHouseholdError,
-  parsePositiveInt,
-  toAuthApiError,
-} from "@/lib/organization-api";
-import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
+  acceptHouseholdInvite,
+  getHouseholdInviteSessionEmail,
+  getPendingHouseholdInvite,
+} from "@/lib/services/household-invite-service";
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +34,8 @@ export async function GET(request: Request) {
     return Response.redirect(new URL("/auth", request.url), 302);
   }
 
-  const session = await getSession();
-  if (!session?.user?.email) {
+  const sessionEmail = await getHouseholdInviteSessionEmail();
+  if (!sessionEmail) {
     return Response.redirect(
       redirectTo({
         error: "sign-in",
@@ -51,9 +47,9 @@ export async function GET(request: Request) {
     );
   }
 
-  const invite = await getPendingHouseholdInviteByIdAndSecret({
-    inviteId: numericInvitationId,
-    secretHash: hashHouseholdInviteSecret(secret),
+  const invite = await getPendingHouseholdInvite({
+    invitationId: numericInvitationId,
+    secret,
   });
   if (!invite) {
     return Response.redirect(
@@ -67,7 +63,6 @@ export async function GET(request: Request) {
     );
   }
 
-  const sessionEmail = session.user.email.trim().toLowerCase();
   if (sessionEmail !== invite.email.trim().toLowerCase()) {
     return Response.redirect(
       redirectTo({
@@ -80,56 +75,18 @@ export async function GET(request: Request) {
     );
   }
 
-  try {
-    await auth.api.acceptInvitation({
-      body: {
-        invitationId: String(numericInvitationId),
-      },
-      headers: request.headers,
-    });
-
+  const acceptance = await acceptHouseholdInvite({
+    invitationId: numericInvitationId,
+    requestHeaders: request.headers,
+  });
+  if (acceptance.ok) {
     return Response.redirect(new URL("/household", request.url), 302);
-  } catch (error) {
-    const authApiError = toAuthApiError(error);
-    if (isInvitationNotFoundError(authApiError)) {
-      return Response.redirect(
-        redirectTo({
-          error: "invalid",
-          invitationId: String(numericInvitationId),
-          request,
-          secret,
-        }),
-        302,
-      );
-    }
+  }
 
-    if (isOtherHouseholdError(authApiError)) {
-      return Response.redirect(
-        redirectTo({
-          error: "other-household",
-          invitationId: String(numericInvitationId),
-          request,
-          secret,
-        }),
-        302,
-      );
-    }
-
-    if (isInviteRecipientMismatchError(authApiError)) {
-      return Response.redirect(
-        redirectTo({
-          error: "sign-in",
-          invitationId: String(numericInvitationId),
-          request,
-          secret,
-        }),
-        302,
-      );
-    }
-
+  if (acceptance.reason === "invalid") {
     return Response.redirect(
       redirectTo({
-        error: "unexpected",
+        error: "invalid",
         invitationId: String(numericInvitationId),
         request,
         secret,
@@ -137,4 +94,38 @@ export async function GET(request: Request) {
       302,
     );
   }
+
+  if (acceptance.reason === "other-household") {
+    return Response.redirect(
+      redirectTo({
+        error: "other-household",
+        invitationId: String(numericInvitationId),
+        request,
+        secret,
+      }),
+      302,
+    );
+  }
+
+  if (acceptance.reason === "recipient-mismatch") {
+    return Response.redirect(
+      redirectTo({
+        error: "sign-in",
+        invitationId: String(numericInvitationId),
+        request,
+        secret,
+      }),
+      302,
+    );
+  }
+
+  return Response.redirect(
+    redirectTo({
+      error: "unexpected",
+      invitationId: String(numericInvitationId),
+      request,
+      secret,
+    }),
+    302,
+  );
 }

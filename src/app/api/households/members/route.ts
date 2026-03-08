@@ -6,14 +6,9 @@ import {
   validateHouseholdMemberRemovePayload,
   validateHouseholdMemberRoleUpdatePayload,
 } from "@/lib/api-payload-validation";
-import { sendHouseholdInviteEmail } from "@/lib/household-invite-email";
-import {
-  generateHouseholdInviteSecret,
-  hashHouseholdInviteSecret,
-} from "@/lib/household-invite-secret";
 import { getHouseholdMembersSnapshot } from "@/lib/household-members";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
-import { getAppOrigin, parseJsonObjectBody } from "@/lib/http";
+import { parseJsonObjectBody } from "@/lib/http";
 import {
   type AuthApiError,
   isAlreadyInvitedError,
@@ -28,7 +23,7 @@ import {
   parsePositiveInt,
   toAuthApiError,
 } from "@/lib/organization-api";
-import { setPendingHouseholdInviteSecretHash } from "@/lib/repositories";
+import { sendHouseholdInvite } from "@/lib/services/household-invite-service";
 
 export const dynamic = "force-dynamic";
 
@@ -279,47 +274,18 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    const inviteId = parsePositiveInt(invite.id);
-    if (inviteId === null) {
-      throw new Error("Invalid invitation id");
-    }
-
-    const inviteSecret = generateHouseholdInviteSecret();
-    const inviteSecretHash = hashHouseholdInviteSecret(inviteSecret);
-    const storedInviteId = await setPendingHouseholdInviteSecretHash({
-      inviteId,
-      secretHash: inviteSecretHash,
-    });
-    if (storedInviteId === null) {
-      throw new Error("Failed to store invitation secret");
-    }
-
-    const appOrigin = getAppOrigin(request);
-    const inviteUrl = new URL("/household/invite", appOrigin);
-    inviteUrl.searchParams.set("invitationId", String(inviteId));
-    inviteUrl.searchParams.set("secret", inviteSecret);
-
     const inviterName =
       sessionContext.sessionUserName?.trim() ||
       sessionContext.sessionUserEmail?.trim() ||
       "A household member";
 
-    let inviteEmailSent = false;
-    try {
-      await sendHouseholdInviteEmail({
-        householdName: household.name,
-        inviteUrl: inviteUrl.toString(),
-        inviterName,
-        to: invite.email,
-      });
-      inviteEmailSent = true;
-    } catch (error) {
-      console.error("Failed to send household invite email", {
-        householdId: household.id,
-        inviteId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    const { inviteEmailSent } = await sendHouseholdInvite({
+      householdId: household.id,
+      householdName: household.name,
+      invite,
+      inviterName,
+      request,
+    });
 
     return Response.json({
       ok: true,

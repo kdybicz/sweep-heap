@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 
-const getSafeCallbackUrl = (value: string) => {
+export const getSafeCallbackUrl = (value: string) => {
   const candidates = [value];
 
   try {
@@ -18,7 +18,7 @@ const getSafeCallbackUrl = (value: string) => {
     }
   }
 
-  return "/household";
+  return "/auth";
 };
 
 const getPrefilledEmail = (value: string | null) => {
@@ -38,7 +38,7 @@ export default function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const callbackURL = getSafeCallbackUrl(searchParams.get("callbackURL") ?? "/household");
+  const callbackURL = getSafeCallbackUrl(searchParams.get("callbackURL") ?? "/auth");
   const [email, setEmail] = useState(() => getPrefilledEmail(searchParams.get("email")));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
