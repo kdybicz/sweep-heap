@@ -55,6 +55,16 @@ vi.mock("@/lib/services/ownership-guard-service", () => ({
 
 import { DELETE, POST } from "@/app/api/households/members/invites/[inviteId]/route";
 
+const pendingInvite = (overrides: Partial<Record<string, unknown>> = {}) => ({
+  id: 12,
+  email: "pending@example.com",
+  role: "member",
+  status: "pending",
+  createdAt: new Date("2026-01-01T00:00:00.000Z"),
+  expiresAt: new Date("2126-01-09T00:00:00.000Z"),
+  ...overrides,
+});
+
 describe("/api/households/members/invites/[inviteId] route", () => {
   beforeEach(() => {
     cancelInvitationMock.mockReset();
@@ -88,24 +98,8 @@ describe("/api/households/members/invites/[inviteId] route", () => {
   });
 
   it("POST resends a pending invite", async () => {
-    listInvitationsMock.mockResolvedValue([
-      {
-        id: 12,
-        email: "pending@example.com",
-        role: "member",
-        status: "pending",
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
-      },
-    ]);
-    createInvitationMock.mockResolvedValue({
-      id: 12,
-      email: "pending@example.com",
-      role: "member",
-      status: "pending",
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      expiresAt: new Date("2126-01-09T00:00:00.000Z"),
-    });
+    listInvitationsMock.mockResolvedValue([pendingInvite()]);
+    createInvitationMock.mockResolvedValue(pendingInvite());
 
     const response = await POST(new Request("http://localhost/api/households/members/invites/12"), {
       params: Promise.resolve({ inviteId: "12" }),
@@ -138,24 +132,8 @@ describe("/api/households/members/invites/[inviteId] route", () => {
       household: { id: 11, name: "Home", role: "owner" },
       sessionContext: { sessionUserName: "Alex", sessionUserEmail: "alex@example.com" },
     });
-    listInvitationsMock.mockResolvedValue([
-      {
-        id: 12,
-        email: "pending@example.com",
-        role: "owner",
-        status: "pending",
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
-      },
-    ]);
-    createInvitationMock.mockResolvedValue({
-      id: 12,
-      email: "pending@example.com",
-      role: "owner",
-      status: "pending",
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      expiresAt: new Date("2126-01-09T00:00:00.000Z"),
-    });
+    listInvitationsMock.mockResolvedValue([pendingInvite({ role: "owner" })]);
+    createInvitationMock.mockResolvedValue(pendingInvite({ role: "owner" }));
 
     const response = await POST(new Request("http://localhost/api/households/members/invites/12"), {
       params: Promise.resolve({ inviteId: "12" }),
@@ -168,16 +146,7 @@ describe("/api/households/members/invites/[inviteId] route", () => {
   });
 
   it("POST blocks non-owners from resending owner invite", async () => {
-    listInvitationsMock.mockResolvedValue([
-      {
-        id: 12,
-        email: "pending@example.com",
-        role: "owner",
-        status: "pending",
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
-      },
-    ]);
+    listInvitationsMock.mockResolvedValue([pendingInvite({ role: "owner" })]);
 
     const response = await POST(new Request("http://localhost/api/households/members/invites/12"), {
       params: Promise.resolve({ inviteId: "12" }),
@@ -211,16 +180,7 @@ describe("/api/households/members/invites/[inviteId] route", () => {
   });
 
   it("DELETE revokes pending invite for admins", async () => {
-    listInvitationsMock.mockResolvedValue([
-      {
-        id: 12,
-        email: "pending@example.com",
-        role: "member",
-        status: "pending",
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
-      },
-    ]);
+    listInvitationsMock.mockResolvedValue([pendingInvite()]);
     cancelInvitationMock.mockResolvedValue({});
 
     const response = await DELETE(
@@ -234,19 +194,14 @@ describe("/api/households/members/invites/[inviteId] route", () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true, revokedInviteId: 12 });
     expect(cancelInvitationMock).toHaveBeenCalledTimes(1);
+    expect(withHouseholdMutationLockMock).toHaveBeenCalledWith({
+      householdId: 11,
+      task: expect.any(Function),
+    });
   });
 
   it("DELETE blocks admins from revoking owner invites", async () => {
-    listInvitationsMock.mockResolvedValue([
-      {
-        id: 12,
-        email: "pending@example.com",
-        role: "owner",
-        status: "pending",
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
-      },
-    ]);
+    listInvitationsMock.mockResolvedValue([pendingInvite({ role: "owner" })]);
 
     const response = await DELETE(
       new Request("http://localhost/api/households/members/invites/12"),
@@ -263,19 +218,14 @@ describe("/api/households/members/invites/[inviteId] route", () => {
       error: "Only owners can manage owner roles",
     });
     expect(cancelInvitationMock).not.toHaveBeenCalled();
+    expect(withHouseholdMutationLockMock).toHaveBeenCalledWith({
+      householdId: 11,
+      task: expect.any(Function),
+    });
   });
 
   it("DELETE maps missing invite to 404", async () => {
-    listInvitationsMock.mockResolvedValue([
-      {
-        id: 12,
-        email: "pending@example.com",
-        role: "member",
-        status: "pending",
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        expiresAt: new Date("2126-01-09T00:00:00.000Z"),
-      },
-    ]);
+    listInvitationsMock.mockResolvedValue([pendingInvite()]);
     cancelInvitationMock.mockRejectedValue({
       body: {
         code: "INVITATION_NOT_FOUND",
@@ -297,21 +247,16 @@ describe("/api/households/members/invites/[inviteId] route", () => {
       code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
       error: "Pending invite not found",
     });
+    expect(withHouseholdMutationLockMock).toHaveBeenCalledWith({
+      householdId: 11,
+      task: expect.any(Function),
+    });
   });
 
   it("POST preserves reconciliation headers on unexpected errors", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      listInvitationsMock.mockResolvedValue([
-        {
-          id: 12,
-          email: "pending@example.com",
-          role: "member",
-          status: "pending",
-          createdAt: new Date("2026-01-01T00:00:00.000Z"),
-          expiresAt: new Date("2126-01-09T00:00:00.000Z"),
-        },
-      ]);
+      listInvitationsMock.mockResolvedValue([pendingInvite()]);
       createInvitationMock.mockRejectedValue(new Error("resend failed"));
 
       const response = await POST(

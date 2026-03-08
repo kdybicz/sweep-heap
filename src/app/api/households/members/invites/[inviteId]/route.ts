@@ -184,42 +184,49 @@ export async function DELETE(
       });
     }
 
-    const pendingInvites = await listOrganizationInvites({
+    return await withHouseholdMutationLock({
       householdId: adminAccess.household.id,
-      request,
-    });
-    const invite = pendingInvites.find((pendingInvite) => Number(pendingInvite.id) === inviteId);
-    if (!invite || invite.status !== "pending") {
-      return jsonError({
-        headers: adminAccess.responseHeaders,
-        status: 404,
-        code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
-        error: "Pending invite not found",
-      });
-    }
+      task: async () => {
+        const pendingInvites = await listOrganizationInvites({
+          householdId: adminAccess.household.id,
+          request,
+        });
+        const invite = pendingInvites.find(
+          (pendingInvite) => Number(pendingInvite.id) === inviteId,
+        );
+        if (!invite || invite.status !== "pending") {
+          return jsonError({
+            headers: adminAccess.responseHeaders,
+            status: 404,
+            code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
+            error: "Pending invite not found",
+          });
+        }
 
-    const ownerRoleProtectionError = mapOwnerRoleProtectionError({
-      actorRole: adminAccess.household.role,
-      inviteRole: invite.role,
-    });
-    if (ownerRoleProtectionError) {
-      return withResponseHeaders(ownerRoleProtectionError, adminAccess.responseHeaders);
-    }
+        const ownerRoleProtectionError = mapOwnerRoleProtectionError({
+          actorRole: adminAccess.household.role,
+          inviteRole: invite.role,
+        });
+        if (ownerRoleProtectionError) {
+          return withResponseHeaders(ownerRoleProtectionError, adminAccess.responseHeaders);
+        }
 
-    await auth.api.cancelInvitation({
-      body: {
-        invitationId: String(inviteId),
+        await auth.api.cancelInvitation({
+          body: {
+            invitationId: String(inviteId),
+          },
+          headers: request.headers,
+        });
+
+        return Response.json(
+          {
+            ok: true,
+            revokedInviteId: inviteId,
+          },
+          { headers: adminAccess.responseHeaders },
+        );
       },
-      headers: request.headers,
     });
-
-    return Response.json(
-      {
-        ok: true,
-        revokedInviteId: inviteId,
-      },
-      { headers: adminAccess.responseHeaders },
-    );
   } catch (error) {
     const authApiError = toAuthApiError(error);
     if (isInvitationNotFoundError(authApiError)) {
