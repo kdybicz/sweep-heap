@@ -2,6 +2,7 @@ import { requireApiHousehold } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { validateChorePatchPayload } from "@/lib/api-payload-validation";
 import { parseJsonObjectBody } from "@/lib/http";
+import { HouseholdNotFoundError } from "@/lib/repositories";
 import { listChores, mutateChore } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +25,13 @@ const parseWeekOffset = (value: string | null) => {
 };
 
 export async function GET(request: Request) {
+  let responseHeaders = new Headers();
   try {
-    const householdAccess = await requireApiHousehold();
+    const householdAccess = await requireApiHousehold(request.headers);
     if (!householdAccess.ok) {
       return householdAccess.response;
     }
+    responseHeaders = householdAccess.responseHeaders;
 
     const requestUrl = new URL(request.url);
     const weekOffset = parseWeekOffset(requestUrl.searchParams.get("weekOffset"));
@@ -39,16 +42,29 @@ export async function GET(request: Request) {
       end: requestUrl.searchParams.get("end"),
     });
 
-    return Response.json({
-      ok: true,
-      timeZone: listResult.timeZone,
-      rangeStart: listResult.rangeStart,
-      rangeEnd: listResult.rangeEnd,
-      chores: listResult.chores,
-    });
+    return Response.json(
+      {
+        ok: true,
+        timeZone: listResult.timeZone,
+        rangeStart: listResult.rangeStart,
+        rangeEnd: listResult.rangeEnd,
+        chores: listResult.chores,
+      },
+      { headers: householdAccess.responseHeaders },
+    );
   } catch (error) {
+    if (error instanceof HouseholdNotFoundError) {
+      return jsonError({
+        headers: responseHeaders,
+        status: 404,
+        code: API_ERROR_CODE.HOUSEHOLD_NOT_FOUND,
+        error: "Household not found",
+      });
+    }
+
     console.error("Failed to load chores", error);
     return jsonError({
+      headers: responseHeaders,
       status: 500,
       code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
       error: "Failed to load chores",
@@ -57,15 +73,18 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  let responseHeaders = new Headers();
   try {
-    const householdAccess = await requireApiHousehold();
+    const householdAccess = await requireApiHousehold(request.headers);
     if (!householdAccess.ok) {
       return householdAccess.response;
     }
+    responseHeaders = householdAccess.responseHeaders;
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
       return jsonError({
+        headers: householdAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.INVALID_JSON_BODY,
         error: "Invalid JSON body",
@@ -75,6 +94,7 @@ export async function PATCH(request: Request) {
     const payloadValidation = validateChorePatchPayload(payload);
     if (!payloadValidation.ok) {
       return jsonError({
+        headers: householdAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.VALIDATION_FAILED,
         error: payloadValidation.error,
@@ -86,13 +106,26 @@ export async function PATCH(request: Request) {
       payload: payloadValidation.data,
     });
     if (!result.ok) {
-      return Response.json(result.body, { status: result.status });
+      return Response.json(result.body, {
+        status: result.status,
+        headers: householdAccess.responseHeaders,
+      });
     }
 
-    return Response.json(result.body);
+    return Response.json(result.body, { headers: householdAccess.responseHeaders });
   } catch (error) {
+    if (error instanceof HouseholdNotFoundError) {
+      return jsonError({
+        headers: responseHeaders,
+        status: 404,
+        code: API_ERROR_CODE.HOUSEHOLD_NOT_FOUND,
+        error: "Household not found",
+      });
+    }
+
     console.error("Failed to update chore", error);
     return jsonError({
+      headers: responseHeaders,
       status: 500,
       code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
       error: "Failed to update chore",

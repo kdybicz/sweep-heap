@@ -2,6 +2,12 @@ import { pool } from "@/lib/db";
 
 const deleteAccountTokenPrefix = "delete-account";
 
+type BlockedOwnedHousehold = {
+  householdId: number;
+  householdName: string;
+  otherActiveMemberCount: number;
+};
+
 export const buildDeleteAccountTokenIdentifier = ({
   userId,
   nonce,
@@ -33,10 +39,74 @@ export const updateUserNameById = async ({ userId, name }: { userId: number; nam
   return result.rows[0] ?? null;
 };
 
-export const deleteUserById = async ({ userId }: { userId: number }) => {
+export type DeleteUserByIdResult =
+  | {
+      ok: true;
+      deletedHouseholdIds: number[];
+      id: number;
+    }
+  | {
+      ok: false;
+      reason: "invalid-token";
+    }
+  | {
+      ok: false;
+      reason: "not-found";
+    }
+  | {
+      ok: false;
+      reason: "ownership-conflict";
+      blockingHouseholds: BlockedOwnedHousehold[];
+    };
+
+export const deleteUserById = async ({
+  deleteAccountToken,
+  userId,
+}: {
+  deleteAccountToken?: {
+    identifier: string;
+    tokenHash: string;
+  };
+  userId: number;
+}) => {
   const client = await pool.connect();
   try {
     await client.query("begin");
+
+    if (deleteAccountToken) {
+      const deleteTokenResult = await client.query<{ identifier: string }>(
+        "delete from delete_account_tokens where identifier = $1 and token_hash = $2 and expires_at > now() returning identifier",
+        [deleteAccountToken.identifier, deleteAccountToken.tokenHash],
+      );
+      if (!deleteTokenResult.rows[0]) {
+        await client.query("rollback");
+        return {
+          ok: false as const,
+          reason: "invalid-token" as const,
+        };
+      }
+    }
+
+    const ownedHouseholdIdsResult = await client.query<{ householdId: number }>(
+      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
+      [userId],
+    );
+    for (const row of ownedHouseholdIdsResult.rows) {
+      await client.query("select pg_advisory_xact_lock($1)", [row.householdId]);
+    }
+
+    const blockingHouseholdsResult = await client.query<BlockedOwnedHousehold>(
+      "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
+      [userId],
+    );
+    if (blockingHouseholdsResult.rows.length > 0) {
+      await client.query("rollback");
+      return {
+        ok: false as const,
+        reason: "ownership-conflict" as const,
+        blockingHouseholds: blockingHouseholdsResult.rows,
+      };
+    }
 
     const membershipResult = await client.query<{ householdId: number }>(
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active'",
@@ -51,7 +121,10 @@ export const deleteUserById = async ({ userId }: { userId: number }) => {
     const deletedUser = userResult.rows[0];
     if (!deletedUser) {
       await client.query("rollback");
-      return null;
+      return {
+        ok: false as const,
+        reason: "not-found" as const,
+      };
     }
 
     const deletedHouseholdIds: number[] = [];
@@ -65,9 +138,10 @@ export const deleteUserById = async ({ userId }: { userId: number }) => {
 
     await client.query("commit");
     return {
+      ok: true as const,
       id: deletedUser.id,
       deletedHouseholdIds,
-    };
+    } satisfies DeleteUserByIdResult;
   } catch (error) {
     await client.query("rollback");
     throw error;

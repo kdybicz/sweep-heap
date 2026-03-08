@@ -17,6 +17,7 @@ import {
   getPendingHouseholdInviteByIdAndSecret,
   setPendingHouseholdInviteSecretHash,
 } from "@/lib/repositories";
+import { withHouseholdMutationLock } from "@/lib/services/ownership-guard-service";
 
 type HouseholdInviteRecord = NonNullable<
   Awaited<ReturnType<typeof getPendingHouseholdInviteByIdAndSecret>>
@@ -86,26 +87,33 @@ export const acceptHouseholdInvite = async ({
   requestHeaders: Headers;
 }) => {
   try {
-    await auth.api.acceptInvitation({
-      body: {
-        invitationId: String(invitationId),
-      },
-      headers: requestHeaders,
-    });
+    const responseHeaders = await withHouseholdMutationLock({
+      householdId,
+      task: async () => {
+        await auth.api.acceptInvitation({
+          body: {
+            invitationId: String(invitationId),
+          },
+          headers: requestHeaders,
+        });
 
-    const setActiveResponse = await auth.api.setActiveOrganization({
-      asResponse: true,
-      body: {
-        organizationId: String(householdId),
+        const setActiveResponse = await auth.api.setActiveOrganization({
+          asResponse: true,
+          body: {
+            organizationId: String(householdId),
+          },
+          headers: requestHeaders,
+        });
+        const responseHeaders = new Headers();
+        for (const [key, value] of setActiveResponse.headers.entries()) {
+          if (key.toLowerCase() === "set-cookie") {
+            responseHeaders.append(key, value);
+          }
+        }
+
+        return responseHeaders;
       },
-      headers: requestHeaders,
     });
-    const responseHeaders = new Headers();
-    for (const [key, value] of setActiveResponse.headers.entries()) {
-      if (key.toLowerCase() === "set-cookie") {
-        responseHeaders.append(key, value);
-      }
-    }
 
     return {
       ok: true as const,

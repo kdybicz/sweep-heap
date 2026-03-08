@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ERROR_CODE } from "@/lib/api-error";
 
-const { consumeDeleteAccountTokenMock, deleteUserByIdMock } = vi.hoisted(() => ({
-  consumeDeleteAccountTokenMock: vi.fn(),
+const { deleteUserByIdMock } = vi.hoisted(() => ({
   deleteUserByIdMock: vi.fn(),
 }));
 
 vi.mock("@/lib/repositories", () => ({
-  consumeDeleteAccountToken: consumeDeleteAccountTokenMock,
   deleteUserById: deleteUserByIdMock,
   extractUserIdFromDeleteAccountTokenIdentifier: (identifier: string) => {
     const match = /^delete-account:(\d+):[A-Za-z0-9_-]+$/.exec(identifier);
@@ -37,7 +35,6 @@ const invalidJsonRequest = () =>
 
 describe("/api/me/delete-confirm route", () => {
   beforeEach(() => {
-    consumeDeleteAccountTokenMock.mockReset();
     deleteUserByIdMock.mockReset();
   });
 
@@ -51,7 +48,6 @@ describe("/api/me/delete-confirm route", () => {
       code: API_ERROR_CODE.INVALID_JSON_BODY,
       error: "Invalid JSON body",
     });
-    expect(consumeDeleteAccountTokenMock).not.toHaveBeenCalled();
     expect(deleteUserByIdMock).not.toHaveBeenCalled();
   });
 
@@ -65,7 +61,6 @@ describe("/api/me/delete-confirm route", () => {
       code: API_ERROR_CODE.VALIDATION_FAILED,
       error: "Identifier and token are required",
     });
-    expect(consumeDeleteAccountTokenMock).not.toHaveBeenCalled();
     expect(deleteUserByIdMock).not.toHaveBeenCalled();
   });
 
@@ -79,12 +74,11 @@ describe("/api/me/delete-confirm route", () => {
       code: API_ERROR_CODE.INVALID_TOKEN_IDENTIFIER,
       error: "Invalid token identifier",
     });
-    expect(consumeDeleteAccountTokenMock).not.toHaveBeenCalled();
     expect(deleteUserByIdMock).not.toHaveBeenCalled();
   });
 
   it("rejects invalid or expired tokens", async () => {
-    consumeDeleteAccountTokenMock.mockResolvedValue(null);
+    deleteUserByIdMock.mockResolvedValue({ ok: false, reason: "invalid-token" });
 
     const response = await POST(
       confirmRequest({
@@ -100,16 +94,53 @@ describe("/api/me/delete-confirm route", () => {
       code: API_ERROR_CODE.DELETE_TOKEN_INVALID,
       error: "Invalid or expired token",
     });
-    expect(consumeDeleteAccountTokenMock).toHaveBeenCalledWith({
-      identifier: "delete-account:4:nonce",
-      tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    expect(deleteUserByIdMock).toHaveBeenCalledWith({
+      deleteAccountToken: {
+        identifier: "delete-account:4:nonce",
+        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      },
+      userId: 4,
     });
-    expect(deleteUserByIdMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks deletion when owned households still have other active members", async () => {
+    deleteUserByIdMock.mockResolvedValue({
+      ok: false,
+      reason: "ownership-conflict",
+      blockingHouseholds: [
+        {
+          householdId: 12,
+          householdName: "Home",
+          otherActiveMemberCount: 1,
+        },
+      ],
+    });
+
+    const response = await POST(
+      confirmRequest({
+        identifier: "delete-account:4:nonce",
+        token: "raw-token",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP,
+      error: "Remove other active members from owned households before deleting your account",
+      blockingHouseholds: [
+        {
+          householdId: 12,
+          householdName: "Home",
+          otherActiveMemberCount: 1,
+        },
+      ],
+    });
   });
 
   it("returns not found when user cannot be deleted", async () => {
-    consumeDeleteAccountTokenMock.mockResolvedValue("delete-account:4:nonce");
-    deleteUserByIdMock.mockResolvedValue(null);
+    deleteUserByIdMock.mockResolvedValue({ ok: false, reason: "not-found" });
 
     const response = await POST(
       confirmRequest({
@@ -125,12 +156,18 @@ describe("/api/me/delete-confirm route", () => {
       code: API_ERROR_CODE.USER_NOT_FOUND,
       error: "User not found",
     });
-    expect(deleteUserByIdMock).toHaveBeenCalledWith({ userId: 4 });
+    expect(deleteUserByIdMock).toHaveBeenCalledWith({
+      deleteAccountToken: {
+        identifier: "delete-account:4:nonce",
+        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      },
+      userId: 4,
+    });
   });
 
   it("deletes account after valid token confirmation", async () => {
-    consumeDeleteAccountTokenMock.mockResolvedValue("delete-account:4:nonce");
     deleteUserByIdMock.mockResolvedValue({
+      ok: true,
       id: 4,
       deletedHouseholdIds: [2],
     });
@@ -149,13 +186,19 @@ describe("/api/me/delete-confirm route", () => {
       deletedUserId: 4,
       deletedHouseholdIds: [2],
     });
-    expect(deleteUserByIdMock).toHaveBeenCalledWith({ userId: 4 });
+    expect(deleteUserByIdMock).toHaveBeenCalledWith({
+      deleteAccountToken: {
+        identifier: "delete-account:4:nonce",
+        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      },
+      userId: 4,
+    });
   });
 
   it("returns consistent 500 envelope on unexpected errors", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      consumeDeleteAccountTokenMock.mockRejectedValue(new Error("db failed"));
+      deleteUserByIdMock.mockRejectedValue(new Error("db failed"));
 
       const response = await POST(
         confirmRequest({
@@ -172,7 +215,6 @@ describe("/api/me/delete-confirm route", () => {
         error: "Failed to confirm account deletion",
       });
       expect(consoleErrorSpy).toHaveBeenCalled();
-      expect(deleteUserByIdMock).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
     }

@@ -1,14 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ERROR_CODE } from "@/lib/api-error";
+import { HouseholdNotFoundError } from "@/lib/repositories";
 
-const { getSessionMock, listChoresMock, mutateChoreMock, resolveActiveHouseholdMock } = vi.hoisted(
-  () => ({
-    getSessionMock: vi.fn(),
-    listChoresMock: vi.fn(),
-    mutateChoreMock: vi.fn(),
-    resolveActiveHouseholdMock: vi.fn(),
-  }),
-);
+const {
+  getSessionMock,
+  listChoresMock,
+  mutateChoreMock,
+  reconcileActiveHouseholdSessionMock,
+  resolveActiveHouseholdMock,
+} = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
+  listChoresMock: vi.fn(),
+  mutateChoreMock: vi.fn(),
+  reconcileActiveHouseholdSessionMock: vi.fn(),
+  resolveActiveHouseholdMock: vi.fn(),
+}));
 
 vi.mock("@/auth", () => ({
   getSession: getSessionMock,
@@ -17,6 +23,7 @@ vi.mock("@/auth", () => ({
 vi.mock("@/lib/services", () => ({
   listChores: listChoresMock,
   mutateChore: mutateChoreMock,
+  reconcileActiveHouseholdSession: reconcileActiveHouseholdSessionMock,
   resolveActiveHousehold: resolveActiveHouseholdMock,
 }));
 
@@ -27,7 +34,10 @@ describe("GET /api/chores", () => {
     getSessionMock.mockReset();
     listChoresMock.mockReset();
     mutateChoreMock.mockReset();
+    reconcileActiveHouseholdSessionMock.mockReset();
     resolveActiveHouseholdMock.mockReset();
+
+    reconcileActiveHouseholdSessionMock.mockResolvedValue(new Headers());
   });
 
   it("passes integer week offsets through to listChores", async () => {
@@ -120,6 +130,29 @@ describe("GET /api/chores", () => {
       end: null,
     });
   });
+
+  it("maps missing-household races to household not found", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11 },
+    });
+    listChoresMock.mockRejectedValue(new HouseholdNotFoundError(11));
+
+    const response = await GET(new Request("http://localhost/api/chores?weekOffset=0"));
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.HOUSEHOLD_NOT_FOUND,
+      error: "Household not found",
+    });
+  });
 });
 
 describe("PATCH /api/chores", () => {
@@ -127,7 +160,10 @@ describe("PATCH /api/chores", () => {
     getSessionMock.mockReset();
     listChoresMock.mockReset();
     mutateChoreMock.mockReset();
+    reconcileActiveHouseholdSessionMock.mockReset();
     resolveActiveHouseholdMock.mockReset();
+
+    reconcileActiveHouseholdSessionMock.mockResolvedValue(new Headers());
   });
 
   it("allows repeated stay-open log calls", async () => {

@@ -50,6 +50,10 @@ export default function DeleteAccountForm() {
           {error}
         </div>
       ) : null}
+      <p className="text-sm text-[var(--muted)]">
+        You can delete your account only after any households you own no longer have other active
+        members.
+      </p>
       <button
         className="rounded-full border border-[var(--danger)] bg-[var(--danger)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--danger-ink)] disabled:cursor-not-allowed disabled:opacity-60"
         type="submit"

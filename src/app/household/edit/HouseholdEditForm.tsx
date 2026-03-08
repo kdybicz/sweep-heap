@@ -7,12 +7,14 @@ import HouseholdIconPicker from "@/app/household/components/HouseholdIconPicker"
 import { householdTimeZones } from "@/lib/time-zones";
 
 type HouseholdEditFormProps = {
+  canDeleteHousehold: boolean;
   initialName: string;
   initialIcon: string;
   initialTimeZone: string;
 };
 
 export default function HouseholdEditForm({
+  canDeleteHousehold,
   initialName,
   initialIcon,
   initialTimeZone,
@@ -22,6 +24,7 @@ export default function HouseholdEditForm({
   const [icon, setIcon] = useState(initialIcon);
   const [timeZone, setTimeZone] = useState(initialTimeZone);
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -54,6 +57,39 @@ export default function HouseholdEditForm({
         submitError instanceof Error ? submitError.message : "Failed to update household";
       setError(message);
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const confirmed = window.confirm(
+      "Delete this household permanently? This only works when no other active members remain.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/households", {
+        method: "DELETE",
+      });
+      const contentType = response.headers.get("content-type") ?? "";
+      const data = contentType.includes("application/json") ? await response.json() : null;
+      if (!data?.ok) {
+        setError(data?.error ?? "Failed to delete household");
+        setDeleteLoading(false);
+        return;
+      }
+
+      router.push(typeof data.nextPath === "string" ? data.nextPath : "/household/setup");
+      router.refresh();
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error ? submitError.message : "Failed to delete household";
+      setError(message);
+      setDeleteLoading(false);
     }
   };
 
@@ -100,7 +136,7 @@ export default function HouseholdEditForm({
         <button
           className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
           type="submit"
-          disabled={loading}
+          disabled={loading || deleteLoading}
         >
           {loading ? "Saving..." : "Save household"}
         </button>
@@ -110,6 +146,16 @@ export default function HouseholdEditForm({
         >
           Cancel
         </Link>
+        {canDeleteHousehold ? (
+          <button
+            className="rounded-full border border-[var(--danger)] bg-[var(--danger)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--danger-ink)] disabled:cursor-not-allowed disabled:opacity-60"
+            type="button"
+            onClick={handleDelete}
+            disabled={loading || deleteLoading}
+          >
+            {deleteLoading ? "Deleting..." : "Delete household"}
+          </button>
+        ) : null}
       </div>
     </form>
   );

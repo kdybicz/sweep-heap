@@ -12,6 +12,7 @@ export {
   upsertChoreOccurrenceOverride,
 } from "@/lib/repositories/chore-repository";
 export {
+  countActiveHouseholdMembersExcludingUser,
   createHouseholdWithOwner,
   getActiveHouseholdId,
   getActiveHouseholdSummary,
@@ -19,7 +20,9 @@ export {
   getHouseholdTimeZoneById,
   getPendingHouseholdInviteByIdAndSecret,
   getUserMemberships,
+  HouseholdNotFoundError,
   listActiveHouseholdsForUser,
+  listOwnedHouseholdsWithOtherMembers,
   setPendingHouseholdInviteSecretHash,
   updateHouseholdById,
 } from "@/lib/repositories/household-repository";

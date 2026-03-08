@@ -5,11 +5,15 @@ const {
   getPendingHouseholdInviteByIdAndSecretMock,
   getSessionMock,
   setActiveOrganizationMock,
+  withHouseholdMutationLockMock,
 } = vi.hoisted(() => ({
   acceptInvitationMock: vi.fn(),
   getPendingHouseholdInviteByIdAndSecretMock: vi.fn(),
   getSessionMock: vi.fn(),
   setActiveOrganizationMock: vi.fn(),
+  withHouseholdMutationLockMock: vi.fn(async ({ task }: { task: () => Promise<unknown> }) =>
+    task(),
+  ),
 }));
 
 vi.mock("@/auth", () => ({
@@ -26,6 +30,10 @@ vi.mock("@/lib/repositories", () => ({
   getPendingHouseholdInviteByIdAndSecret: getPendingHouseholdInviteByIdAndSecretMock,
 }));
 
+vi.mock("@/lib/services/ownership-guard-service", () => ({
+  withHouseholdMutationLock: withHouseholdMutationLockMock,
+}));
+
 import { GET } from "@/app/api/households/invites/complete/route";
 
 describe("/api/households/invites/complete route", () => {
@@ -34,6 +42,7 @@ describe("/api/households/invites/complete route", () => {
     setActiveOrganizationMock.mockReset();
     getPendingHouseholdInviteByIdAndSecretMock.mockReset();
     getSessionMock.mockReset();
+    withHouseholdMutationLockMock.mockClear();
 
     setActiveOrganizationMock.mockResolvedValue(
       new Response(null, {

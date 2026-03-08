@@ -1,6 +1,6 @@
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
-import { resolveActiveHousehold } from "@/lib/services";
+import { reconcileActiveHouseholdSession, resolveActiveHousehold } from "@/lib/services";
 import { getSessionContext, sessionErrorResponse } from "@/lib/session-context";
 
 type SessionContextOk = Extract<Awaited<ReturnType<typeof getSessionContext>>, { ok: true }>;
@@ -24,10 +24,28 @@ type ApiSessionAccess =
 type ApiHouseholdAccess =
   | {
       ok: true;
+      responseHeaders: Headers;
       sessionContext: SessionContextOk;
       household: ActiveHouseholdSummary;
     }
   | ApiAccessFailure;
+
+export const withResponseHeaders = (response: Response, headers: Headers) => {
+  if ([...headers.entries()].length === 0) {
+    return response;
+  }
+
+  const responseHeaders = new Headers(response.headers);
+  for (const [key, value] of headers.entries()) {
+    responseHeaders.append(key, value);
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders,
+  });
+};
 
 const householdRequiredResponse = () =>
   jsonError({
@@ -65,7 +83,9 @@ export const requireApiSession = async (): Promise<ApiSessionAccess> => {
   };
 };
 
-export const requireApiHousehold = async (): Promise<ApiHouseholdAccess> => {
+export const requireApiHousehold = async (
+  requestHeaders?: Headers,
+): Promise<ApiHouseholdAccess> => {
   const sessionAccess = await requireApiSession();
   if (!sessionAccess.ok) {
     return sessionAccess;
@@ -75,29 +95,47 @@ export const requireApiHousehold = async (): Promise<ApiHouseholdAccess> => {
     sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
     userId: sessionAccess.sessionContext.userId,
   });
+  const reconciliationHeaders = requestHeaders
+    ? await (async () => {
+        try {
+          return await reconcileActiveHouseholdSession({
+            requestHeaders,
+            resolution: activeHousehold,
+            sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
+          });
+        } catch (error) {
+          console.error("Failed to reconcile active household session", error);
+          return new Headers();
+        }
+      })()
+    : new Headers();
+
   if (activeHousehold.status === "none") {
     return {
       ok: false,
-      response: householdRequiredResponse(),
+      response: withResponseHeaders(householdRequiredResponse(), reconciliationHeaders),
     };
   }
 
   if (activeHousehold.status === "selection-required") {
     return {
       ok: false,
-      response: householdSelectionRequiredResponse(),
+      response: withResponseHeaders(householdSelectionRequiredResponse(), reconciliationHeaders),
     };
   }
 
   return {
     ok: true,
+    responseHeaders: reconciliationHeaders,
     sessionContext: sessionAccess.sessionContext,
     household: activeHousehold.household,
   };
 };
 
-export const requireApiHouseholdAdmin = async (): Promise<ApiHouseholdAccess> => {
-  const householdAccess = await requireApiHousehold();
+export const requireApiHouseholdAdmin = async (
+  requestHeaders?: Headers,
+): Promise<ApiHouseholdAccess> => {
+  const householdAccess = await requireApiHousehold(requestHeaders);
   if (!householdAccess.ok) {
     return householdAccess;
   }
@@ -105,7 +143,7 @@ export const requireApiHouseholdAdmin = async (): Promise<ApiHouseholdAccess> =>
   if (!isHouseholdElevatedRole(householdAccess.household.role)) {
     return {
       ok: false,
-      response: forbiddenResponse(),
+      response: withResponseHeaders(forbiddenResponse(), householdAccess.responseHeaders),
     };
   }
 

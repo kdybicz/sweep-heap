@@ -28,6 +28,22 @@ export type HouseholdInviteRecord = {
   expiresAt: Date;
 };
 
+export class HouseholdNotFoundError extends Error {
+  householdId: number;
+
+  constructor(householdId: number) {
+    super(`Household ${householdId} not found`);
+    this.name = "HouseholdNotFoundError";
+    this.householdId = householdId;
+  }
+}
+
+export type OwnedHouseholdMemberConstraint = {
+  householdId: number;
+  householdName: string;
+  otherActiveMemberCount: number;
+};
+
 export const getUserMemberships = async (userId: number) => {
   const result = await pool.query<MembershipSummary>(
     "select household_id as \"householdId\", role, status from household_memberships where user_id = $1 and status = 'active' order by joined_at desc",
@@ -95,7 +111,11 @@ export const getHouseholdTimeZoneById = async (householdId: number) => {
     "select time_zone from households where id = $1",
     [householdId],
   );
-  return result.rows[0]?.time_zone ?? "UTC";
+  const timeZone = result.rows[0]?.time_zone?.trim();
+  if (!timeZone) {
+    throw new HouseholdNotFoundError(householdId);
+  }
+  return timeZone;
 };
 
 export const getActiveHouseholdSummary = async (userId: number) => {
@@ -170,4 +190,26 @@ export const updateHouseholdById = async ({
     [name.trim(), timeZone, icon, householdId],
   );
   return result.rows[0] ?? null;
+};
+
+export const countActiveHouseholdMembersExcludingUser = async ({
+  excludedUserId,
+  householdId,
+}: {
+  excludedUserId: number;
+  householdId: number;
+}) => {
+  const result = await pool.query<{ count: string }>(
+    "select count(*)::text as count from household_memberships where household_id = $1 and status = 'active' and user_id <> $2",
+    [householdId, excludedUserId],
+  );
+  return Number(result.rows[0]?.count ?? "0");
+};
+
+export const listOwnedHouseholdsWithOtherMembers = async (userId: number) => {
+  const result = await pool.query<OwnedHouseholdMemberConstraint>(
+    "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
+    [userId],
+  );
+  return result.rows;
 };

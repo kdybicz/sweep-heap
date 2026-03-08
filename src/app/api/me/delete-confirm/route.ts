@@ -1,11 +1,7 @@
 import { createHash } from "node:crypto";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { parseJsonObjectBody } from "@/lib/http";
-import {
-  consumeDeleteAccountToken,
-  deleteUserById,
-  extractUserIdFromDeleteAccountTokenIdentifier,
-} from "@/lib/repositories";
+import { deleteUserById, extractUserIdFromDeleteAccountTokenIdentifier } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
@@ -40,17 +36,31 @@ export async function POST(request: Request) {
     }
 
     const tokenHash = createHash("sha256").update(token).digest("hex");
-    const consumedIdentifier = await consumeDeleteAccountToken({ identifier, tokenHash });
-    if (!consumedIdentifier) {
-      return jsonError({
-        status: 400,
-        code: API_ERROR_CODE.DELETE_TOKEN_INVALID,
-        error: "Invalid or expired token",
-      });
-    }
+    const user = await deleteUserById({
+      deleteAccountToken: {
+        identifier,
+        tokenHash,
+      },
+      userId,
+    });
+    if (!user.ok) {
+      if (user.reason === "invalid-token") {
+        return jsonError({
+          status: 400,
+          code: API_ERROR_CODE.DELETE_TOKEN_INVALID,
+          error: "Invalid or expired token",
+        });
+      }
 
-    const user = await deleteUserById({ userId });
-    if (!user) {
+      if (user.reason === "ownership-conflict") {
+        return jsonError({
+          status: 409,
+          code: API_ERROR_CODE.ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP,
+          error: "Remove other active members from owned households before deleting your account",
+          blockingHouseholds: user.blockingHouseholds,
+        });
+      }
+
       return jsonError({
         status: 404,
         code: API_ERROR_CODE.USER_NOT_FOUND,

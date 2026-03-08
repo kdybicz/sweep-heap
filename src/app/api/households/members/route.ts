@@ -1,5 +1,9 @@
 import { auth } from "@/auth";
-import { requireApiHousehold, requireApiHouseholdAdmin } from "@/lib/api-access";
+import {
+  requireApiHousehold,
+  requireApiHouseholdAdmin,
+  withResponseHeaders,
+} from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import {
   validateHouseholdInvitePayload,
@@ -24,11 +28,13 @@ import {
   toAuthApiError,
 } from "@/lib/organization-api";
 import { sendHouseholdInvite } from "@/lib/services/household-invite-service";
+import { withHouseholdMutationLock } from "@/lib/services/ownership-guard-service";
 
 export const dynamic = "force-dynamic";
 
 const handleUnexpectedError = (
   action: "list" | "invite" | "update-role" | "remove-member",
+  responseHeaders: Headers,
   error: unknown,
 ) => {
   const message =
@@ -42,6 +48,7 @@ const handleUnexpectedError = (
 
   console.error(message, error);
   return jsonError({
+    headers: responseHeaders,
     status: 500,
     code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
     error: message,
@@ -180,11 +187,13 @@ const mapOwnerRoleProtectionError = ({
 };
 
 export async function GET(request: Request) {
+  let responseHeaders = new Headers();
   try {
-    const householdAccess = await requireApiHousehold();
+    const householdAccess = await requireApiHousehold(request.headers);
     if (!householdAccess.ok) {
       return householdAccess.response;
     }
+    responseHeaders = householdAccess.responseHeaders;
 
     const { household, sessionContext } = householdAccess;
     const { members, pendingInvites } = await getHouseholdMembersSnapshot({
@@ -192,35 +201,41 @@ export async function GET(request: Request) {
       requestHeaders: request.headers,
     });
 
-    return Response.json({
-      ok: true,
-      household: {
-        id: household.id,
-        name: household.name,
-        role: household.role,
+    return Response.json(
+      {
+        ok: true,
+        household: {
+          id: household.id,
+          name: household.name,
+          role: household.role,
+        },
+        viewerUserId: sessionContext.userId,
+        canAdministerMembers: isHouseholdElevatedRole(household.role),
+        members,
+        pendingInvites,
       },
-      viewerUserId: sessionContext.userId,
-      canAdministerMembers: isHouseholdElevatedRole(household.role),
-      members,
-      pendingInvites,
-    });
+      { headers: householdAccess.responseHeaders },
+    );
   } catch (error) {
-    return handleUnexpectedError("list", error);
+    return handleUnexpectedError("list", responseHeaders, error);
   }
 }
 
 export async function POST(request: Request) {
+  let responseHeaders = new Headers();
   try {
-    const householdAccess = await requireApiHousehold();
+    const householdAccess = await requireApiHousehold(request.headers);
     if (!householdAccess.ok) {
       return householdAccess.response;
     }
+    responseHeaders = householdAccess.responseHeaders;
 
     const { household, sessionContext } = householdAccess;
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
       return jsonError({
+        headers: householdAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.INVALID_JSON_BODY,
         error: "Invalid JSON body",
@@ -230,6 +245,7 @@ export async function POST(request: Request) {
     const payloadValidation = validateHouseholdInvitePayload(payload);
     if (!payloadValidation.ok) {
       return jsonError({
+        headers: householdAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.VALIDATION_FAILED,
         error: payloadValidation.error,
@@ -238,77 +254,88 @@ export async function POST(request: Request) {
 
     const { email } = payloadValidation.data;
 
-    let invite: OrganizationInvitationLike;
-    try {
-      invite = (await auth.api.createInvitation({
-        body: {
-          email,
-          role: "member",
-          organizationId: String(household.id),
-        },
-        headers: request.headers,
-      })) as OrganizationInvitationLike;
-    } catch (error) {
-      const authApiError = toAuthApiError(error);
-      if (authApiError === null) {
-        throw error;
-      }
-
-      const existingInvite = isAlreadyInvitedError(authApiError)
-        ? ((await listOrganizationInvites({ householdId: household.id, request })).find(
-            (pendingInvite) =>
-              pendingInvite.status === "pending" &&
-              pendingInvite.email.trim().toLowerCase() === email.trim().toLowerCase(),
-          ) ?? null)
-        : null;
-
-      const mappedInviteError = mapInviteCreateError({
-        authApiError,
-        existingInvite,
-      });
-
-      if (mappedInviteError) {
-        return mappedInviteError;
-      }
-
-      throw error;
-    }
-
-    const inviterName =
-      sessionContext.sessionUserName?.trim() ||
-      sessionContext.sessionUserEmail?.trim() ||
-      "A household member";
-
-    const { inviteEmailSent } = await sendHouseholdInvite({
+    return await withHouseholdMutationLock({
       householdId: household.id,
-      householdName: household.name,
-      invite,
-      inviterName,
-      request,
-    });
+      task: async () => {
+        let invite: OrganizationInvitationLike;
+        try {
+          invite = (await auth.api.createInvitation({
+            body: {
+              email,
+              role: "member",
+              organizationId: String(household.id),
+            },
+            headers: request.headers,
+          })) as OrganizationInvitationLike;
+        } catch (error) {
+          const authApiError = toAuthApiError(error);
+          if (authApiError === null) {
+            throw error;
+          }
 
-    return Response.json({
-      ok: true,
-      invite: mapOrganizationInvitation(invite),
-      inviteEmailSent,
+          const existingInvite = isAlreadyInvitedError(authApiError)
+            ? ((await listOrganizationInvites({ householdId: household.id, request })).find(
+                (pendingInvite) =>
+                  pendingInvite.status === "pending" &&
+                  pendingInvite.email.trim().toLowerCase() === email.trim().toLowerCase(),
+              ) ?? null)
+            : null;
+
+          const mappedInviteError = mapInviteCreateError({
+            authApiError,
+            existingInvite,
+          });
+
+          if (mappedInviteError) {
+            return withResponseHeaders(mappedInviteError, householdAccess.responseHeaders);
+          }
+
+          throw error;
+        }
+
+        const inviterName =
+          sessionContext.sessionUserName?.trim() ||
+          sessionContext.sessionUserEmail?.trim() ||
+          "A household member";
+
+        const { inviteEmailSent } = await sendHouseholdInvite({
+          householdId: household.id,
+          householdName: household.name,
+          invite,
+          inviterName,
+          request,
+        });
+
+        return Response.json(
+          {
+            ok: true,
+            invite: mapOrganizationInvitation(invite),
+            inviteEmailSent,
+          },
+          { headers: householdAccess.responseHeaders },
+        );
+      },
     });
   } catch (error) {
-    return handleUnexpectedError("invite", error);
+    return handleUnexpectedError("invite", responseHeaders, error);
   }
 }
 
 export async function PATCH(request: Request) {
+  let responseHeaders = new Headers();
   try {
-    const adminAccess = await requireApiHouseholdAdmin();
+    const adminAccess = await requireApiHouseholdAdmin(request.headers);
     if (!adminAccess.ok) {
       return adminAccess.response;
     }
+    responseHeaders = adminAccess.responseHeaders;
 
     const { household, sessionContext } = adminAccess;
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
       return jsonError({
+        headers: adminAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.INVALID_JSON_BODY,
         error: "Invalid JSON body",
@@ -318,6 +345,7 @@ export async function PATCH(request: Request) {
     const payloadValidation = validateHouseholdMemberRoleUpdatePayload(payload);
     if (!payloadValidation.ok) {
       return jsonError({
+        headers: adminAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.VALIDATION_FAILED,
         error: payloadValidation.error,
@@ -328,70 +356,83 @@ export async function PATCH(request: Request) {
 
     if (targetUserId === sessionContext.userId) {
       return jsonError({
+        headers: adminAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.SELF_ROLE_CHANGE_FORBIDDEN,
         error: "Users cannot change their own role",
       });
     }
 
-    const targetMember = await findTargetMemberByUserId({
+    return await withHouseholdMutationLock({
       householdId: household.id,
-      request,
-      targetUserId,
+      task: async () => {
+        const targetMember = await findTargetMemberByUserId({
+          householdId: household.id,
+          request,
+          targetUserId,
+        });
+        if (!targetMember) {
+          return jsonError({
+            headers: adminAccess.responseHeaders,
+            status: 404,
+            code: API_ERROR_CODE.MEMBER_NOT_FOUND,
+            error: "Member not found",
+          });
+        }
+
+        const ownerRoleProtectionError = mapOwnerRoleProtectionError({
+          actorRole: household.role,
+          targetRole: targetMember.role,
+          nextRole: role,
+        });
+        if (ownerRoleProtectionError) {
+          return withResponseHeaders(ownerRoleProtectionError, adminAccess.responseHeaders);
+        }
+
+        try {
+          const member = (await auth.api.updateMemberRole({
+            body: {
+              memberId: String(targetMember.id),
+              role,
+              organizationId: String(household.id),
+            },
+            headers: request.headers,
+          })) as OrganizationMemberLike;
+
+          return Response.json(
+            { ok: true, member: mapOrganizationMember(member) },
+            { headers: adminAccess.responseHeaders },
+          );
+        } catch (error) {
+          const mappedError = mapMemberMutationError(toAuthApiError(error));
+          if (mappedError) {
+            return withResponseHeaders(mappedError, adminAccess.responseHeaders);
+          }
+
+          throw error;
+        }
+      },
     });
-    if (!targetMember) {
-      return jsonError({
-        status: 404,
-        code: API_ERROR_CODE.MEMBER_NOT_FOUND,
-        error: "Member not found",
-      });
-    }
-
-    const ownerRoleProtectionError = mapOwnerRoleProtectionError({
-      actorRole: household.role,
-      targetRole: targetMember.role,
-      nextRole: role,
-    });
-    if (ownerRoleProtectionError) {
-      return ownerRoleProtectionError;
-    }
-
-    try {
-      const member = (await auth.api.updateMemberRole({
-        body: {
-          memberId: String(targetMember.id),
-          role,
-          organizationId: String(household.id),
-        },
-        headers: request.headers,
-      })) as OrganizationMemberLike;
-
-      return Response.json({ ok: true, member: mapOrganizationMember(member) });
-    } catch (error) {
-      const mappedError = mapMemberMutationError(toAuthApiError(error));
-      if (mappedError) {
-        return mappedError;
-      }
-
-      throw error;
-    }
   } catch (error) {
-    return handleUnexpectedError("update-role", error);
+    return handleUnexpectedError("update-role", responseHeaders, error);
   }
 }
 
 export async function DELETE(request: Request) {
+  let responseHeaders = new Headers();
   try {
-    const adminAccess = await requireApiHouseholdAdmin();
+    const adminAccess = await requireApiHouseholdAdmin(request.headers);
     if (!adminAccess.ok) {
       return adminAccess.response;
     }
+    responseHeaders = adminAccess.responseHeaders;
 
     const { household, sessionContext } = adminAccess;
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
       return jsonError({
+        headers: adminAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.INVALID_JSON_BODY,
         error: "Invalid JSON body",
@@ -401,6 +442,7 @@ export async function DELETE(request: Request) {
     const payloadValidation = validateHouseholdMemberRemovePayload(payload);
     if (!payloadValidation.ok) {
       return jsonError({
+        headers: adminAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.VALIDATION_FAILED,
         error: payloadValidation.error,
@@ -411,52 +453,62 @@ export async function DELETE(request: Request) {
 
     if (targetUserId === sessionContext.userId) {
       return jsonError({
+        headers: adminAccess.responseHeaders,
         status: 400,
         code: API_ERROR_CODE.SELF_MEMBER_REMOVAL_FORBIDDEN,
         error: "Household administrators cannot remove themselves",
       });
     }
 
-    const targetMember = await findTargetMemberByUserId({
+    return await withHouseholdMutationLock({
       householdId: household.id,
-      request,
-      targetUserId,
+      task: async () => {
+        const targetMember = await findTargetMemberByUserId({
+          householdId: household.id,
+          request,
+          targetUserId,
+        });
+        if (!targetMember) {
+          return jsonError({
+            headers: adminAccess.responseHeaders,
+            status: 404,
+            code: API_ERROR_CODE.MEMBER_NOT_FOUND,
+            error: "Member not found",
+          });
+        }
+
+        const ownerRoleProtectionError = mapOwnerRoleProtectionError({
+          actorRole: household.role,
+          targetRole: targetMember.role,
+        });
+        if (ownerRoleProtectionError) {
+          return withResponseHeaders(ownerRoleProtectionError, adminAccess.responseHeaders);
+        }
+
+        try {
+          await auth.api.removeMember({
+            body: {
+              memberIdOrEmail: String(targetMember.id),
+              organizationId: String(household.id),
+            },
+            headers: request.headers,
+          });
+        } catch (error) {
+          const mappedError = mapMemberMutationError(toAuthApiError(error));
+          if (mappedError) {
+            return withResponseHeaders(mappedError, adminAccess.responseHeaders);
+          }
+
+          throw error;
+        }
+
+        return Response.json(
+          { ok: true, removedUserId: targetUserId },
+          { headers: adminAccess.responseHeaders },
+        );
+      },
     });
-    if (!targetMember) {
-      return jsonError({
-        status: 404,
-        code: API_ERROR_CODE.MEMBER_NOT_FOUND,
-        error: "Member not found",
-      });
-    }
-
-    const ownerRoleProtectionError = mapOwnerRoleProtectionError({
-      actorRole: household.role,
-      targetRole: targetMember.role,
-    });
-    if (ownerRoleProtectionError) {
-      return ownerRoleProtectionError;
-    }
-
-    try {
-      await auth.api.removeMember({
-        body: {
-          memberIdOrEmail: String(targetMember.id),
-          organizationId: String(household.id),
-        },
-        headers: request.headers,
-      });
-    } catch (error) {
-      const mappedError = mapMemberMutationError(toAuthApiError(error));
-      if (mappedError) {
-        return mappedError;
-      }
-
-      throw error;
-    }
-
-    return Response.json({ ok: true, removedUserId: targetUserId });
   } catch (error) {
-    return handleUnexpectedError("remove-member", error);
+    return handleUnexpectedError("remove-member", responseHeaders, error);
   }
 }

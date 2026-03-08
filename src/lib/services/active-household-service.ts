@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import { getHouseholdSummaryForUser, listActiveHouseholdsForUser } from "@/lib/repositories";
 
 type ActiveHouseholdSummary = NonNullable<Awaited<ReturnType<typeof getHouseholdSummaryForUser>>>;
@@ -56,4 +57,58 @@ export const resolveActiveHousehold = async ({
     status: "selection-required",
     households,
   };
+};
+
+export const reconcileActiveHouseholdSession = async ({
+  requestHeaders,
+  resolution,
+  sessionActiveHouseholdId,
+}: {
+  requestHeaders: Headers;
+  resolution: ActiveHouseholdResolution;
+  sessionActiveHouseholdId: number | null;
+}) => {
+  const responseHeaders = new Headers();
+
+  if (resolution.status === "resolved" && resolution.source === "session") {
+    return responseHeaders;
+  }
+
+  if (resolution.status === "resolved" && resolution.source === "fallback") {
+    const setActiveResponse = await auth.api.setActiveOrganization({
+      asResponse: true,
+      body: {
+        organizationId: String(resolution.household.id),
+      },
+      headers: requestHeaders,
+    });
+
+    for (const [key, value] of setActiveResponse.headers.entries()) {
+      if (key.toLowerCase() === "set-cookie") {
+        responseHeaders.append(key, value);
+      }
+    }
+
+    return responseHeaders;
+  }
+
+  if (sessionActiveHouseholdId === null) {
+    return responseHeaders;
+  }
+
+  const clearActiveResponse = await auth.api.setActiveOrganization({
+    asResponse: true,
+    body: {
+      organizationId: null,
+    },
+    headers: requestHeaders,
+  });
+
+  for (const [key, value] of clearActiveResponse.headers.entries()) {
+    if (key.toLowerCase() === "set-cookie") {
+      responseHeaders.append(key, value);
+    }
+  }
+
+  return responseHeaders;
 };

@@ -17,6 +17,7 @@ export default async function HouseholdEditPage() {
         </header>
         <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">
           <HouseholdEditForm
+            canDeleteHousehold={household.role === "owner"}
             initialIcon={household.icon ?? ""}
             initialName={household.name}
             initialTimeZone={household.timeZone}

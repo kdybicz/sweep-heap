@@ -3,12 +3,17 @@ import { API_ERROR_CODE } from "@/lib/api-error";
 
 const originalAuthUrl = process.env.AUTH_URL;
 
-const { getSessionMock, createDeleteAccountTokenMock, sendDeleteAccountConfirmationEmailMock } =
-  vi.hoisted(() => ({
-    getSessionMock: vi.fn(),
-    createDeleteAccountTokenMock: vi.fn(),
-    sendDeleteAccountConfirmationEmailMock: vi.fn(),
-  }));
+const {
+  getSessionMock,
+  createDeleteAccountTokenMock,
+  listAccountDeletionBlockingHouseholdsMock,
+  sendDeleteAccountConfirmationEmailMock,
+} = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
+  createDeleteAccountTokenMock: vi.fn(),
+  listAccountDeletionBlockingHouseholdsMock: vi.fn(),
+  sendDeleteAccountConfirmationEmailMock: vi.fn(),
+}));
 
 vi.mock("@/auth", () => ({
   getSession: getSessionMock,
@@ -18,6 +23,10 @@ vi.mock("@/lib/repositories", () => ({
   buildDeleteAccountTokenIdentifier: ({ nonce, userId }: { nonce: string; userId: number }) =>
     `delete-account:${userId}:${nonce}`,
   createDeleteAccountToken: createDeleteAccountTokenMock,
+}));
+
+vi.mock("@/lib/services", () => ({
+  listAccountDeletionBlockingHouseholds: listAccountDeletionBlockingHouseholdsMock,
 }));
 
 vi.mock("@/lib/delete-account-email", () => ({
@@ -36,7 +45,10 @@ describe("/api/me/delete-request route", () => {
     process.env.AUTH_URL = "http://localhost";
     getSessionMock.mockReset();
     createDeleteAccountTokenMock.mockReset();
+    listAccountDeletionBlockingHouseholdsMock.mockReset();
     sendDeleteAccountConfirmationEmailMock.mockReset();
+
+    listAccountDeletionBlockingHouseholdsMock.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -58,6 +70,36 @@ describe("/api/me/delete-request route", () => {
       ok: false,
       code: API_ERROR_CODE.UNAUTHORIZED,
       error: "Unauthorized",
+    });
+    expect(createDeleteAccountTokenMock).not.toHaveBeenCalled();
+    expect(sendDeleteAccountConfirmationEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks delete requests when owned households still have other active members", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "4", email: "alex@example.com" } });
+    listAccountDeletionBlockingHouseholdsMock.mockResolvedValue([
+      {
+        householdId: 12,
+        householdName: "Home",
+        otherActiveMemberCount: 2,
+      },
+    ]);
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP,
+      error: "Remove other active members from owned households before deleting your account",
+      blockingHouseholds: [
+        {
+          householdId: 12,
+          householdName: "Home",
+          otherActiveMemberCount: 2,
+        },
+      ],
     });
     expect(createDeleteAccountTokenMock).not.toHaveBeenCalled();
     expect(sendDeleteAccountConfirmationEmailMock).not.toHaveBeenCalled();

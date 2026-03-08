@@ -39,9 +39,22 @@ Use `docs/requirements-quick-reference.md` when you need the short version while
   - [Account Deletion Requirements (Current)](requirements.md#account-deletion-requirements-current)
   - [Planned Ownership and Deletion Rules](requirements.md#planned-ownership-and-deletion-rules)
 - Scope:
-  - Add owner-only household deletion, including the rule that a household cannot be deleted while other active members remain.
-  - Ensure active-household state is cleared or re-resolved when memberships or households are removed.
-  - Block account deletion for owners while their household still contains other active members.
+  - Ensure active-household state is cleared or re-resolved when memberships or households are removed through all paths, not just active-household deletion.
+  - Review owner/membership transitions for edge cases such as owner removal, invite acceptance, and deleted active memberships.
+  - Apply the same household mutation lock to invite revoke paths so all household membership and pending-invite mutations share one serialization rule.
+  - Add reconciliation hooks immediately when self-leave or owner-transfer endpoints are introduced; those flows do not exist yet.
+  - Add self-leave for non-owners.
+  - Add owner transfer.
+  - Add owner leave after transfer.
+
+## TODO-6 - Household Error Recovery and Session Healing Completeness
+- Requirement links:
+  - [Identity, Membership, and Household Rules](requirements.md#identity-membership-and-household-rules)
+  - [API Surface (Current Snapshot)](requirements.md#api-surface-current-snapshot)
+  - [Known Gaps and Implementation Caveats](requirements.md#known-gaps-and-implementation-caveats)
+- Scope:
+  - Review best-effort active-household reactivation after household deletion and decide whether selector fallback remains the right UX for activation failures.
+  - Add dedicated UX handling for `HOUSEHOLD_NOT_FOUND` recovery paths where household context disappears mid-request.
 
 ## TODO-5 - Household Create/Activate Atomicity
 - Requirement links:

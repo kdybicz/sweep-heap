@@ -5,6 +5,8 @@ in the AGENTS.md file to help prevent future agents from having the same issue.
 
 - Command precedence in this repo: prefer `make` targets first, and use direct `yarn` only when an equivalent `make` target is missing.
 - After code changes, run `make dev-fix` and report the results. For docs-only updates, skip this unless explicitly requested. (This repo uses Yarn under the hood, not npm or pnpm.)
+- After code changes, also review related documentation and tests to confirm they still match the implementation and update them when needed.
+- After finishing the requested work, look for similar or related functionality that may need the same change; if you find any, call it out and propose a follow-up update.
 - Canonical implementation standards belong in `docs/engineering-patterns.md`; keep this file focused on surprises and agent workflow gotchas.
 - `@next/env` import interop can differ across runners (Node ESM vs Drizzle/tsx transpilation). In Node-run `.mjs` scripts, use `import * as nextEnv from "@next/env"` and resolve with `nextEnv.default ?? nextEnv` before destructuring `loadEnvConfig`; keep `drizzle.config.ts` on the simpler `import { loadEnvConfig } from "@next/env"` unless migrate tooling shows interop issues.
 - Surprise to watch for: `drizzle-kit generate` expects `drizzle/meta/_journal.json` to exist. If you wipe migration history, recreate `_journal.json` with empty `entries` before generating, or generation fails with `ENOENT drizzle/meta/_journal.json`.
@@ -19,3 +21,4 @@ in the AGENTS.md file to help prevent future agents from having the same issue.
 - Surprise to watch for: `scripts/seed-chores.mjs` always runs `yarn db:migrate` before inserts, so doing `make db-migrate` immediately before `make seed-chores` runs migrations twice.
 - Surprise to watch for: `src/lib/household-invite.ts` looks like the canonical invite-expiry helper, but it is currently unused. Actual Better Auth invite expiry is controlled separately in `src/auth.ts` via `organization({ invitationExpiresIn: 7 * 24 * 60 * 60 })`, so changing the helper alone does nothing.
 - Surprise to watch for: household context now prefers Better Auth session `active_household_id`, but page/API guards still have a bootstrap fallback when a user has exactly one active household and no valid session selection. Multi-household users without an active selection are redirected to `/household/select` or receive `HOUSEHOLD_SELECTION_REQUIRED`.
+- Surprise to watch for: `getHouseholdTimeZoneById()` in `src/lib/repositories/household-repository.ts` now throws when the household row is missing instead of silently defaulting to `UTC`. Treat missing household ids as a bug and fix the caller/context instead of relying on fallback behavior.

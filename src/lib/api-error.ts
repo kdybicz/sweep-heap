@@ -1,11 +1,12 @@
 export const API_ERROR_CODE = {
   ACTION_INVALID: "ACTION_INVALID",
+  ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP: "ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP",
   CHORE_NOT_FOUND: "CHORE_NOT_FOUND",
   CANCEL_SCOPE_INVALID: "CANCEL_SCOPE_INVALID",
   DELETE_TOKEN_INVALID: "DELETE_TOKEN_INVALID",
   EMAIL_REQUIRED: "EMAIL_REQUIRED",
   FORBIDDEN: "FORBIDDEN",
-  HOUSEHOLD_ALREADY_EXISTS_FOR_USER: "HOUSEHOLD_ALREADY_EXISTS_FOR_USER",
+  HOUSEHOLD_HAS_OTHER_MEMBERS: "HOUSEHOLD_HAS_OTHER_MEMBERS",
   HOUSEHOLD_NAME_REQUIRED: "HOUSEHOLD_NAME_REQUIRED",
   HOUSEHOLD_NOT_FOUND: "HOUSEHOLD_NOT_FOUND",
   HOUSEHOLD_REQUIRED: "HOUSEHOLD_REQUIRED",
@@ -51,11 +52,13 @@ export const apiErrorBody = <T extends Record<string, unknown>>(payload: ApiErro
 };
 
 export const jsonError = <T extends Record<string, unknown>>({
+  headers,
   status,
   ...payload
 }: {
+  headers?: HeadersInit;
   status: number;
 } & ApiErrorPayload &
   T) => {
-  return Response.json(apiErrorBody(payload), { status });
+  return Response.json(apiErrorBody(payload), { status, headers });
 };

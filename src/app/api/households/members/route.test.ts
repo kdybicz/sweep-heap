@@ -12,6 +12,8 @@ const {
   sendHouseholdInviteEmailMock,
   setPendingHouseholdInviteSecretHashMock,
   updateMemberRoleMock,
+  withHouseholdMutationLockMock,
+  withResponseHeadersMock,
 } = vi.hoisted(() => ({
   createInvitationMock: vi.fn(),
   getFullOrganizationMock: vi.fn(),
@@ -23,6 +25,10 @@ const {
   sendHouseholdInviteEmailMock: vi.fn(),
   setPendingHouseholdInviteSecretHashMock: vi.fn(),
   updateMemberRoleMock: vi.fn(),
+  withHouseholdMutationLockMock: vi.fn(async ({ task }: { task: () => Promise<unknown> }) =>
+    task(),
+  ),
+  withResponseHeadersMock: vi.fn((response: Response) => response),
 }));
 
 vi.mock("@/auth", () => ({
@@ -41,6 +47,7 @@ vi.mock("@/auth", () => ({
 vi.mock("@/lib/api-access", () => ({
   requireApiHousehold: requireApiHouseholdMock,
   requireApiHouseholdAdmin: requireApiHouseholdAdminMock,
+  withResponseHeaders: withResponseHeadersMock,
 }));
 
 vi.mock("@/lib/household-invite-email", () => ({
@@ -49,6 +56,10 @@ vi.mock("@/lib/household-invite-email", () => ({
 
 vi.mock("@/lib/repositories", () => ({
   setPendingHouseholdInviteSecretHash: setPendingHouseholdInviteSecretHashMock,
+}));
+
+vi.mock("@/lib/services/ownership-guard-service", () => ({
+  withHouseholdMutationLock: withHouseholdMutationLockMock,
 }));
 
 import { DELETE, GET, PATCH, POST } from "@/app/api/households/members/route";
@@ -71,12 +82,17 @@ describe("/api/households/members route", () => {
     requireApiHouseholdMock.mockReset();
     sendHouseholdInviteEmailMock.mockReset();
     setPendingHouseholdInviteSecretHashMock.mockReset();
+    withHouseholdMutationLockMock.mockClear();
+    withResponseHeadersMock.mockClear();
     updateMemberRoleMock.mockReset();
 
     setPendingHouseholdInviteSecretHashMock.mockResolvedValue(12);
 
     requireApiHouseholdMock.mockResolvedValue({
       ok: true,
+      responseHeaders: new Headers({
+        "set-cookie": "better-auth.session=healed; Path=/; HttpOnly",
+      }),
       household: { id: 11, name: "Home", role: "member" },
       sessionContext: {
         userId: 7,
@@ -86,6 +102,9 @@ describe("/api/households/members route", () => {
     });
     requireApiHouseholdAdminMock.mockResolvedValue({
       ok: true,
+      responseHeaders: new Headers({
+        "set-cookie": "better-auth.session=healed; Path=/; HttpOnly",
+      }),
       household: { id: 11, name: "Home", role: "admin" },
       sessionContext: {
         userId: 7,
@@ -146,6 +165,9 @@ describe("/api/households/members route", () => {
   it("GET keeps owner role and grants member administration", async () => {
     requireApiHouseholdMock.mockResolvedValue({
       ok: true,
+      responseHeaders: new Headers({
+        "set-cookie": "better-auth.session=healed; Path=/; HttpOnly",
+      }),
       household: { id: 11, name: "Home", role: "owner" },
       sessionContext: {
         userId: 7,
@@ -209,6 +231,10 @@ describe("/api/households/members route", () => {
     expect(body.ok).toBe(true);
     expect(body.invite.id).toBe(12);
     expect(body.inviteEmailSent).toBe(true);
+    expect(withHouseholdMutationLockMock).toHaveBeenCalledWith({
+      householdId: 11,
+      task: expect.any(Function),
+    });
   });
 
   it("POST maps duplicate pending invite to 409", async () => {
@@ -270,6 +296,9 @@ describe("/api/households/members route", () => {
   it("PATCH allows assigning owner role", async () => {
     requireApiHouseholdAdminMock.mockResolvedValue({
       ok: true,
+      responseHeaders: new Headers({
+        "set-cookie": "better-auth.session=healed; Path=/; HttpOnly",
+      }),
       household: { id: 11, name: "Home", role: "owner" },
       sessionContext: {
         userId: 7,
@@ -297,6 +326,10 @@ describe("/api/households/members route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(withHouseholdMutationLockMock).toHaveBeenCalledWith({
+      householdId: 11,
+      task: expect.any(Function),
+    });
     expect(updateMemberRoleMock).toHaveBeenCalledTimes(1);
     expect(updateMemberRoleMock.mock.calls[0]?.[0]?.body?.role).toBe("owner");
     expect(body.member.role).toBe("owner");
@@ -353,6 +386,9 @@ describe("/api/households/members route", () => {
   it("PATCH maps last-owner conflict to 409", async () => {
     requireApiHouseholdAdminMock.mockResolvedValue({
       ok: true,
+      responseHeaders: new Headers({
+        "set-cookie": "better-auth.session=healed; Path=/; HttpOnly",
+      }),
       household: { id: 11, name: "Home", role: "owner" },
       sessionContext: {
         userId: 7,
@@ -384,6 +420,39 @@ describe("/api/households/members route", () => {
       code: API_ERROR_CODE.LAST_OWNER_REQUIRED,
       error: "At least one household owner must remain",
     });
+  });
+
+  it("GET preserves reconciliation headers on unexpected errors", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      requireApiHouseholdMock.mockResolvedValue({
+        ok: true,
+        responseHeaders: new Headers({
+          "set-cookie": "better-auth.session=healed; Path=/; HttpOnly",
+        }),
+        household: { id: 11, name: "Home", role: "member" },
+        sessionContext: {
+          userId: 7,
+          sessionUserName: "Alex",
+          sessionUserEmail: "alex@example.com",
+        },
+      });
+      getFullOrganizationMock.mockRejectedValue(new Error("snapshot failed"));
+
+      const response = await GET(new Request("http://localhost/api/households/members"));
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to load household members",
+      });
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=healed");
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("DELETE blocks admins from removing an owner", async () => {
@@ -428,6 +497,10 @@ describe("/api/households/members route", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true, removedUserId: 9 });
+    expect(withHouseholdMutationLockMock).toHaveBeenCalledWith({
+      householdId: 11,
+      task: expect.any(Function),
+    });
     expect(removeMemberMock).toHaveBeenCalledTimes(1);
   });
 

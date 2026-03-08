@@ -102,8 +102,11 @@
   - Revoke invites.
   - Change member roles.
   - Remove members.
+- Only owners can delete a household.
+- A household can be deleted only when the acting owner is its only active member.
 - Users cannot change their own role through the members API.
 - Household administrators cannot remove themselves through the members API.
+- There is currently no dedicated self-leave or owner-transfer API; when either flow is added, it must reconcile `active_household_id` using the same stale-session healing rules as other household membership changes.
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ## Invite Rules
@@ -180,6 +183,10 @@
   - Returns `500` with `Failed to activate new household` if the follow-up active-household session switch fails.
 - `PATCH /api/households`
   - Updates household (owner/admin only).
+- `DELETE /api/households`
+  - Deletes the active household (owner only, and only when no other active members remain).
+  - Clears active context, redirects to `/household/setup` when none remain, `/household/select` when multiple remain, and re-activates the sole remaining household when possible.
+  - If sole-remaining-household activation fails, response still succeeds but falls back to `nextPath: "/household/select"` instead of claiming board context is ready.
 - `GET /api/households/members`
   - Returns active members and pending invites.
 - `POST /api/households/members`
@@ -205,6 +212,7 @@
   - `action=cancel`: cancel one occurrence (`single`) or this and following (`following`).
 - `GET /api/me`
   - Returns current user and memberships.
+  - Reconciles stale `active_household_id` when request headers are available.
 - `PATCH /api/me`
   - Updates current user name.
 - `POST /api/me/delete-request`
@@ -222,17 +230,17 @@
 
 ## Account Deletion Requirements (Current)
 - Delete request requires authenticated user with an email.
+- Delete request is blocked when the user owns any household that still has other active members.
 - Delete request email delivery is required: when confirmation email send fails, API returns `500` with `Failed to send confirmation email`.
 - Confirmation uses one-time token (`identifier + tokenHash`) and expires in 30 minutes.
+- Confirmation is also blocked when the user still owns any household that has other active members; valid tokens are not consumed in that case.
 - On confirmed delete:
   - User row is removed.
   - Any households that become empty (no active memberships) are also removed.
+ - Current remediation is limited: owner transfer is not implemented yet, so blocked owners can remove other active members but cannot complete a transfer flow in-app today.
 
 ## Planned Ownership and Deletion Rules
-- Household deletion will be owner-only.
-- A household cannot be deleted while it still has any active members besides the acting owner.
 - Deleting a user's last household should leave the user in onboarding with no active household; they may create a new household afterward.
-- Account deletion must be blocked when the user owns any household that still has active members besides that owner.
 - When an active household is deleted or the user's membership in it ends, `active_household_id` must be cleared or re-resolved before the next household-scoped action.
 - Multi-household support should treat `active_household_id` as the acting context; membership list and ownership checks must be evaluated against the targeted household, not inferred by latest membership.
 

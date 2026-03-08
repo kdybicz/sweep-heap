@@ -15,11 +15,14 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Any signed-in user can create a household, including users who already belong to another active household.
 - Active household comes from session `active_household_id`, with one-household bootstrap fallback when the session selection is missing or stale.
 - Owner/admin-only: edit household, revoke invites, change roles, remove members.
+- Owner-only: delete household, and only when no other active members remain.
 - Household create/edit validates time zone; invalid values return `400` (`Invalid time zone`).
+- Household time zone is required in storage and household lookups should fail loudly rather than silently defaulting when a household record is missing.
 - `POST /api/households` fails with `500` (`Failed to activate new household`) if session activation does not succeed after the household is created.
 - API failures include `{ ok: false, code, error }`; control flow should branch on `code`.
 - Household-gated APIs use `code: "HOUSEHOLD_REQUIRED"` for missing active-household access; clients should branch on `code`, not error message text.
 - Household selection uses session `active_household_id` as the primary context; when multiple memberships exist without an active selection, redirect to `/household/select` or handle `HOUSEHOLD_SELECTION_REQUIRED`.
+- `/api/me` also reconciles stale `active_household_id` when request headers are available.
 - Signed-in users without an active household should stay in the auth/onboarding flow until setup or invite acceptance completes.
 - Settings, profile, and board pages stay behind active-household access.
 - `/` and `/auth` should bounce signed-in users into `/household`, `/household/select`, or `/household/setup` based on context.
@@ -57,7 +60,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ## API Snapshot
 - `GET /api/health`
-- `GET|POST|PATCH /api/households`
+- `GET|POST|PATCH|DELETE /api/households`
 - `POST /api/households/active`
 - `GET|POST|PATCH|DELETE /api/households/members`
 - `POST|DELETE /api/households/members/invites/[inviteId]`
@@ -67,7 +70,10 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `GET|PATCH /api/me`
 - `POST /api/me/delete-request`
 - `POST /api/me/delete-confirm`
+- Account deletion is blocked while the user still owns a household with other active members.
+- Owner transfer is not implemented yet, so blocked account deletion currently means removing other active members rather than completing an in-app transfer flow.
 - Delete-request email delivery is required; SMTP failures return `500`.
+- Household deletion falls back to `/household/select` if reactivating the sole remaining household fails.
 
 ## Key File Map
 - Routes: `src/app/api/**/route.ts`
@@ -87,7 +93,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ## Backlog Links
 - Active execution backlog: `docs/todo.md`.
-- Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`, `TODO-4`, `TODO-5`.
+- Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`, `TODO-4`, `TODO-5`, `TODO-6`.
 
 ## Change Checklist
 - Keep route handlers thin and transport-focused.

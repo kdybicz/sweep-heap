@@ -4,11 +4,13 @@ import { API_ERROR_CODE } from "@/lib/api-error";
 const {
   getSessionMock,
   getUserMembershipsMock,
+  reconcileActiveHouseholdSessionMock,
   resolveActiveHouseholdMock,
   updateUserNameByIdMock,
 } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
   getUserMembershipsMock: vi.fn(),
+  reconcileActiveHouseholdSessionMock: vi.fn(),
   resolveActiveHouseholdMock: vi.fn(),
   updateUserNameByIdMock: vi.fn(),
 }));
@@ -23,6 +25,7 @@ vi.mock("@/lib/repositories", () => ({
 }));
 
 vi.mock("@/lib/services", () => ({
+  reconcileActiveHouseholdSession: reconcileActiveHouseholdSessionMock,
   resolveActiveHousehold: resolveActiveHouseholdMock,
 }));
 
@@ -46,8 +49,11 @@ describe("/api/me route", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
     getUserMembershipsMock.mockReset();
+    reconcileActiveHouseholdSessionMock.mockReset();
     resolveActiveHouseholdMock.mockReset();
     updateUserNameByIdMock.mockReset();
+
+    reconcileActiveHouseholdSessionMock.mockResolvedValue(new Headers());
   });
 
   it("GET rejects unauthenticated requests", async () => {
@@ -111,8 +117,11 @@ describe("/api/me route", () => {
         timeZone: "UTC",
       },
     });
+    reconcileActiveHouseholdSessionMock.mockResolvedValue(
+      new Headers({ "set-cookie": "better-auth.session=healed; Path=/; HttpOnly" }),
+    );
 
-    const response = await GET();
+    const response = await GET(new Request("http://localhost/api/me"));
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -137,6 +146,22 @@ describe("/api/me route", () => {
       sessionActiveHouseholdId: 12,
       userId: 4,
     });
+    expect(reconcileActiveHouseholdSessionMock).toHaveBeenCalledWith({
+      requestHeaders: expect.any(Headers),
+      resolution: {
+        status: "resolved",
+        source: "session",
+        household: {
+          id: 12,
+          name: "Home",
+          role: "admin",
+          icon: null,
+          timeZone: "UTC",
+        },
+      },
+      sessionActiveHouseholdId: 12,
+    });
+    expect(response.headers.get("set-cookie")).toContain("better-auth.session=healed");
   });
 
   it("GET returns null active household when user must select one", async () => {
@@ -309,7 +334,24 @@ describe("/api/me route", () => {
   it("PATCH returns consistent 500 envelope on unexpected errors", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      getSessionMock.mockResolvedValue({ user: { id: "4" } });
+      getSessionMock.mockResolvedValue({
+        user: { id: "4", name: "Alex", email: "alex@example.com" },
+        session: { activeOrganizationId: "12" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "fallback",
+        household: {
+          id: 12,
+          name: "Home",
+          role: "admin",
+          icon: null,
+          timeZone: "UTC",
+        },
+      });
+      reconcileActiveHouseholdSessionMock.mockResolvedValue(
+        new Headers({ "set-cookie": "better-auth.session=healed; Path=/; HttpOnly" }),
+      );
       updateUserNameByIdMock.mockRejectedValue(new Error("db failed"));
 
       const response = await PATCH(patchRequest({ name: "Alex" }));
@@ -321,6 +363,7 @@ describe("/api/me route", () => {
         code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
         error: "Failed to update user",
       });
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=healed");
       expect(consoleErrorSpy).toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();

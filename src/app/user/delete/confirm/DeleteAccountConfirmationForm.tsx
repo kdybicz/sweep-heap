@@ -74,12 +74,12 @@ export default function DeleteAccountConfirmationForm() {
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <p className="text-sm text-[var(--muted)]">
-        This action cannot be undone. If you are the last member of your household, the household
-        will be deleted too.
+        This action cannot be undone. Any households left empty by deleting your account will be
+        removed too.
       </p>
       <p className="text-sm text-[var(--muted)]">
-        Please type 'delete' into the text field below to confirm you want to delete your account
-        permanently.
+        If you still own a household with other active members, remove those members first. Then
+        type 'delete' below to confirm permanent account deletion.
       </p>
       <label className="sr-only" htmlFor="delete-confirmation">
         Type delete

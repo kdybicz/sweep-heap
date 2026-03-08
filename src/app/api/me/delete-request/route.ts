@@ -4,6 +4,7 @@ import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { sendDeleteAccountConfirmationEmail } from "@/lib/delete-account-email";
 import { getAppOrigin } from "@/lib/http";
 import { buildDeleteAccountTokenIdentifier, createDeleteAccountToken } from "@/lib/repositories";
+import { listAccountDeletionBlockingHouseholds } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,18 @@ export async function POST(request: Request) {
         status: 400,
         code: API_ERROR_CODE.EMAIL_REQUIRED,
         error: "Email is required to confirm account deletion",
+      });
+    }
+
+    const blockingHouseholds = await listAccountDeletionBlockingHouseholds(
+      sessionAccess.sessionContext.userId,
+    );
+    if (blockingHouseholds.length > 0) {
+      return jsonError({
+        status: 409,
+        code: API_ERROR_CODE.ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP,
+        error: "Remove other active members from owned households before deleting your account",
+        blockingHouseholds,
       });
     }
 

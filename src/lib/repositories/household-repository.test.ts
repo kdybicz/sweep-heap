@@ -12,7 +12,10 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
+  countActiveHouseholdMembersExcludingUser,
+  getHouseholdTimeZoneById,
   getPendingHouseholdInviteByIdAndSecret,
+  listOwnedHouseholdsWithOtherMembers,
   setPendingHouseholdInviteSecretHash,
 } from "@/lib/repositories/household-repository";
 
@@ -86,5 +89,66 @@ describe("setPendingHouseholdInviteSecretHash", () => {
     });
 
     expect(inviteId).toBeNull();
+  });
+});
+
+describe("getHouseholdTimeZoneById", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("returns a stored household time zone", async () => {
+    queryMock.mockResolvedValue({ rows: [{ time_zone: "Europe/Warsaw" }] });
+
+    await expect(getHouseholdTimeZoneById(7)).resolves.toBe("Europe/Warsaw");
+  });
+
+  it("throws when household time zone is missing", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+
+    await expect(getHouseholdTimeZoneById(7)).rejects.toThrow("Household 7 not found");
+  });
+});
+
+describe("countActiveHouseholdMembersExcludingUser", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("counts other active members in the household", async () => {
+    queryMock.mockResolvedValue({ rows: [{ count: "2" }] });
+
+    await expect(
+      countActiveHouseholdMembersExcludingUser({
+        excludedUserId: 7,
+        householdId: 11,
+      }),
+    ).resolves.toBe(2);
+  });
+});
+
+describe("listOwnedHouseholdsWithOtherMembers", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("returns owned households that still have other active members", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          householdId: 11,
+          householdName: "Home",
+          otherActiveMemberCount: 2,
+        },
+      ],
+    });
+
+    await expect(listOwnedHouseholdsWithOtherMembers(7)).resolves.toEqual([
+      {
+        householdId: 11,
+        householdName: "Home",
+        otherActiveMemberCount: 2,
+      },
+    ]);
   });
 });
