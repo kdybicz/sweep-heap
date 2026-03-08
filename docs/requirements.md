@@ -263,7 +263,7 @@
 - No dedicated event/audit history table exists for chore state transitions; only latest override state is stored.
 - `closed_reason = schedule_end` lifecycle is not currently persisted by background process; closure is mostly represented by derived listing behavior.
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
-- Cancel actions are currently API-first; the board UI does not yet expose first-class cancel controls.
+- Cancel actions are available from the board chore details modal for single-occurrence and this-and-following cancellation.
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in `TODO-3`.
 
 ## Decision Notes for Future Work

@@ -167,6 +167,7 @@ export const listChores = async ({
           id: row.id,
           title: row.title,
           type: row.type,
+          is_repeating: normalizeRepeatRule(row.repeat_rule) !== "none",
           notes: row.notes ?? null,
           status: override?.status ?? "open",
           closed_reason: override?.closed_reason ?? null,

@@ -4,6 +4,7 @@ export type ChoreItem = {
   id: number;
   title: string;
   type: ChoreType;
+  is_repeating?: boolean;
   occurrence_date: string;
   occurrence_start_date: string;
   status: string;

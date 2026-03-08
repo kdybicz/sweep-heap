@@ -2,6 +2,7 @@ import type { DateTime } from "luxon";
 import type { FormEvent } from "react";
 
 import type { ChoreItem, UndoToast } from "@/app/household/board/types";
+import type { CancelChoreScope } from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
 export type SidebarModel = {
@@ -59,8 +60,11 @@ export type AddChoreModalModel = {
 export type ChoreDetailsModalModel = {
   chore: ChoreItem | null;
   todayKey: string;
+  error: string | null;
+  submitting: boolean;
   onClose: () => void;
   onPrimaryAction: (chore: ChoreItem) => void;
+  onCancelAction: (chore: ChoreItem, scope: CancelChoreScope) => Promise<void>;
 };
 
 export type UseHouseholdBoardModel = {

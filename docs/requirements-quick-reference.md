@@ -91,7 +91,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - No append-only chore event log yet (only latest override state).
 - Concurrency conflicts are not exposed as explicit retryable responses.
 - Month/year recurrence edge cases can drift from strict start-date anchoring.
-- Board UI does not yet expose first-class cancel/snooze actions (cancel is currently API-only).
+- Board UI exposes cancel actions from the chore details modal for single-occurrence and this-and-following cancellation.
 
 ## Backlog Links
 - Active execution backlog: `docs/todo.md`.

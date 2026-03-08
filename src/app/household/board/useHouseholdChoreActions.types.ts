@@ -4,6 +4,8 @@ import type { ChoreItem, UndoToast } from "@/app/household/board/types";
 import type { LoadChoresFn } from "@/app/household/board/useHouseholdChoresData.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
+export type CancelChoreScope = "single" | "following";
+
 export type UseHouseholdChoreActionsParams = {
   chores: ChoreItem[];
   setChores: Dispatch<SetStateAction<ChoreItem[]>>;
@@ -38,8 +40,11 @@ export type UseHouseholdChoreActionsModel = {
   setNewRepeatEnd: (value: string) => void;
   setNewNotes: (value: string) => void;
   selectedChore: ChoreItem | null;
+  selectedChoreError: string | null;
+  selectedChoreSubmitting: boolean;
   closeSelectedChore: () => void;
   primarySelectedChoreAction: (chore: ChoreItem) => void;
+  cancelSelectedChore: (chore: ChoreItem, scope: CancelChoreScope) => Promise<void>;
   onSelectChore: (chore: ChoreItem) => void;
   onAddChoreForDate: (dayKey: string | null) => void;
   onOpenAddChoreModal: () => void;

@@ -3,6 +3,7 @@ import { useId, useRef } from "react";
 
 import { StateIcon, TypeIcon } from "@/app/household/board/components/ChoreIcons";
 import type { ChoreItem } from "@/app/household/board/types";
+import type { CancelChoreScope } from "@/app/household/board/useHouseholdChoreActions.types";
 import {
   getChoreStateLabel,
   getChoreTypeLabel,
@@ -14,35 +15,50 @@ import { useDialogFocusTrap } from "@/lib/use-dialog-focus-trap";
 type ChoreDetailsModalProps = {
   chore: ChoreItem | null;
   todayKey: string;
+  error: string | null;
+  submitting: boolean;
   onClose: () => void;
   onPrimaryAction: (chore: ChoreItem) => void;
+  onCancelAction: (chore: ChoreItem, scope: CancelChoreScope) => void | Promise<void>;
 };
 
 export default function ChoreDetailsModal({
   chore,
   todayKey,
+  error,
+  submitting,
   onClose,
   onPrimaryAction,
+  onCancelAction,
 }: ChoreDetailsModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const handleClose = () => {
+    if (submitting) {
+      return;
+    }
+    onClose();
+  };
 
   useDialogFocusTrap({
     active: Boolean(chore),
     dialogRef,
-    onEscape: onClose,
+    onEscape: handleClose,
   });
 
   if (!chore) {
     return null;
   }
 
+  const cancelActionsDisabled = submitting || chore.occurrence_date < todayKey;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
       <button
         aria-label="Close chore details dialog"
         className="absolute inset-0 bg-black/40"
-        onClick={onClose}
+        disabled={submitting}
+        onClick={handleClose}
         type="button"
       />
       <div
@@ -82,24 +98,48 @@ export default function ChoreDetailsModal({
               <div className="mt-2 text-sm text-[var(--ink)]">{chore.notes}</div>
             </div>
           ) : null}
+          {error ? (
+            <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
+              {error}
+            </div>
+          ) : null}
           <div className="flex flex-col gap-2">
             <button
               className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isPrimaryActionDisabled({
-                chore,
-                todayKey,
-              })}
+              disabled={
+                submitting ||
+                isPrimaryActionDisabled({
+                  chore,
+                  todayKey,
+                })
+              }
               onClick={() => onPrimaryAction(chore)}
               type="button"
             >
               {getPrimaryActionLabel(chore)}
             </button>
-            <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-              Skip and Snooze are planned but not available yet.
-            </div>
+            <button
+              className="rounded-full border border-[var(--danger)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={cancelActionsDisabled}
+              onClick={() => onCancelAction(chore, "single")}
+              type="button"
+            >
+              Cancel this occurrence
+            </button>
+            {chore.is_repeating ? (
+              <button
+                className="rounded-full border border-[var(--danger-stroke)] bg-[var(--surface-weak)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={cancelActionsDisabled}
+                onClick={() => onCancelAction(chore, "following")}
+                type="button"
+              >
+                Cancel this and following
+              </button>
+            ) : null}
             <button
               className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
-              onClick={onClose}
+              disabled={submitting}
+              onClick={handleClose}
               type="button"
             >
               Close

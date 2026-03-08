@@ -106,8 +106,11 @@ function HouseholdBoardContent() {
 
       <ChoreDetailsModal
         chore={board.choreDetailsModal.chore}
+        error={board.choreDetailsModal.error}
         onClose={board.choreDetailsModal.onClose}
+        onCancelAction={board.choreDetailsModal.onCancelAction}
         onPrimaryAction={board.choreDetailsModal.onPrimaryAction}
+        submitting={board.choreDetailsModal.submitting}
         todayKey={board.choreDetailsModal.todayKey}
       />
     </div>

@@ -11,6 +11,7 @@ import {
 import { addDaysToDateKey, getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem, UndoToast } from "@/app/household/board/types";
 import type {
+  CancelChoreScope,
   UseHouseholdChoreActionsModel,
   UseHouseholdChoreActionsParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
@@ -59,6 +60,8 @@ export default function useHouseholdChoreActions({
   const [newRepeatEnd, setNewRepeatEnd] = useState(() => getHouseholdTodayKey(timeZone));
   const [newNotes, setNewNotes] = useState("");
   const [selectedChore, setSelectedChore] = useState<ChoreItem | null>(null);
+  const [selectedChoreError, setSelectedChoreError] = useState<string | null>(null);
+  const [selectedChoreSubmitting, setSelectedChoreSubmitting] = useState(false);
 
   const clearToastTick = useCallback(() => {
     if (toastTickRef.current) {
@@ -355,11 +358,52 @@ export default function useHouseholdChoreActions({
   );
 
   const closeSelectedChore = useCallback(() => {
+    setSelectedChoreError(null);
+    setSelectedChoreSubmitting(false);
     setSelectedChore(null);
   }, []);
 
+  const cancelSelectedChore = useCallback(
+    async (chore: ChoreItem, scope: CancelChoreScope) => {
+      setSelectedChoreError(null);
+      setSelectedChoreSubmitting(true);
+
+      try {
+        const response = await fetch("/api/chores", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "cancel",
+            cancelScope: scope,
+            choreId: chore.id,
+            occurrenceStartDate: chore.occurrence_start_date,
+          }),
+        });
+        const data = await readApiJsonResponse<ChoreMutationResponse>(response);
+        if (recoverFromHouseholdContextError(data)) {
+          setSelectedChoreSubmitting(false);
+          return;
+        }
+        if (!data?.ok) {
+          throw new Error(data?.error ?? "Failed to cancel chore occurrence");
+        }
+
+        closeSelectedChore();
+        await loadChores({ force: true });
+        await loadTodayChores();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to cancel chore occurrence";
+        setSelectedChoreError(message);
+        setSelectedChoreSubmitting(false);
+      }
+    },
+    [closeSelectedChore, loadChores, loadTodayChores],
+  );
+
   const primarySelectedChoreAction = useCallback(
     (chore: ChoreItem) => {
+      setSelectedChoreError(null);
       void markChoreDone(chore);
       setSelectedChore(null);
     },
@@ -368,6 +412,12 @@ export default function useHouseholdChoreActions({
 
   const closeAddChoreModal = useCallback(() => {
     setShowAddModal(false);
+  }, []);
+
+  const selectChore = useCallback((chore: ChoreItem) => {
+    setSelectedChoreError(null);
+    setSelectedChoreSubmitting(false);
+    setSelectedChore(chore);
   }, []);
 
   return {
@@ -396,9 +446,12 @@ export default function useHouseholdChoreActions({
     setNewRepeatEnd,
     setNewNotes,
     selectedChore,
+    selectedChoreError,
+    selectedChoreSubmitting,
     closeSelectedChore,
     primarySelectedChoreAction,
-    onSelectChore: setSelectedChore,
+    cancelSelectedChore,
+    onSelectChore: selectChore,
     onAddChoreForDate,
     onOpenAddChoreModal,
   };

@@ -84,8 +84,11 @@ export default function useHouseholdBoard(): UseHouseholdBoardModel {
     choreDetailsModal: {
       chore: actions.selectedChore,
       todayKey: week.todayKey,
+      error: actions.selectedChoreError,
+      submitting: actions.selectedChoreSubmitting,
       onClose: actions.closeSelectedChore,
       onPrimaryAction: actions.primarySelectedChoreAction,
+      onCancelAction: actions.cancelSelectedChore,
     },
   };
 }
