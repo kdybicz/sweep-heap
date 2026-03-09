@@ -246,9 +246,75 @@ describe("PATCH /api/chores", () => {
     expect(body).toEqual({
       ok: false,
       code: API_ERROR_CODE.VALIDATION_FAILED,
-      error: "Action must be create, set, undo, or cancel",
+      error: "Action must be create, set, cancel, edit_single, edit_following, or edit_series",
     });
     expect(mutateChoreMock).not.toHaveBeenCalled();
+  });
+
+  it("forwards edit_following payloads to the service", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11 },
+    });
+    const payload = {
+      action: "edit_following",
+      choreId: 3,
+      occurrenceStartDate: "2026-01-03",
+      title: "Deep clean",
+    };
+    mutateChoreMock.mockResolvedValue({
+      ok: true,
+      body: { ok: true, choreId: 3, createdChoreId: 9, occurrenceStartDate: "2026-01-03" },
+    });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, payload });
+  });
+
+  it("forwards edit_series payloads to the service", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11 },
+    });
+    const payload = {
+      action: "edit_series",
+      choreId: 3,
+      occurrenceStartDate: "2026-01-03",
+      title: "Deep clean forever",
+    };
+    mutateChoreMock.mockResolvedValue({
+      ok: true,
+      body: { ok: true, choreId: 3, occurrenceStartDate: "2026-01-03" },
+    });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, payload });
   });
 
   it("rejects missing status for set-style mutations before service mutation", async () => {

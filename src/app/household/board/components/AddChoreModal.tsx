@@ -6,6 +6,9 @@ import { useDialogFocusTrap } from "@/lib/use-dialog-focus-trap";
 
 type AddChoreModalProps = {
   open: boolean;
+  modalTitle: string;
+  modalDescription: string;
+  submitLabel: string;
   submitError: string | null;
   fieldErrors: Record<string, string>;
   submitting: boolean;
@@ -30,6 +33,9 @@ type AddChoreModalProps = {
 
 export default function AddChoreModal({
   open,
+  modalTitle,
+  modalDescription,
+  submitLabel,
   submitError,
   fieldErrors,
   submitting,
@@ -83,9 +89,9 @@ export default function AddChoreModal({
         <div className="flex items-start justify-between gap-4 border-b border-[var(--stroke)] bg-[var(--surface-weak)] px-6 py-5">
           <div>
             <h3 className="text-xl font-semibold" id={titleId}>
-              Add a chore
+              {modalTitle}
             </h3>
-            <p className="text-xs text-[var(--muted)]">Quick details now, schedule tweaks later.</p>
+            <p className="text-xs text-[var(--muted)]">{modalDescription}</p>
           </div>
         </div>
         <form className="flex flex-col gap-4 px-6 py-5" onSubmit={onSubmit}>
@@ -275,7 +281,7 @@ export default function AddChoreModal({
               disabled={submitting}
               type="submit"
             >
-              {submitting ? "Saving..." : "Save chore"}
+              {submitting ? "Saving..." : submitLabel}
             </button>
           </div>
         </form>

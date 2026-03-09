@@ -43,13 +43,11 @@ export const applyOptimisticDone = ({
   choreId,
   occurrenceStartDate,
   optimisticStatus,
-  undoUntil,
 }: {
   chores: ChoreItem[];
   choreId: number;
   occurrenceStartDate: string;
   optimisticStatus: "open" | "closed";
-  undoUntil: string | null;
 }) =>
   updateTargetChore({
     chores,
@@ -59,30 +57,6 @@ export const applyOptimisticDone = ({
       ...chore,
       status: optimisticStatus,
       closed_reason: "done",
-      undo_until: undoUntil,
-      can_undo: true,
-    }),
-  });
-
-export const applyOptimisticUndo = ({
-  chores,
-  choreId,
-  occurrenceStartDate,
-}: {
-  chores: ChoreItem[];
-  choreId: number;
-  occurrenceStartDate: string;
-}) =>
-  updateTargetChore({
-    chores,
-    choreId,
-    occurrenceStartDate,
-    map: (chore) => ({
-      ...chore,
-      status: "open",
-      closed_reason: null,
-      undo_until: null,
-      can_undo: false,
     }),
   });
 

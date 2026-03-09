@@ -1,15 +1,13 @@
 export {
-  deleteChoreOccurrenceOverride,
+  deleteChoreOccurrenceException,
   getChoreInHousehold,
-  getChoreOccurrenceExclusion,
-  getChoreOccurrenceOverride,
+  getChoreOccurrenceException,
   insertChore,
   listActiveChoreSeriesByHousehold,
-  listChoreExclusionsByHousehold,
-  listChoreOverridesByHousehold,
+  listChoreExceptionsByHousehold,
+  updateChoreSeries,
   updateChoreSeriesEndDate,
-  upsertChoreOccurrenceExclusion,
-  upsertChoreOccurrenceOverride,
+  upsertChoreOccurrenceException,
 } from "@/lib/repositories/chore-repository";
 export {
   countActiveHouseholdMembersExcludingUser,

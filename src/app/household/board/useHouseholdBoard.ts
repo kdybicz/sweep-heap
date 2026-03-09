@@ -53,13 +53,11 @@ export default function useHouseholdBoard(): UseHouseholdBoardModel {
       onSelectChore: actions.onSelectChore,
       onAddChoreForDate: actions.onAddChoreForDate,
     },
-    undo: {
-      nowMs: actions.nowMs,
-      undoToasts: actions.undoToasts,
-      onUndo: actions.undoChoreDone,
-    },
     addChoreModal: {
       open: actions.showAddModal,
+      modalTitle: actions.addModalTitle,
+      modalDescription: actions.addModalDescription,
+      submitLabel: actions.addModalSubmitLabel,
       submitError: actions.submitError,
       fieldErrors: actions.fieldErrors,
       submitting: actions.submitting,
@@ -89,6 +87,7 @@ export default function useHouseholdBoard(): UseHouseholdBoardModel {
       onClose: actions.closeSelectedChore,
       onPrimaryAction: actions.primarySelectedChoreAction,
       onCancelAction: actions.cancelSelectedChore,
+      onEditAction: actions.editSelectedChore,
     },
   };
 }

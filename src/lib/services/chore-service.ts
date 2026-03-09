@@ -1,23 +1,20 @@
 import { DateTime } from "luxon";
 import { API_ERROR_CODE, apiErrorBody } from "@/lib/api-error";
-import { CHORE_UNDO_WINDOW_SECONDS } from "@/lib/chore-undo";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import { toISODateOrThrow } from "@/lib/date";
 import type { RepeatRule } from "@/lib/occurrences";
 import { generateOccurrenceInstances } from "@/lib/occurrences";
 import {
-  deleteChoreOccurrenceOverride,
+  deleteChoreOccurrenceException,
   getChoreInHousehold,
-  getChoreOccurrenceExclusion,
-  getChoreOccurrenceOverride,
+  getChoreOccurrenceException,
   getHouseholdTimeZoneById,
   insertChore,
   listActiveChoreSeriesByHousehold,
-  listChoreExclusionsByHousehold,
-  listChoreOverridesByHousehold,
+  listChoreExceptionsByHousehold,
+  updateChoreSeries,
   updateChoreSeriesEndDate,
-  upsertChoreOccurrenceExclusion,
-  upsertChoreOccurrenceOverride,
+  upsertChoreOccurrenceException,
 } from "@/lib/repositories";
 
 const toDateString = (value: string | null, timeZone: string) => {
@@ -58,6 +55,15 @@ const normalizeNotes = (value: unknown) => {
     return null;
   }
   return trimmed.slice(0, 500);
+};
+
+const addDays = (value: string, days: number) =>
+  DateTime.fromISO(value, { zone: "UTC" }).plus({ days }).toISODate();
+
+const spanDaysBetween = (startDate: string, endDate: string) => {
+  const start = DateTime.fromISO(startDate, { zone: "UTC" }).startOf("day");
+  const end = DateTime.fromISO(endDate, { zone: "UTC" }).startOf("day");
+  return Math.max(Math.round(end.diff(start, "days").days), 1);
 };
 
 const isOccurrenceStartInSeries = ({
@@ -104,37 +110,26 @@ export const listChores = async ({
   const rangeStart = rangeStartInput ?? defaultWeekStart.toISODate() ?? "";
   const rangeEnd = rangeEndInput ?? defaultWeekEnd.toISODate() ?? "";
 
-  const [seriesRows, overrideRows, exclusionRows] = await Promise.all([
+  const [seriesRows, exceptionRows] = await Promise.all([
     listActiveChoreSeriesByHousehold({ householdId, rangeStart, rangeEnd }),
-    listChoreOverridesByHousehold({ householdId, rangeStart, rangeEnd }),
-    listChoreExclusionsByHousehold({ householdId, rangeStart, rangeEnd }),
+    listChoreExceptionsByHousehold({ householdId, rangeStart, rangeEnd }),
   ]);
 
-  const overrides = new Map<
+  const exceptions = new Map<
     string,
-    { status: string; closed_reason: string | null; undo_until: string | null }
+    { kind: string; status: string | null; closed_reason: string | null }
   >();
 
-  for (const row of overrideRows) {
+  for (const row of exceptionRows) {
     const occurrenceStartDate = normalizeDate(row.occurrence_start_date, timeZone);
     if (!occurrenceStartDate) {
       continue;
     }
-    const undoUntil = row.undo_until ? DateTime.fromJSDate(row.undo_until).toUTC().toISO() : null;
-    overrides.set(`${row.chore_id}:${occurrenceStartDate}`, {
+    exceptions.set(`${row.chore_id}:${occurrenceStartDate}`, {
+      kind: row.kind,
       status: row.status,
       closed_reason: row.closed_reason ?? null,
-      undo_until: undoUntil,
     });
-  }
-
-  const exclusions = new Set<string>();
-  for (const row of exclusionRows) {
-    const occurrenceStartDate = normalizeDate(row.occurrence_start_date, timeZone);
-    if (!occurrenceStartDate) {
-      continue;
-    }
-    exclusions.add(`${row.chore_id}:${occurrenceStartDate}`);
   }
 
   const chores = seriesRows.flatMap((row) => {
@@ -154,27 +149,28 @@ export const listChores = async ({
     });
 
     return occurrences
-      .filter((occurrence) => !exclusions.has(`${row.id}:${occurrence.occurrenceStartDate}`))
+      .filter((occurrence) => {
+        const exception = exceptions.get(`${row.id}:${occurrence.occurrenceStartDate}`);
+        return exception?.kind !== "canceled";
+      })
       .map((occurrence) => {
-        const overrideKey = `${row.id}:${occurrence.occurrenceStartDate}`;
-        const override = overrides.get(overrideKey);
-        const nowUtc = DateTime.utc();
-        const undoUntil = override?.undo_until ? DateTime.fromISO(override.undo_until) : null;
-        const isUndoWindowActive =
-          override?.closed_reason === "done" && !!undoUntil && undoUntil > nowUtc;
+        const exceptionKey = `${row.id}:${occurrence.occurrenceStartDate}`;
+        const exception = exceptions.get(exceptionKey);
 
         return {
           id: row.id,
           title: row.title,
           type: row.type,
           is_repeating: normalizeRepeatRule(row.repeat_rule) !== "none",
+          series_start_date: seriesStart,
+          repeat_rule: normalizeRepeatRule(row.repeat_rule),
+          series_end_date: normalizeDate(row.series_end_date, timeZone),
+          duration_days: spanDaysBetween(seriesStart, occurrenceEnd),
           notes: row.notes ?? null,
-          status: override?.status ?? "open",
-          closed_reason: override?.closed_reason ?? null,
+          status: exception?.kind === "state" ? (exception.status ?? "open") : "open",
+          closed_reason: exception?.kind === "state" ? (exception.closed_reason ?? null) : null,
           occurrence_date: occurrence.occurrenceDay,
           occurrence_start_date: occurrence.occurrenceStartDate,
-          undo_until: override?.undo_until ?? null,
-          can_undo: isUndoWindowActive,
         };
       });
   });
@@ -209,14 +205,21 @@ export const mutateChore = async ({
   const rawAction = typeof input.action === "string" ? input.action.trim().toLowerCase() : null;
   const action = rawAction ?? "set";
 
-  if (action !== "create" && action !== "set" && action !== "undo" && action !== "cancel") {
+  if (
+    action !== "create" &&
+    action !== "set" &&
+    action !== "cancel" &&
+    action !== "edit_single" &&
+    action !== "edit_following" &&
+    action !== "edit_series"
+  ) {
     return {
       ok: false,
       status: 400,
       body: {
         ...apiErrorBody({
           code: API_ERROR_CODE.ACTION_INVALID,
-          error: "Action must be create, set, undo, or cancel",
+          error: "Action must be create, set, cancel, edit_single, edit_following, or edit_series",
         }),
       },
     };
@@ -373,12 +376,12 @@ export const mutateChore = async ({
     };
   }
 
-  const exclusion = await getChoreOccurrenceExclusion({
+  const exception = await getChoreOccurrenceException({
     choreId,
     occurrenceStartDate,
   });
 
-  if (action !== "cancel" && exclusion) {
+  if (action !== "cancel" && exception?.kind === "canceled") {
     return {
       ok: false,
       status: 409,
@@ -393,6 +396,131 @@ export const mutateChore = async ({
 
   const choreType = chore.type === "stay_open" ? "stay_open" : "close_on_done";
   const choreRepeatRule = normalizeRepeatRule(chore.repeat_rule);
+
+  if (action === "edit_single" || action === "edit_following" || action === "edit_series") {
+    const timeZone = await getHouseholdTimeZoneById(householdId);
+    const today = toISODateOrThrow(DateTime.now().setZone(timeZone));
+    const originalSpanDays = spanDaysBetween(chore.start_date, chore.end_date);
+    const defaultStartDate = action === "edit_series" ? chore.start_date : occurrenceStartDate;
+    const nextStartDate = normalizeDate(input.startDate, timeZone) ?? defaultStartDate;
+    const nextEndDate =
+      normalizeDate(input.endDate, timeZone) ??
+      addDays(nextStartDate, originalSpanDays) ??
+      nextStartDate;
+    const nextRepeatRule =
+      action === "edit_single"
+        ? "none"
+        : typeof input.repeatRule === "string"
+          ? normalizeRepeatRule(input.repeatRule)
+          : choreRepeatRule;
+    const nextSeriesEndDate =
+      action === "edit_single"
+        ? null
+        : (normalizeDate(input.seriesEndDate, timeZone) ?? chore.series_end_date);
+    const nextTitle = title || chore.title;
+    const nextType =
+      inputType === "stay_open" || inputType === "close_on_done" ? inputType : choreType;
+    const nextNotes = typeof input.notes === "string" ? notes : (chore.notes ?? null);
+
+    const fieldErrors = validateChoreCreate({
+      title: nextTitle,
+      type: nextType,
+      startDate: nextStartDate,
+      endDate: nextEndDate,
+      repeatRule: nextRepeatRule,
+      seriesEndDate: nextSeriesEndDate,
+      today,
+      allowPastDates: action === "edit_series",
+    });
+
+    if (Object.keys(fieldErrors).length) {
+      return {
+        ok: false,
+        status: 400,
+        body: apiErrorBody({
+          code: API_ERROR_CODE.VALIDATION_FAILED,
+          error: "Validation failed",
+          fieldErrors,
+        }),
+      };
+    }
+
+    if (action === "edit_following" && choreRepeatRule === "none") {
+      return {
+        ok: false,
+        status: 409,
+        body: {
+          ...apiErrorBody({
+            code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
+            error: "edit_following requires a repeating chore",
+          }),
+        },
+      };
+    }
+
+    if (action === "edit_series") {
+      await updateChoreSeries({
+        choreId,
+        title: nextTitle,
+        type: nextType,
+        startDate: nextStartDate,
+        endDate: nextEndDate,
+        seriesEndDate: nextSeriesEndDate,
+        repeatRule: nextRepeatRule,
+        notes: nextNotes,
+      });
+
+      return {
+        ok: true,
+        body: {
+          ok: true,
+          choreId,
+          occurrenceStartDate,
+          action,
+        },
+      };
+    }
+
+    if (action === "edit_following") {
+      const previousSeriesEndDate = DateTime.fromISO(occurrenceStartDate, { zone: "UTC" })
+        .minus({ days: 1 })
+        .toISODate();
+      await updateChoreSeriesEndDate({
+        choreId,
+        seriesEndDate: previousSeriesEndDate,
+      });
+    } else {
+      await upsertChoreOccurrenceException({
+        choreId,
+        occurrenceStartDate,
+        kind: "canceled",
+        status: null,
+        closedReason: null,
+      });
+    }
+
+    const createdChoreId = await insertChore({
+      householdId,
+      title: nextTitle,
+      type: nextType,
+      startDate: nextStartDate,
+      endDate: nextEndDate,
+      seriesEndDate: nextSeriesEndDate,
+      repeatRule: nextRepeatRule,
+      notes: nextNotes,
+    });
+
+    return {
+      ok: true,
+      body: {
+        ok: true,
+        choreId,
+        createdChoreId,
+        occurrenceStartDate,
+        action,
+      },
+    };
+  }
 
   if (action === "cancel") {
     const cancelScope = rawCancelScope;
@@ -419,13 +547,12 @@ export const mutateChore = async ({
         seriesEndDate: nextSeriesEndDate,
       });
     } else {
-      await upsertChoreOccurrenceExclusion({
+      await upsertChoreOccurrenceException({
         choreId,
         occurrenceStartDate,
-      });
-      await deleteChoreOccurrenceOverride({
-        choreId,
-        occurrenceStartDate,
+        kind: "canceled",
+        status: null,
+        closedReason: null,
       });
     }
 
@@ -442,46 +569,21 @@ export const mutateChore = async ({
 
   const shouldRecordCompletion = status === "closed";
   const closedReason = shouldRecordCompletion ? "done" : null;
-  const undoUntil = shouldRecordCompletion
-    ? DateTime.utc().plus({ seconds: CHORE_UNDO_WINDOW_SECONDS }).toISO()
-    : null;
   const overrideStatus = shouldRecordCompletion
     ? choreType === "stay_open"
       ? "open"
       : "closed"
     : "open";
 
-  if (action === "undo") {
-    const override = await getChoreOccurrenceOverride({ choreId, occurrenceStartDate });
-    const undoUntil = override?.undoUntil ? DateTime.fromJSDate(override.undoUntil).toUTC() : null;
-
-    if (
-      !override ||
-      override.closedReason !== "done" ||
-      !undoUntil ||
-      !undoUntil.isValid ||
-      undoUntil <= DateTime.utc()
-    ) {
-      return {
-        ok: false,
-        status: 409,
-        body: {
-          ...apiErrorBody({
-            code: API_ERROR_CODE.UNDO_WINDOW_EXPIRED,
-            error: "Undo window expired",
-          }),
-        },
-      };
-    }
-
-    await deleteChoreOccurrenceOverride({ choreId, occurrenceStartDate });
+  if (!shouldRecordCompletion) {
+    await deleteChoreOccurrenceException({ choreId, occurrenceStartDate });
   } else {
-    await upsertChoreOccurrenceOverride({
+    await upsertChoreOccurrenceException({
       choreId,
       occurrenceStartDate,
+      kind: "state",
       status: overrideStatus,
       closedReason,
-      undoUntil,
     });
   }
 
@@ -494,7 +596,6 @@ export const mutateChore = async ({
       type: choreType,
       status: overrideStatus,
       closed_reason: closedReason,
-      undo_until: undoUntil,
     },
   };
 };

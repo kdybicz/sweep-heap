@@ -7,7 +7,6 @@ import AccountHeader from "@/app/household/board/components/AccountHeader";
 import AddChoreModal from "@/app/household/board/components/AddChoreModal";
 import ChoreDetailsModal from "@/app/household/board/components/ChoreDetailsModal";
 import HouseholdSidebar from "@/app/household/board/components/HouseholdSidebar";
-import UndoToastStack from "@/app/household/board/components/UndoToastStack";
 import WeekGrid from "@/app/household/board/components/WeekGrid";
 import { useHouseholdViewer } from "@/app/household/board/HouseholdViewerContext";
 import useHouseholdBoard from "@/app/household/board/useHouseholdBoard";
@@ -73,15 +72,10 @@ function HouseholdBoardContent() {
           />
         </section>
       </main>
-
-      <UndoToastStack
-        nowMs={board.undo.nowMs}
-        onUndo={board.undo.onUndo}
-        undoToasts={board.undo.undoToasts}
-      />
-
       <AddChoreModal
         fieldErrors={board.addChoreModal.fieldErrors}
+        modalDescription={board.addChoreModal.modalDescription}
+        modalTitle={board.addChoreModal.modalTitle}
         newDate={board.addChoreModal.date}
         newEndDate={board.addChoreModal.endDate}
         newNotes={board.addChoreModal.notes}
@@ -100,6 +94,7 @@ function HouseholdBoardContent() {
         onTitleChange={board.addChoreModal.onTitleChange}
         onTypeChange={board.addChoreModal.onTypeChange}
         open={board.addChoreModal.open}
+        submitLabel={board.addChoreModal.submitLabel}
         submitError={board.addChoreModal.submitError}
         submitting={board.addChoreModal.submitting}
       />
@@ -109,6 +104,7 @@ function HouseholdBoardContent() {
         error={board.choreDetailsModal.error}
         onClose={board.choreDetailsModal.onClose}
         onCancelAction={board.choreDetailsModal.onCancelAction}
+        onEditAction={board.choreDetailsModal.onEditAction}
         onPrimaryAction={board.choreDetailsModal.onPrimaryAction}
         submitting={board.choreDetailsModal.submitting}
         todayKey={board.choreDetailsModal.todayKey}

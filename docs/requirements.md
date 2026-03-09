@@ -13,7 +13,7 @@
 
 ## Target Behavior vs Current Baseline
 - Target (product intent): deterministic calendar recurrence, explicit conflict handling, and auditable state history.
-- Current (implemented): lazy series generation + occurrence-start keyed overrides/exclusions, optimistic UI updates, 5-second undo window, and replace-in-place override writes.
+- Current (implemented): lazy series generation + one sparse occurrence-exceptions table, optimistic UI updates, and replace-in-place exception writes.
 - Important deltas to keep visible:
   - Recurrence can drift in some month/year edge cases.
   - There is no append-only chore event history yet.
@@ -72,14 +72,13 @@
 - `household_memberships`: household membership with role (`owner`, `admin`, or `member`) and status (`active`).
 - `household_member_invites`: Better Auth organization invitation records (status, expiry, inviter, recipient).
 - `chores`: chore series definitions.
-- `chore_occurrence_overrides`: per-occurrence-start exceptions (status, reason, undo window).
-- `chore_occurrence_exclusions`: canceled occurrence starts (single-occurrence skips).
+- `chore_occurrence_exceptions`: per-occurrence-start exceptions with `kind = state | canceled` plus optional status metadata.
 - `delete_account_tokens`: one-time account deletion confirmation tokens.
 
 ### Chore terminology
 - Series: the durable chore definition (`start_date`, `end_date`, `repeat_rule`, optional `series_end_date`).
 - Occurrence day: calendar date returned by derived generation (no time-of-day).
-- Override: persisted exception for one series/occurrence-start pair.
+- Exception: persisted one-off state or cancel record for one series/occurrence-start pair.
 
 ## Identity, Membership, and Household Rules
 - A signed-in user can create additional households while already belonging to other active households.
@@ -137,7 +136,7 @@
 - `notes` is trimmed and capped at 500 chars.
 
 ### Occurrence generation behavior
-- Occurrences are generated lazily from series plus overrides.
+- Occurrences are generated lazily from series plus sparse occurrence exceptions.
 - Generation is date-only and timezone-aware (household timezone).
 - `endDate` is exclusive and defines span length (`startDate=2026-01-01`, `endDate=2026-01-02` is a one-day occurrence).
 - `repeatRule = none` still supports multi-day span via `endDate`.
@@ -145,25 +144,27 @@
 - Week view request defaults to household-local Monday-Sunday for the requested `weekOffset`.
 - List responses include:
   - `occurrence_date`: day cell used for calendar grouping.
-  - `occurrence_start_date`: recurrence instance identity used for set/undo/cancel actions.
+  - `occurrence_start_date`: recurrence instance identity used for set/cancel actions.
 
-### Completion and undo behavior
+### Completion behavior
 - `close_on_done`:
-  - Mark done writes override `status = closed`, `closed_reason = done`.
+  - Mark done writes exception `kind = state`, `status = closed`, `closed_reason = done`.
 - `stay_open`:
-  - Mark done writes override `status = open`, `closed_reason = done`.
-  - Repeated logging is allowed.
-- Undo window is 5 seconds (not 10 seconds).
-- `action=set` and `action=undo` must target a valid generated occurrence start date for that chore series.
-- `action=undo` is enforced against `undo_until` and returns conflict after the window expires.
-- Undo action deletes the override row for that occurrence.
-- UI shows active undo toasts with a visible countdown bar.
+  - Mark done writes exception `kind = state`, `status = open`, `closed_reason = done`.
+- Repeated logging is allowed.
+- `action=set` must target a valid generated occurrence start date for that chore series.
 
 ### Cancellation behavior
-- `action=cancel` with `cancelScope=single` inserts an occurrence-start exclusion for one instance.
+- `action=cancel` with `cancelScope=single` upserts an occurrence exception with `kind = canceled` for one instance.
 - `action=cancel` with `cancelScope=following` is allowed only for repeating chores and truncates the series by setting `series_end_date` to one day before the targeted occurrence start date.
-- `action=set`/`action=undo` on excluded occurrences returns conflict.
+- `action=set` on excluded occurrences returns conflict.
 - Mutation payloads use `occurrenceStartDate` (not `occurrenceDate`).
+
+### Edit behavior
+- `action=edit_single` creates a detached one-off chore row and marks the targeted original occurrence canceled.
+- `action=edit_following` is allowed only for repeating chores, truncates the original series at the day before the targeted occurrence, and creates a new future series row.
+- `action=edit_series` updates the existing series row in place and keeps the recurrence chain intact.
+- Edit actions accept the same chore fields as create; omitted fields fall back to the source series/occurrence defaults.
 
 ### UI interaction constraints
 - Add-chore buttons are disabled for past dates.
@@ -209,8 +210,10 @@
 - `PATCH /api/chores`
   - `action=create`: create series.
   - `action=set`: mark occurrence done/open.
-  - `action=undo`: clear occurrence override.
   - `action=cancel`: cancel one occurrence (`single`) or this and following (`following`).
+  - `action=edit_single`: replace one generated occurrence with a detached one-off chore.
+  - `action=edit_following`: split a repeating series into a new future branch.
+  - `action=edit_series`: update the existing series directly.
 - `GET /api/me`
   - Returns current user and memberships.
   - Reconciles stale `active_household_id` when request headers are available.
@@ -259,13 +262,14 @@
 - Coverage expansion is tracked in `TODO-1` (Postgres-backed integration tests plus minimal auth/chore/account-deletion E2E flow).
 
 ## Known Gaps and Implementation Caveats
-- Concurrency conflict semantics are not implemented as explicit retryable conflicts; current writes are effectively last-write-wins for override upserts.
-- No dedicated event/audit history table exists for chore state transitions; only latest override state is stored.
+- Concurrency conflict semantics are not implemented as explicit retryable conflicts; current writes are effectively last-write-wins for exception upserts.
+- No dedicated event/audit history table exists for chore state transitions; only latest exception state is stored.
 - `closed_reason = schedule_end` lifecycle is not currently persisted by background process; closure is mostly represented by derived listing behavior.
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
 - Cancel actions are available from the board chore details modal for single-occurrence and this-and-following cancellation.
+- Server-enforced completion undo is currently disabled; `UndoToastStack` remains in the codebase but is not wired into the board UI.
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in `TODO-3`.
 
 ## Decision Notes for Future Work
 - If recurrence behavior is changed, update both `generateOccurrences` and tests first, then align API and UI assumptions.
-- If auditability becomes mandatory, introduce append-only event storage instead of relying on override row replacement.
+- If auditability becomes mandatory, introduce append-only event storage instead of relying on exception row replacement.

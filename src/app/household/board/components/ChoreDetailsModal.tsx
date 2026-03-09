@@ -3,7 +3,10 @@ import { useId, useRef } from "react";
 
 import { StateIcon, TypeIcon } from "@/app/household/board/components/ChoreIcons";
 import type { ChoreItem } from "@/app/household/board/types";
-import type { CancelChoreScope } from "@/app/household/board/useHouseholdChoreActions.types";
+import type {
+  CancelChoreScope,
+  EditChoreScope,
+} from "@/app/household/board/useHouseholdChoreActions.types";
 import {
   getChoreStateLabel,
   getChoreTypeLabel,
@@ -20,6 +23,7 @@ type ChoreDetailsModalProps = {
   onClose: () => void;
   onPrimaryAction: (chore: ChoreItem) => void;
   onCancelAction: (chore: ChoreItem, scope: CancelChoreScope) => void | Promise<void>;
+  onEditAction: (chore: ChoreItem, scope: EditChoreScope) => void;
 };
 
 export default function ChoreDetailsModal({
@@ -30,6 +34,7 @@ export default function ChoreDetailsModal({
   onClose,
   onPrimaryAction,
   onCancelAction,
+  onEditAction,
 }: ChoreDetailsModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -50,7 +55,8 @@ export default function ChoreDetailsModal({
     return null;
   }
 
-  const cancelActionsDisabled = submitting || chore.occurrence_date < todayKey;
+  const editActionsDisabled = submitting || chore.occurrence_date < todayKey;
+  const cancelActionsDisabled = editActionsDisabled;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
@@ -118,6 +124,34 @@ export default function ChoreDetailsModal({
             >
               {getPrimaryActionLabel(chore)}
             </button>
+            <button
+              className="rounded-full border border-[var(--stroke)] bg-[var(--surface-weak)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={editActionsDisabled}
+              onClick={() => onEditAction(chore, "single")}
+              type="button"
+            >
+              Edit this occurrence
+            </button>
+            {chore.is_repeating ? (
+              <button
+                className="rounded-full border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={editActionsDisabled}
+                onClick={() => onEditAction(chore, "following")}
+                type="button"
+              >
+                Edit this and following
+              </button>
+            ) : null}
+            {chore.is_repeating ? (
+              <button
+                className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={editActionsDisabled}
+                onClick={() => onEditAction(chore, "series")}
+                type="button"
+              >
+                Edit whole series
+              </button>
+            ) : null}
             <button
               className="rounded-full border border-[var(--danger)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={cancelActionsDisabled}

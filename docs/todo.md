@@ -11,7 +11,7 @@ Use `docs/requirements-quick-reference.md` when you need the short version while
   - [Account Deletion Requirements (Current)](requirements.md#account-deletion-requirements-current)
 - Scope:
   - Add Postgres-backed integration tests for repositories and API routes.
-  - Add a minimal end-to-end flow for auth, chore lifecycle (`create`, `set`, `undo`), and account deletion (`delete-request`, `delete-confirm`).
+  - Add a minimal end-to-end flow for auth, chore lifecycle (`create`, `set`, `cancel`), and account deletion (`delete-request`, `delete-confirm`).
 
 ## TODO-2 - Rate Limiting and Abuse Protections
 - Requirement links:

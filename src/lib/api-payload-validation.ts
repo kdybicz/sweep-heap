@@ -91,14 +91,21 @@ const householdInviteAcceptPayloadSchema = z.object({
   secret: householdInviteSecretSchema,
 });
 
-const allowedActions = new Set(["create", "set", "undo", "cancel"]);
+const allowedActions = new Set([
+  "create",
+  "set",
+  "cancel",
+  "edit_single",
+  "edit_following",
+  "edit_series",
+]);
 const allowedCancelScopes = new Set(["single", "following"]);
 
 const choreActionSchema = z
   .unknown()
   .transform((value) => (typeof value === "string" ? value.trim().toLowerCase() : null))
   .refine((value) => value === null || allowedActions.has(value), {
-    message: "Action must be create, set, undo, or cancel",
+    message: "Action must be create, set, cancel, edit_single, edit_following, or edit_series",
   });
 
 const choreStatusSchema = z

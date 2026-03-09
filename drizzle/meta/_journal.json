@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1772569448388,
-      "tag": "0000_messy_titania",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1772634039086,
-      "tag": "0001_magical_bloodstrike",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1772733471373,
-      "tag": "0002_tearful_gorgon",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1772750293003,
-      "tag": "0003_drop_household_invite_legacy_columns",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1772812800000,
-      "tag": "0004_calendar_occurrence_identity",
+      "when": 1773084190474,
+      "tag": "0000_nifty_natasha_romanoff",
       "breakpoints": true
     }
   ]

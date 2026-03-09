@@ -16,8 +16,6 @@ const createChore = (id: number, occurrenceStartDate: string): ChoreItem => ({
   occurrence_start_date: occurrenceStartDate,
   status: "open",
   closed_reason: null,
-  undo_until: null,
-  can_undo: false,
   notes: null,
 });
 

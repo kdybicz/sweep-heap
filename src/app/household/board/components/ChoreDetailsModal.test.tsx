@@ -25,6 +25,7 @@ const renderModal = (chore: ChoreItem) =>
       error={null}
       onCancelAction={noop}
       onClose={noop}
+      onEditAction={noop}
       onPrimaryAction={noop}
       submitting={false}
       todayKey="2026-03-05"
@@ -37,6 +38,9 @@ describe("ChoreDetailsModal", () => {
 
     expect(markup).toContain("Cancel this occurrence");
     expect(markup).not.toContain("Cancel this and following");
+    expect(markup).toContain("Edit this occurrence");
+    expect(markup).not.toContain("Edit this and following");
+    expect(markup).not.toContain("Edit whole series");
   });
 
   it("shows following cancel action for repeating chores", () => {
@@ -47,6 +51,9 @@ describe("ChoreDetailsModal", () => {
 
     expect(markup).toContain("Cancel this occurrence");
     expect(markup).toContain("Cancel this and following");
+    expect(markup).toContain("Edit this occurrence");
+    expect(markup).toContain("Edit this and following");
+    expect(markup).toContain("Edit whole series");
   });
 
   it("disables cancel actions for past occurrences", () => {
@@ -61,6 +68,7 @@ describe("ChoreDetailsModal", () => {
         error={null}
         onCancelAction={noop}
         onClose={noop}
+        onEditAction={noop}
         onPrimaryAction={noop}
         submitting={false}
         todayKey="2026-03-05"
@@ -69,6 +77,9 @@ describe("ChoreDetailsModal", () => {
 
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Cancel this occurrence<\/button>/);
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Cancel this and following<\/button>/);
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Edit this occurrence<\/button>/);
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Edit this and following<\/button>/);
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Edit whole series<\/button>/);
   });
 
   it("renders inline API errors", () => {
@@ -78,6 +89,7 @@ describe("ChoreDetailsModal", () => {
         error="Failed to cancel chore occurrence"
         onCancelAction={noop}
         onClose={noop}
+        onEditAction={noop}
         onPrimaryAction={noop}
         submitting={false}
         todayKey="2026-03-05"
@@ -94,6 +106,7 @@ describe("ChoreDetailsModal", () => {
         error={null}
         onCancelAction={noop}
         onClose={noop}
+        onEditAction={noop}
         onPrimaryAction={noop}
         submitting
         todayKey="2026-03-05"

@@ -1,17 +1,21 @@
-import { DateTime } from "luxon";
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   applyOptimisticDone,
-  applyOptimisticUndo,
   findTargetChores,
   restoreTargetChores,
-  updateTargetChore,
 } from "@/app/household/board/chore-actions-state";
+import type { ChoreFormMode } from "@/app/household/board/chore-form";
+import {
+  getChoreFormModalCopy,
+  getChoreFormModeFromScope,
+  getChoreFormValuesFromChore,
+} from "@/app/household/board/chore-form";
 import { addDaysToDateKey, getHouseholdTodayKey } from "@/app/household/board/date-utils";
-import type { ChoreItem, UndoToast } from "@/app/household/board/types";
+import type { ChoreItem } from "@/app/household/board/types";
 import type {
   CancelChoreScope,
+  EditChoreScope,
   UseHouseholdChoreActionsModel,
   UseHouseholdChoreActionsParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
@@ -20,7 +24,6 @@ import {
   recoverFromHouseholdContextError,
 } from "@/app/household/household-context-client";
 import type { ChoreType } from "@/lib/chore-ui-state";
-import { CHORE_UNDO_WINDOW_SECONDS } from "@/lib/chore-undo";
 
 export type {
   UseHouseholdChoreActionsModel,
@@ -34,7 +37,6 @@ type ChoreMutationResponse = {
   fieldErrors?: Record<string, string>;
   status?: string;
   closed_reason?: string;
-  undo_until?: string;
 };
 
 export default function useHouseholdChoreActions({
@@ -44,9 +46,9 @@ export default function useHouseholdChoreActions({
   loadTodayChores,
   timeZone,
 }: UseHouseholdChoreActionsParams): UseHouseholdChoreActionsModel {
-  const toastTickRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [nowMs, setNowMs] = useState(() => DateTime.utc().toMillis());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [formMode, setFormMode] = useState<ChoreFormMode>("create");
+  const [editingChore, setEditingChore] = useState<ChoreItem | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -63,54 +65,6 @@ export default function useHouseholdChoreActions({
   const [selectedChoreError, setSelectedChoreError] = useState<string | null>(null);
   const [selectedChoreSubmitting, setSelectedChoreSubmitting] = useState(false);
 
-  const clearToastTick = useCallback(() => {
-    if (toastTickRef.current) {
-      clearTimeout(toastTickRef.current);
-      toastTickRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    const scheduleNextUndoExpiryTick = () => {
-      const currentNowMs = DateTime.utc().toMillis();
-      setNowMs(currentNowMs);
-
-      let nextUndoExpiryMs: number | null = null;
-
-      for (const chore of chores) {
-        if (!chore.can_undo || !chore.undo_until) {
-          continue;
-        }
-
-        const undoExpiryMs = DateTime.fromISO(chore.undo_until).toMillis();
-        if (undoExpiryMs <= currentNowMs) {
-          continue;
-        }
-
-        if (nextUndoExpiryMs === null || undoExpiryMs < nextUndoExpiryMs) {
-          nextUndoExpiryMs = undoExpiryMs;
-        }
-      }
-
-      if (nextUndoExpiryMs === null) {
-        clearToastTick();
-        return;
-      }
-
-      clearToastTick();
-      toastTickRef.current = setTimeout(
-        scheduleNextUndoExpiryTick,
-        Math.max(0, nextUndoExpiryMs - currentNowMs + 16),
-      );
-    };
-
-    scheduleNextUndoExpiryTick();
-
-    return () => {
-      clearToastTick();
-    };
-  }, [chores, clearToastTick]);
-
   useEffect(() => {
     if (!newRepeatEnd) {
       setNewRepeatEnd(newDate);
@@ -124,38 +78,26 @@ export default function useHouseholdChoreActions({
     setNewEndDate(addDaysToDateKey(newDate, 1));
   }, [newDate, newEndDate]);
 
-  const undoToasts = useMemo<UndoToast[]>(() => {
-    const uniqueToasts = new Map<string, UndoToast>();
+  const populateFormFromChore = useCallback((chore: ChoreItem, scope: EditChoreScope) => {
+    const values = getChoreFormValuesFromChore(chore, scope);
+    setNewTitle(values.title);
+    setNewType(values.type);
+    setNewDate(values.date);
+    setNewEndDate(values.endDate);
+    setNewRepeat(values.repeat);
+    setNewRepeatEnd(values.repeatEnd);
+    setNewNotes(values.notes);
+  }, []);
 
-    for (const chore of chores) {
-      if (!chore.can_undo || !chore.undo_until) {
-        continue;
-      }
-
-      const key = `${chore.id}:${chore.occurrence_start_date}`;
-      if (uniqueToasts.has(key)) {
-        continue;
-      }
-
-      uniqueToasts.set(key, {
-        choreId: chore.id,
-        occurrenceStartDate: chore.occurrence_start_date,
-        title: chore.title,
-        type: chore.type,
-        undoUntil: chore.undo_until,
-      });
-    }
-
-    return Array.from(uniqueToasts.values())
-      .filter((toast) => DateTime.fromISO(toast.undoUntil).toMillis() > nowMs)
-      .sort(
-        (a, b) =>
-          DateTime.fromISO(b.undoUntil).toMillis() - DateTime.fromISO(a.undoUntil).toMillis(),
-      );
-  }, [chores, nowMs]);
+  const modalCopy = getChoreFormModalCopy(formMode);
+  const addModalTitle = modalCopy.title;
+  const addModalDescription = modalCopy.description;
+  const addModalSubmitLabel = modalCopy.submitLabel;
 
   const resetAddChore = useCallback(() => {
     setShowAddModal(false);
+    setFormMode("create");
+    setEditingChore(null);
     setNewTitle("");
     setNewType("close_on_done");
     const defaultTodayKey = getHouseholdTodayKey(timeZone);
@@ -170,6 +112,8 @@ export default function useHouseholdChoreActions({
 
   const onOpenAddChoreModal = useCallback(() => {
     setSubmitError(null);
+    setEditingChore(null);
+    setFormMode("create");
     setNewType("close_on_done");
     setShowAddModal(true);
   }, []);
@@ -193,7 +137,9 @@ export default function useHouseholdChoreActions({
       setFieldErrors({});
       setSubmitting(true);
       const payload = {
-        action: "create",
+        action: editingChore ? formMode : "create",
+        choreId: editingChore?.id,
+        occurrenceStartDate: editingChore?.occurrence_start_date,
         title: newTitle,
         type: newType,
         startDate: newDate,
@@ -221,13 +167,16 @@ export default function useHouseholdChoreActions({
             setSubmitting(false);
             return;
           }
-          throw new Error(data?.error ?? "Failed to create chore");
+          throw new Error(data?.error ?? "Failed to save chore");
         }
         resetAddChore();
+        setSelectedChoreError(null);
+        setSelectedChoreSubmitting(false);
+        setSelectedChore(null);
         await loadChores({ force: true });
         await loadTodayChores();
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to create chore";
+        const message = error instanceof Error ? error.message : "Failed to save chore";
         setSubmitError(message);
       }
       setSubmitting(false);
@@ -237,6 +186,8 @@ export default function useHouseholdChoreActions({
       loadTodayChores,
       newDate,
       newEndDate,
+      editingChore,
+      formMode,
       newNotes,
       newRepeat,
       newRepeatEnd,
@@ -251,7 +202,6 @@ export default function useHouseholdChoreActions({
       const choreId = targetChore.id;
       const occurrenceStartDate = targetChore.occurrence_start_date;
       const optimisticStatus = targetChore.type === "stay_open" ? "open" : "closed";
-      const undoUntil = DateTime.utc().plus({ seconds: CHORE_UNDO_WINDOW_SECONDS }).toISO();
       const previous = findTargetChores({ chores, choreId, occurrenceStartDate });
       setChores((prev) =>
         applyOptimisticDone({
@@ -259,7 +209,6 @@ export default function useHouseholdChoreActions({
           choreId,
           occurrenceStartDate,
           optimisticStatus,
-          undoUntil,
         }),
       );
 
@@ -285,63 +234,6 @@ export default function useHouseholdChoreActions({
         }
         if (!data?.ok) {
           throw new Error(data?.error ?? "Failed to update chore");
-        }
-        if (data.undo_until) {
-          setChores((prev) =>
-            updateTargetChore({
-              chores: prev,
-              choreId,
-              occurrenceStartDate,
-              map: (chore) => ({
-                ...chore,
-                status: typeof data.status === "string" ? data.status : optimisticStatus,
-                closed_reason: typeof data.closed_reason === "string" ? data.closed_reason : "done",
-                undo_until: data.undo_until,
-                can_undo: true,
-              }),
-            }),
-          );
-        }
-      } catch (error) {
-        console.error(error);
-        if (previous.length > 0) {
-          setChores((prev) =>
-            restoreTargetChores({ chores: prev, choreId, occurrenceStartDate, previous }),
-          );
-        }
-      } finally {
-        await loadTodayChores();
-      }
-    },
-    [chores, loadTodayChores, setChores],
-  );
-
-  const undoChoreDone = useCallback(
-    async (choreId: number, occurrenceStartDate: string) => {
-      const previous = findTargetChores({ chores, choreId, occurrenceStartDate });
-      setChores((prev) => applyOptimisticUndo({ chores: prev, choreId, occurrenceStartDate }));
-
-      try {
-        const response = await fetch("/api/chores", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            choreId,
-            occurrenceStartDate,
-            action: "undo",
-          }),
-        });
-        const data = await readApiJsonResponse<ChoreMutationResponse>(response);
-        if (recoverFromHouseholdContextError(data)) {
-          if (previous.length > 0) {
-            setChores((prev) =>
-              restoreTargetChores({ chores: prev, choreId, occurrenceStartDate, previous }),
-            );
-          }
-          return;
-        }
-        if (!data?.ok) {
-          throw new Error(data?.error ?? "Failed to undo chore");
         }
       } catch (error) {
         console.error(error);
@@ -401,6 +293,20 @@ export default function useHouseholdChoreActions({
     [closeSelectedChore, loadChores, loadTodayChores],
   );
 
+  const editSelectedChore = useCallback(
+    (chore: ChoreItem, scope: EditChoreScope) => {
+      setSelectedChoreError(null);
+      setFieldErrors({});
+      setSubmitError(null);
+      setEditingChore(chore);
+      setFormMode(getChoreFormModeFromScope(scope));
+      populateFormFromChore(chore, scope);
+      setShowAddModal(true);
+      setSelectedChore(null);
+    },
+    [populateFormFromChore],
+  );
+
   const primarySelectedChoreAction = useCallback(
     (chore: ChoreItem) => {
       setSelectedChoreError(null);
@@ -411,8 +317,8 @@ export default function useHouseholdChoreActions({
   );
 
   const closeAddChoreModal = useCallback(() => {
-    setShowAddModal(false);
-  }, []);
+    resetAddChore();
+  }, [resetAddChore]);
 
   const selectChore = useCallback((chore: ChoreItem) => {
     setSelectedChoreError(null);
@@ -421,10 +327,10 @@ export default function useHouseholdChoreActions({
   }, []);
 
   return {
-    nowMs,
-    undoToasts,
-    undoChoreDone,
     showAddModal,
+    addModalTitle,
+    addModalDescription,
+    addModalSubmitLabel,
     submitError,
     fieldErrors,
     submitting,
@@ -451,6 +357,7 @@ export default function useHouseholdChoreActions({
     closeSelectedChore,
     primarySelectedChoreAction,
     cancelSelectedChore,
+    editSelectedChore,
     onSelectChore: selectChore,
     onAddChoreForDate,
     onOpenAddChoreModal,

@@ -171,39 +171,22 @@ export const chores = pgTable("chores", {
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
 
-export const choreOccurrenceOverrides = pgTable(
-  "chore_occurrence_overrides",
+export const choreOccurrenceExceptions = pgTable(
+  "chore_occurrence_exceptions",
   {
     id: serial("id").primaryKey(),
     choreId: integer("chore_id")
       .notNull()
       .references(() => chores.id, { onDelete: "cascade" }),
     occurrenceStartDate: date("occurrence_start_date").notNull(),
-    status: text("status").notNull(),
+    kind: text("kind").notNull(),
+    status: text("status"),
     closedReason: text("closed_reason"),
-    undoUntil: timestamp("undo_until", { mode: "date", withTimezone: true }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    unique("chore_occurrence_overrides_chore_start_unique").on(
-      table.choreId,
-      table.occurrenceStartDate,
-    ),
-  ],
-);
-
-export const choreOccurrenceExclusions = pgTable(
-  "chore_occurrence_exclusions",
-  {
-    id: serial("id").primaryKey(),
-    choreId: integer("chore_id")
-      .notNull()
-      .references(() => chores.id, { onDelete: "cascade" }),
-    occurrenceStartDate: date("occurrence_start_date").notNull(),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [
-    unique("chore_occurrence_exclusions_chore_start_unique").on(
+    unique("chore_occurrence_exceptions_chore_start_unique").on(
       table.choreId,
       table.occurrenceStartDate,
     ),

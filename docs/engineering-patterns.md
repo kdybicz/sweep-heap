@@ -53,7 +53,7 @@ Use status codes consistently:
 - `400`: malformed request or invalid user/session payload.
 - `403`: authenticated but not allowed (including `Household required` and role-based `Forbidden`).
 - `404`: requested resource is missing (for example member/invite/chore not found).
-- `409`: valid request conflicts with business rules (for example owner-protection constraints or expired undo).
+- `409`: valid request conflicts with business rules (for example owner-protection constraints or occurrence state conflicts).
 
 Body parsing rule:
 
@@ -115,16 +115,18 @@ For household member/invite role-management routes:
 - Enforce owner-role protections at the API boundary (`403`): non-owners cannot manage owner memberships or owner-role invites.
 - Translate Better Auth business-rule conflicts (for example last-owner) to consistent `409` responses.
 
-## 9) Chore Undo Contract
+## 9) Chore Mutation Contract
 
-For `PATCH /api/chores` with `action: "undo"`:
+For `PATCH /api/chores`:
 
-- Undo must be enforced server-side using `undo_until` (not only by UI toast timing).
-- Return `409` with a conflict error when the undo window is no longer active.
-- For `action: "set"` and `action: "undo"`, validate that `occurrenceStartDate` is a generated series occurrence start date for the chore and return `409` when it is outside schedule.
-- For `action: "cancel"`, support `cancelScope: "single" | "following"` and keep behavior deterministic (single inserts exclusion, following truncates series).
+- Support `action: "create" | "set" | "cancel" | "edit_single" | "edit_following" | "edit_series"`.
+- For `action: "set"`, validate that `occurrenceStartDate` is a generated series occurrence start date for the chore and return `409` when it is outside schedule.
+- For `action: "cancel"`, support `cancelScope: "single" | "following"` and keep behavior deterministic (single upserts a `kind = canceled` exception, following truncates the series).
 - For `action: "cancel"` with `cancelScope: "following"`, require a repeating chore (`repeatRule !== "none"`) and return `409` for non-repeating chores.
-- Keep undo timing centralized via `CHORE_UNDO_WINDOW_SECONDS`/`CHORE_UNDO_WINDOW_MS` (`src/lib/chore-undo.ts`) and consume those constants in API service logic and UI countdown rendering.
+- For `action: "edit_single"`, create a detached one-off chore and mark the original occurrence canceled.
+- For `action: "edit_following"`, require a repeating chore, truncate the original series, and insert a new future branch row.
+- For `action: "edit_series"`, update the current series row in place using the submitted fields/defaults.
+- Keep `UndoToastStack` and related undo UI pieces isolated so they can be reconnected later without shaping the active mutation contract.
 
 ## 10) Invite Deduplication Contract
 

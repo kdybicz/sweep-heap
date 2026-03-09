@@ -6,7 +6,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Auth: magic-link sign in/out.
 - Household: create, edit, role-aware membership.
 - Members: invite, resend, revoke, promote/demote, remove.
-- Board: weekly chores view, today panel, add chore, mark done, undo.
+- Board: weekly chores view, today panel, add chore, mark done, edit occurrence/following/series, cancel.
 - Settings: profile edit, appearance theme, account deletion flow.
 
 ## Core Rules
@@ -45,17 +45,17 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Types: `close_on_done`, `stay_open`.
 - Repeat rules: `none`, `day`, `week`, `biweek`, `month`, `year`.
 - Create validation enforces required fields, date ordering, non-past dates, and repeat/end compatibility.
-- Occurrences are generated lazily from series (date-only, household timezone) and merged with occurrence-start keyed overrides/exclusions.
+- Occurrences are generated lazily from series (date-only, household timezone) and merged with sparse occurrence exceptions keyed by `occurrenceStartDate`.
 
-### Done and undo
+### Done and cancel
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.
 - `stay_open`: done sets `status=open`, `closed_reason=done`.
-- Undo window is 5 seconds.
-- `action=set` and `action=undo` must target a valid generated occurrence start date for the chore series.
-- Undo is API-enforced against `undo_until` and returns conflict after expiry.
-- Undo deletes the occurrence override row.
+- `action=set` must target a valid generated occurrence start date for the chore series.
 - `action=cancel` supports `cancelScope=single|following` for one-instance cancel and this-and-following cancel.
 - `cancelScope=following` is valid only for repeating chores.
+- `action=edit_single` creates a detached one-off chore and cancels the original occurrence.
+- `action=edit_following` splits a repeating series into a new future branch.
+- `action=edit_series` updates the existing series in place.
 - Mutation payloads use `occurrenceStartDate`.
 - Chore list rows include `occurrence_date` (calendar day) and `occurrence_start_date` (instance identity).
 
@@ -88,7 +88,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Schema and migrations: `src/lib/drizzle/schema.ts`, `drizzle/**`
 
 ## Known Gaps (Do Not Forget)
-- No append-only chore event log yet (only latest override state).
+- No append-only chore event log yet (only latest exception state).
 - Concurrency conflicts are not exposed as explicit retryable responses.
 - Month/year recurrence edge cases can drift from strict start-date anchoring.
 - Board UI exposes cancel actions from the chore details modal for single-occurrence and this-and-following cancellation.

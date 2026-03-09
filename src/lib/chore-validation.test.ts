@@ -80,6 +80,22 @@ describe("validateChoreCreate", () => {
     expect(errors.endDate).toBe("End date cannot be in the past");
   });
 
+  it("allows past dates when editing an existing series in place", () => {
+    const errors = validateChoreCreate({
+      title: "Sweep",
+      type: "close_on_done",
+      startDate: "2026-02-01",
+      endDate: "2026-02-02",
+      repeatRule: "week",
+      seriesEndDate: null,
+      today: "2026-02-10",
+      allowPastDates: true,
+    });
+
+    expect(errors.startDate).toBeUndefined();
+    expect(errors.endDate).toBeUndefined();
+  });
+
   it("accepts household-local today when UTC is ahead", () => {
     const laToday = DateTime.fromISO("2026-02-10T23:30:00", {
       zone: "America/Los_Angeles",

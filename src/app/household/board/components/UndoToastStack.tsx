@@ -1,8 +1,16 @@
 import { DateTime } from "luxon";
 
 import { StateIcon } from "@/app/household/board/components/ChoreIcons";
-import type { UndoToast } from "@/app/household/board/types";
+import type { ChoreType } from "@/lib/chore-ui-state";
 import { CHORE_UNDO_WINDOW_MS } from "@/lib/chore-undo";
+
+type UndoToast = {
+  choreId: number;
+  occurrenceStartDate: string;
+  title: string;
+  type: ChoreType;
+  undoUntil: string;
+};
 
 type UndoToastStackProps = {
   undoToasts: UndoToast[];

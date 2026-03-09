@@ -8,7 +8,7 @@ const highlights = [
   },
   {
     title: "Fast updates",
-    copy: "Log completions in seconds with quick actions and undo windows for stress-free adjustments.",
+    copy: "Log completions in seconds with quick actions that keep the board moving.",
   },
   {
     title: "Gentle nudges",
@@ -34,7 +34,7 @@ const steps = [
 const metrics = [
   { label: "Avg. setup time", value: "< 5 min" },
   { label: "Weekly focus", value: "7-day view" },
-  { label: "Undo window", value: "5 sec" },
+  { label: "Recurring cadence", value: "Built in" },
 ];
 
 export default async function LandingPage() {

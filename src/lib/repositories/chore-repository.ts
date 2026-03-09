@@ -12,32 +12,23 @@ type ChoreSeriesRow = {
   notes: string | null;
 };
 
-type ChoreOverrideRow = {
+type ChoreExceptionRow = {
   chore_id: number;
   occurrence_start_date: string;
-  status: string;
+  kind: string;
+  status: string | null;
   closed_reason: string | null;
-  undo_until: Date | null;
-};
-
-type ChoreExclusionRow = {
-  chore_id: number;
-  occurrence_start_date: string;
-};
-
-type ChoreOverrideRecord = {
-  status: string;
-  closedReason: string | null;
-  undoUntil: Date | null;
 };
 
 type ChoreInHouseholdRow = {
   id: number;
+  title: string;
   type: "close_on_done" | "stay_open";
   start_date: string;
   end_date: string;
   series_end_date: string | null;
   repeat_rule: string;
+  notes: string | null;
 };
 
 type HouseholdDateRange = {
@@ -58,25 +49,13 @@ export const listActiveChoreSeriesByHousehold = async ({
   return result.rows;
 };
 
-export const listChoreOverridesByHousehold = async ({
+export const listChoreExceptionsByHousehold = async ({
   householdId,
   rangeStart,
   rangeEnd,
 }: HouseholdDateRange) => {
-  const result = await pool.query<ChoreOverrideRow>(
-    "select o.chore_id, to_char(o.occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date, o.status, o.closed_reason, o.undo_until from chore_occurrence_overrides o join chores c on c.id = o.chore_id where c.household_id = $1 and c.status = 'active' and o.occurrence_start_date <= $3::date and (o.occurrence_start_date + (c.end_date - c.start_date - 1)) >= $2::date",
-    [householdId, rangeStart, rangeEnd],
-  );
-  return result.rows;
-};
-
-export const listChoreExclusionsByHousehold = async ({
-  householdId,
-  rangeStart,
-  rangeEnd,
-}: HouseholdDateRange) => {
-  const result = await pool.query<ChoreExclusionRow>(
-    "select e.chore_id, to_char(e.occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date from chore_occurrence_exclusions e join chores c on c.id = e.chore_id where c.household_id = $1 and c.status = 'active' and e.occurrence_start_date <= $3::date and (e.occurrence_start_date + (c.end_date - c.start_date - 1)) >= $2::date",
+  const result = await pool.query<ChoreExceptionRow>(
+    "select e.chore_id, to_char(e.occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date, e.kind, e.status, e.closed_reason from chore_occurrence_exceptions e join chores c on c.id = e.chore_id where c.household_id = $1 and c.status = 'active' and e.occurrence_start_date <= $3::date and (e.occurrence_start_date + (c.end_date - c.start_date - 1)) >= $2::date",
     [householdId, rangeStart, rangeEnd],
   );
   return result.rows;
@@ -116,27 +95,27 @@ export const getChoreInHousehold = async ({
   householdId: number;
 }) => {
   const result = await pool.query<ChoreInHouseholdRow>(
-    "select id, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule from chores where id = $1 and household_id = $2",
+    "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, notes from chores where id = $1 and household_id = $2",
     [choreId, householdId],
   );
   return result.rows[0] ?? null;
 };
 
-export const getChoreOccurrenceOverride = async ({
+export const getChoreOccurrenceException = async ({
   choreId,
   occurrenceStartDate,
 }: {
   choreId: number;
   occurrenceStartDate: string;
 }) => {
-  const result = await pool.query<ChoreOverrideRecord>(
-    'select status, closed_reason as "closedReason", undo_until as "undoUntil" from chore_occurrence_overrides where chore_id = $1 and occurrence_start_date = $2 limit 1',
+  const result = await pool.query<ChoreExceptionRow>(
+    "select chore_id, to_char(occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date, kind, status, closed_reason from chore_occurrence_exceptions where chore_id = $1 and occurrence_start_date = $2 limit 1",
     [choreId, occurrenceStartDate],
   );
   return result.rows[0] ?? null;
 };
 
-export const deleteChoreOccurrenceOverride = async ({
+export const deleteChoreOccurrenceException = async ({
   choreId,
   occurrenceStartDate,
 }: {
@@ -144,54 +123,27 @@ export const deleteChoreOccurrenceOverride = async ({
   occurrenceStartDate: string;
 }) => {
   await pool.query(
-    "delete from chore_occurrence_overrides where chore_id = $1 and occurrence_start_date = $2",
+    "delete from chore_occurrence_exceptions where chore_id = $1 and occurrence_start_date = $2",
     [choreId, occurrenceStartDate],
   );
 };
 
-export const upsertChoreOccurrenceOverride = async ({
+export const upsertChoreOccurrenceException = async ({
   choreId,
   occurrenceStartDate,
+  kind,
   status,
   closedReason,
-  undoUntil,
 }: {
   choreId: number;
   occurrenceStartDate: string;
-  status: "open" | "closed";
+  kind: "state" | "canceled";
+  status: "open" | "closed" | null;
   closedReason: "done" | null;
-  undoUntil: string | null;
 }) => {
   await pool.query(
-    "insert into chore_occurrence_overrides (chore_id, occurrence_start_date, status, closed_reason, undo_until) values ($1, $2, $3, $4, $5) on conflict (chore_id, occurrence_start_date) do update set status = excluded.status, closed_reason = excluded.closed_reason, undo_until = excluded.undo_until, updated_at = now()",
-    [choreId, occurrenceStartDate, status, closedReason, undoUntil],
-  );
-};
-
-export const getChoreOccurrenceExclusion = async ({
-  choreId,
-  occurrenceStartDate,
-}: {
-  choreId: number;
-  occurrenceStartDate: string;
-}) => {
-  const result = await pool.query<{ occurrence_start_date: string }>(
-    "select to_char(occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date from chore_occurrence_exclusions where chore_id = $1 and occurrence_start_date = $2 limit 1",
-    [choreId, occurrenceStartDate],
-  );
-  return result.rows[0] ?? null;
-};
-
-export const upsertChoreOccurrenceExclusion = async ({
-  choreId,
-  occurrenceStartDate,
-}: {
-  choreId: number;
-  occurrenceStartDate: string;
-}) => {
-  await pool.query(
-    "insert into chore_occurrence_exclusions (chore_id, occurrence_start_date) values ($1, $2) on conflict (chore_id, occurrence_start_date) do nothing",
-    [choreId, occurrenceStartDate],
+    "insert into chore_occurrence_exceptions (chore_id, occurrence_start_date, kind, status, closed_reason) values ($1, $2, $3, $4, $5) on conflict (chore_id, occurrence_start_date) do update set kind = excluded.kind, status = excluded.status, closed_reason = excluded.closed_reason, updated_at = now()",
+    [choreId, occurrenceStartDate, kind, status, closedReason],
   );
 };
 
@@ -206,4 +158,29 @@ export const updateChoreSeriesEndDate = async ({
     choreId,
     seriesEndDate,
   ]);
+};
+
+export const updateChoreSeries = async ({
+  choreId,
+  title,
+  type,
+  startDate,
+  endDate,
+  seriesEndDate,
+  repeatRule,
+  notes,
+}: {
+  choreId: number;
+  title: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  seriesEndDate: string | null;
+  repeatRule: string;
+  notes: string | null;
+}) => {
+  await pool.query(
+    "update chores set title = $2, type = $3, start_date = $4, end_date = $5, series_end_date = $6, repeat_rule = $7, notes = $8 where id = $1",
+    [choreId, title, type, startDate, endDate, seriesEndDate, repeatRule, notes],
+  );
 };

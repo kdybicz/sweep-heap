@@ -6,6 +6,7 @@ export type CreateChoreInput = {
   repeatRule: string;
   seriesEndDate: string | null;
   today?: string;
+  allowPastDates?: boolean;
 };
 
 const allowedRepeatRules = new Set(["none", "day", "week", "biweek", "month", "year"]);
@@ -29,6 +30,7 @@ export const validateChoreCreate = ({
   repeatRule,
   seriesEndDate,
   today,
+  allowPastDates,
 }: CreateChoreInput) => {
   const fieldErrors: Record<string, string> = {};
   const todayValue = today ?? null;
@@ -49,10 +51,10 @@ export const validateChoreCreate = ({
   if (!endDate) {
     fieldErrors.endDate = "End date is required";
   }
-  if (todayValue && startDate && startDate < todayValue) {
+  if (!allowPastDates && todayValue && startDate && startDate < todayValue) {
     fieldErrors.startDate = "Start date cannot be in the past";
   }
-  if (todayValue && endDate && endDate < todayValue) {
+  if (!allowPastDates && todayValue && endDate && endDate < todayValue) {
     fieldErrors.endDate = "End date cannot be in the past";
   }
   if (startDate && endDate && endDate <= startDate) {

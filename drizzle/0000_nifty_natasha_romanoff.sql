@@ -18,15 +18,16 @@ CREATE TABLE "accounts" (
 	CONSTRAINT "accounts_provider_id_account_id_unique" UNIQUE("provider_id","account_id")
 );
 --> statement-breakpoint
-CREATE TABLE "chore_occurrence_overrides" (
+CREATE TABLE "chore_occurrence_exceptions" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"chore_id" integer NOT NULL,
-	"occurrence_date" date NOT NULL,
-	"status" text NOT NULL,
+	"occurrence_start_date" date NOT NULL,
+	"kind" text NOT NULL,
+	"status" text,
 	"closed_reason" text,
-	"undo_until" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "chore_occurrence_overrides_chore_date_unique" UNIQUE("chore_id","occurrence_date")
+	CONSTRAINT "chore_occurrence_exceptions_chore_start_unique" UNIQUE("chore_id","occurrence_start_date")
 );
 --> statement-breakpoint
 CREATE TABLE "chores" (
@@ -54,6 +55,20 @@ CREATE TABLE "delete_account_tokens" (
 	CONSTRAINT "delete_account_tokens_user_identifier_unique" UNIQUE("user_id","identifier")
 );
 --> statement-breakpoint
+CREATE TABLE "household_member_invites" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"household_id" integer NOT NULL,
+	"invited_by_user_id" integer NOT NULL,
+	"accepted_by_user_id" integer,
+	"email" text NOT NULL,
+	"role" text DEFAULT 'member' NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"accept_secret_hash" text,
+	"expires_at" timestamp with time zone NOT NULL,
+	"accepted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "household_memberships" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"household_id" integer NOT NULL,
@@ -67,9 +82,12 @@ CREATE TABLE "household_memberships" (
 CREATE TABLE "households" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
+	"slug" text NOT NULL,
 	"time_zone" text DEFAULT 'UTC' NOT NULL,
 	"icon" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"metadata" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "households_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
 CREATE TABLE "sessions" (
@@ -79,6 +97,7 @@ CREATE TABLE "sessions" (
 	"expires_at" timestamp with time zone NOT NULL,
 	"ip_address" text,
 	"user_agent" text,
+	"active_household_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "sessions_token_unique" UNIQUE("token")
@@ -106,9 +125,13 @@ CREATE TABLE "verification" (
 );
 --> statement-breakpoint
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "chore_occurrence_overrides" ADD CONSTRAINT "chore_occurrence_overrides_chore_id_chores_id_fk" FOREIGN KEY ("chore_id") REFERENCES "public"."chores"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "chore_occurrence_exceptions" ADD CONSTRAINT "chore_occurrence_exceptions_chore_id_chores_id_fk" FOREIGN KEY ("chore_id") REFERENCES "public"."chores"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chores" ADD CONSTRAINT "chores_household_id_households_id_fk" FOREIGN KEY ("household_id") REFERENCES "public"."households"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "delete_account_tokens" ADD CONSTRAINT "delete_account_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "household_member_invites" ADD CONSTRAINT "household_member_invites_household_id_households_id_fk" FOREIGN KEY ("household_id") REFERENCES "public"."households"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "household_member_invites" ADD CONSTRAINT "household_member_invites_invited_by_user_id_users_id_fk" FOREIGN KEY ("invited_by_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "household_member_invites" ADD CONSTRAINT "household_member_invites_accepted_by_user_id_users_id_fk" FOREIGN KEY ("accepted_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "household_memberships" ADD CONSTRAINT "household_memberships_household_id_households_id_fk" FOREIGN KEY ("household_id") REFERENCES "public"."households"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "household_memberships" ADD CONSTRAINT "household_memberships_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "household_member_invites_pending_email_unique" ON "household_member_invites" USING btree ("household_id",lower("email")) WHERE "household_member_invites"."status" = 'pending';

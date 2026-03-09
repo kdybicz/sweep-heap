@@ -1,8 +1,11 @@
 import type { DateTime } from "luxon";
 import type { FormEvent } from "react";
 
-import type { ChoreItem, UndoToast } from "@/app/household/board/types";
-import type { CancelChoreScope } from "@/app/household/board/useHouseholdChoreActions.types";
+import type { ChoreItem } from "@/app/household/board/types";
+import type {
+  CancelChoreScope,
+  EditChoreScope,
+} from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
 export type SidebarModel = {
@@ -27,14 +30,11 @@ export type WeekModel = {
   onAddChoreForDate: (dayKey: string | null) => void;
 };
 
-export type UndoModel = {
-  nowMs: number;
-  undoToasts: UndoToast[];
-  onUndo: (choreId: number, occurrenceStartDate: string) => Promise<void>;
-};
-
 export type AddChoreModalModel = {
   open: boolean;
+  modalTitle: string;
+  modalDescription: string;
+  submitLabel: string;
   submitError: string | null;
   fieldErrors: Record<string, string>;
   submitting: boolean;
@@ -65,12 +65,12 @@ export type ChoreDetailsModalModel = {
   onClose: () => void;
   onPrimaryAction: (chore: ChoreItem) => void;
   onCancelAction: (chore: ChoreItem, scope: CancelChoreScope) => Promise<void>;
+  onEditAction: (chore: ChoreItem, scope: EditChoreScope) => void;
 };
 
 export type UseHouseholdBoardModel = {
   sidebar: SidebarModel;
   week: WeekModel;
-  undo: UndoModel;
   addChoreModal: AddChoreModalModel;
   choreDetailsModal: ChoreDetailsModalModel;
 };
