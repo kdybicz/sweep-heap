@@ -68,6 +68,12 @@ const spanDaysBetween = (startDate: string, endDate: string) => {
   return Math.max(Math.round(end.diff(start, "days").days), 1);
 };
 
+const dayOffsetBetween = (startDate: string, endDate: string) => {
+  const start = DateTime.fromISO(startDate, { zone: "UTC" }).startOf("day");
+  const end = DateTime.fromISO(endDate, { zone: "UTC" }).startOf("day");
+  return Math.round(end.diff(start, "days").days);
+};
+
 const isOccurrenceStartInSeries = ({
   occurrenceStartDate,
   repeatRule,
@@ -378,6 +384,13 @@ export const mutateChore = async ({
     choreId,
     occurrenceStartDate,
   });
+  const completionException =
+    exception?.kind === "state" && exception.closed_reason === "done"
+      ? {
+          status: (exception.status === "closed" ? "closed" : "open") as "open" | "closed",
+          closedReason: "done" as const,
+        }
+      : null;
 
   if (action !== "cancel" && exception?.kind === "canceled") {
     return {
@@ -463,6 +476,10 @@ export const mutateChore = async ({
     }
 
     if (editScope === "all" || treatFollowingAsAll) {
+      const occurrenceShiftDays = dayOffsetBetween(chore.start_date, nextStartDate);
+      const shiftedOccurrenceStartDate =
+        addDays(occurrenceStartDate, occurrenceShiftDays) ?? nextStartDate;
+
       await updateChoreSeries({
         choreId,
         title: nextTitle,
@@ -473,6 +490,20 @@ export const mutateChore = async ({
         repeatRule: nextRepeatRule,
         notes: nextNotes,
       });
+
+      if (completionException && shiftedOccurrenceStartDate !== occurrenceStartDate) {
+        await deleteChoreOccurrenceException({
+          choreId,
+          occurrenceStartDate,
+        });
+        await upsertChoreOccurrenceException({
+          choreId,
+          occurrenceStartDate: shiftedOccurrenceStartDate,
+          kind: "state",
+          status: completionException.status,
+          closedReason: completionException.closedReason,
+        });
+      }
 
       return {
         ok: true,
@@ -514,6 +545,16 @@ export const mutateChore = async ({
       repeatRule: nextRepeatRule,
       notes: nextNotes,
     });
+
+    if (createdChoreId && completionException) {
+      await upsertChoreOccurrenceException({
+        choreId: createdChoreId,
+        occurrenceStartDate: nextStartDate,
+        kind: "state",
+        status: completionException.status,
+        closedReason: completionException.closedReason,
+      });
+    }
 
     return {
       ok: true,

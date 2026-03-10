@@ -677,6 +677,54 @@ describe("mutateChore", () => {
     });
   });
 
+  it("preserves completion state when editing a closed occurrence as scope=single", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Kitchen",
+      type: "close_on_done",
+      start_date: "2026-01-01",
+      end_date: "2026-01-02",
+      series_end_date: null,
+      repeat_rule: "day",
+      notes: "Original notes",
+    });
+    getChoreOccurrenceExceptionMock.mockResolvedValue({
+      chore_id: 3,
+      occurrence_start_date: "2026-01-05",
+      kind: "state",
+      status: "closed",
+      closed_reason: "done",
+    });
+    insertChoreMock.mockResolvedValue(44);
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "single",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-05",
+        title: "Kitchen deep clean",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(upsertChoreOccurrenceExceptionMock).toHaveBeenNthCalledWith(1, {
+      choreId: 3,
+      occurrenceStartDate: "2026-01-05",
+      kind: "canceled",
+      status: null,
+      closedReason: null,
+    });
+    expect(upsertChoreOccurrenceExceptionMock).toHaveBeenNthCalledWith(2, {
+      choreId: 44,
+      occurrenceStartDate: "2026-01-05",
+      kind: "state",
+      status: "closed",
+      closedReason: "done",
+    });
+  });
+
   it("splits the series and inserts a future branch for edit scope=following", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
@@ -727,6 +775,47 @@ describe("mutateChore", () => {
       seriesEndDate: "2026-02-28",
       repeatRule: "week",
       notes: "Original notes",
+    });
+  });
+
+  it("preserves completion state on the first occurrence of an edited future branch", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Kitchen",
+      type: "stay_open",
+      start_date: "2026-01-01",
+      end_date: "2026-01-02",
+      series_end_date: null,
+      repeat_rule: "day",
+      notes: "Original notes",
+    });
+    getChoreOccurrenceExceptionMock.mockResolvedValue({
+      chore_id: 3,
+      occurrence_start_date: "2026-01-05",
+      kind: "state",
+      status: "open",
+      closed_reason: "done",
+    });
+    insertChoreMock.mockResolvedValue(45);
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "following",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-05",
+        title: "Kitchen weekends",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(upsertChoreOccurrenceExceptionMock).toHaveBeenCalledWith({
+      choreId: 45,
+      occurrenceStartDate: "2026-01-05",
+      kind: "state",
+      status: "open",
+      closedReason: "done",
     });
   });
 
@@ -810,6 +899,50 @@ describe("mutateChore", () => {
     });
     expect(insertChoreMock).not.toHaveBeenCalled();
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it("shifts preserved completion exceptions with the edited occurrence for scope=all", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Kitchen",
+      type: "close_on_done",
+      start_date: "2026-01-01",
+      end_date: "2026-01-02",
+      series_end_date: null,
+      repeat_rule: "day",
+      notes: "Original notes",
+    });
+    getChoreOccurrenceExceptionMock.mockResolvedValue({
+      chore_id: 3,
+      occurrence_start_date: "2026-01-05",
+      kind: "state",
+      status: "closed",
+      closed_reason: "done",
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "all",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-05",
+        startDate: "2026-01-03",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(deleteChoreOccurrenceExceptionMock).toHaveBeenCalledWith({
+      choreId: 3,
+      occurrenceStartDate: "2026-01-05",
+    });
+    expect(upsertChoreOccurrenceExceptionMock).toHaveBeenCalledWith({
+      choreId: 3,
+      occurrenceStartDate: "2026-01-07",
+      kind: "state",
+      status: "closed",
+      closedReason: "done",
+    });
   });
 
   it("clears series end date for edit scope=all when explicitly set to null", async () => {

@@ -4,6 +4,7 @@ import {
   getChoreFormModeFromScope,
   getChoreFormValuesFromChore,
   getSeriesEndDateForSubmit,
+  isChoreEditDirty,
 } from "@/app/household/board/chore-form";
 import type { ChoreItem } from "@/app/household/board/types";
 
@@ -108,6 +109,26 @@ describe("chore form helpers", () => {
         repeatEnd: "2026-04-30",
       }),
     ).toBe("2026-04-30");
+  });
+
+  it("treats unchanged edit form values as not dirty", () => {
+    const original = getChoreFormValuesFromChore(baseChore, "all");
+
+    expect(isChoreEditDirty({ original, current: original })).toBe(false);
+  });
+
+  it("ignores notes whitespace when checking edit dirtiness", () => {
+    const original = getChoreFormValuesFromChore(baseChore, "all");
+
+    expect(
+      isChoreEditDirty({
+        original,
+        current: {
+          ...original,
+          notes: ` ${original.notes} `,
+        },
+      }),
+    ).toBe(false);
   });
 
   it("returns all-chores modal copy", () => {

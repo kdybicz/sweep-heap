@@ -36,6 +36,7 @@ export type AddChoreModalModel = {
   modalTitle: string;
   modalDescription: string;
   submitLabel: string;
+  submitDisabled: boolean;
   submitError: string | null;
   fieldErrors: Record<string, string>;
   submitting: boolean;

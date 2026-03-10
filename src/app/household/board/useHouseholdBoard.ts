@@ -58,6 +58,7 @@ export default function useHouseholdBoard(): UseHouseholdBoardModel {
       modalTitle: actions.addModalTitle,
       modalDescription: actions.addModalDescription,
       submitLabel: actions.addModalSubmitLabel,
+      submitDisabled: actions.addModalSubmitDisabled,
       submitError: actions.submitError,
       fieldErrors: actions.fieldErrors,
       submitting: actions.submitting,

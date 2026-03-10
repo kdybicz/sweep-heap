@@ -33,6 +33,8 @@ export type ChoreFormValues = {
   notes: string;
 };
 
+const normalizeTextField = (value: string) => value.trim();
+
 export const getSeriesEndDateForSubmit = ({
   repeat,
   repeatEndMode,
@@ -43,6 +45,25 @@ export const getSeriesEndDateForSubmit = ({
   }
 
   return repeatEnd;
+};
+
+export const isChoreEditDirty = ({
+  original,
+  current,
+}: {
+  original: ChoreFormValues;
+  current: ChoreFormValues;
+}) => {
+  return (
+    normalizeTextField(original.title) !== normalizeTextField(current.title) ||
+    original.type !== current.type ||
+    original.date !== current.date ||
+    original.endDate !== current.endDate ||
+    original.repeat !== current.repeat ||
+    original.repeatEndMode !== current.repeatEndMode ||
+    getSeriesEndDateForSubmit(original) !== getSeriesEndDateForSubmit(current) ||
+    normalizeTextField(original.notes) !== normalizeTextField(current.notes)
+  );
 };
 
 export const getChoreFormModalCopy = (formMode: ChoreFormMode) => {

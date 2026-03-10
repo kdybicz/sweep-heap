@@ -76,6 +76,7 @@ function HouseholdBoardContent() {
         fieldErrors={board.addChoreModal.fieldErrors}
         modalDescription={board.addChoreModal.modalDescription}
         modalTitle={board.addChoreModal.modalTitle}
+        submitDisabled={board.addChoreModal.submitDisabled}
         newDate={board.addChoreModal.date}
         newEndDate={board.addChoreModal.endDate}
         newNotes={board.addChoreModal.notes}

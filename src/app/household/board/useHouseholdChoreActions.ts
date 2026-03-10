@@ -11,6 +11,7 @@ import {
   getChoreFormModeFromScope,
   getChoreFormValuesFromChore,
   getSeriesEndDateForSubmit,
+  isChoreEditDirty,
 } from "@/app/household/board/chore-form";
 import { addDaysToDateKey, getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
@@ -95,6 +96,24 @@ export default function useHouseholdChoreActions({
   const addModalTitle = modalCopy.title;
   const addModalDescription = modalCopy.description;
   const addModalSubmitLabel = modalCopy.submitLabel;
+  const addModalSubmitDisabled =
+    editingChore !== null &&
+    !isChoreEditDirty({
+      original: getChoreFormValuesFromChore(
+        editingChore,
+        formMode === "edit_single" ? "single" : formMode === "edit_following" ? "following" : "all",
+      ),
+      current: {
+        title: newTitle,
+        type: newType,
+        date: newDate,
+        endDate: newEndDate,
+        repeat: newRepeat,
+        repeatEndMode: newRepeatEndMode,
+        repeatEnd: newRepeatEnd,
+        notes: newNotes,
+      },
+    });
 
   const resetAddChore = useCallback(() => {
     setShowAddModal(false);
@@ -137,6 +156,9 @@ export default function useHouseholdChoreActions({
   const submitAddChore = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      if (addModalSubmitDisabled) {
+        return;
+      }
       setSubmitError(null);
       setFieldErrors({});
       setSubmitting(true);
@@ -211,6 +233,7 @@ export default function useHouseholdChoreActions({
       newTitle,
       newType,
       resetAddChore,
+      addModalSubmitDisabled,
     ],
   );
 
@@ -348,6 +371,7 @@ export default function useHouseholdChoreActions({
     addModalTitle,
     addModalDescription,
     addModalSubmitLabel,
+    addModalSubmitDisabled,
     submitError,
     fieldErrors,
     submitting,

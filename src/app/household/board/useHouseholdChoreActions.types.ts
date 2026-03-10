@@ -21,6 +21,7 @@ export type UseHouseholdChoreActionsModel = {
   addModalTitle: string;
   addModalDescription: string;
   addModalSubmitLabel: string;
+  addModalSubmitDisabled: boolean;
   submitError: string | null;
   fieldErrors: Record<string, string>;
   submitting: boolean;

@@ -10,6 +10,7 @@ type AddChoreModalProps = {
   modalTitle: string;
   modalDescription: string;
   submitLabel: string;
+  submitDisabled: boolean;
   submitError: string | null;
   fieldErrors: Record<string, string>;
   submitting: boolean;
@@ -39,6 +40,7 @@ export default function AddChoreModal({
   modalTitle,
   modalDescription,
   submitLabel,
+  submitDisabled,
   submitError,
   fieldErrors,
   submitting,
@@ -292,7 +294,7 @@ export default function AddChoreModal({
             </button>
             <button
               className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={submitting}
+              disabled={submitting || submitDisabled}
               type="submit"
             >
               {submitting ? "Saving..." : submitLabel}
