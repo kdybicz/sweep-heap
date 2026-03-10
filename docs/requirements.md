@@ -174,6 +174,8 @@
 ### UI interaction constraints
 - Add-chore and edit/cancel actions remain available for past dates; only the primary done/open action is currently blocked for past-dated occurrences.
 - Primary action in chore details is disabled for past-dated occurrences.
+- On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
+- Chores that start before or end after the visible week use a clipped edge treatment on the continued side (no outer corner radius and no outer vertical border).
 
 ## API Surface (Current Snapshot)
 - Failure envelope contract: API routes return `{ ok: false, code: string, error: string }` for handled errors.
@@ -269,7 +271,7 @@
 - No dedicated event/audit history table exists for chore state transitions; only latest exception state is stored.
 - `closed_reason = schedule_end` lifecycle is not currently persisted by background process; closure is mostly represented by derived listing behavior.
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
-- Cancel actions are available from the board chore details modal for single-occurrence and this-and-following cancellation.
+- Cancel actions are available from the board chore details modal for single-occurrence, this-and-following, and whole-series cancellation.
 - Server-enforced completion undo is currently disabled; `UndoToastStack` remains in the codebase but is not wired into the board UI.
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in `TODO-3`.
 

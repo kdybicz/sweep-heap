@@ -106,6 +106,28 @@ describe("ChoreDetailsModal", () => {
     expect(markup).toContain("Failed to cancel chore occurrence");
   });
 
+  it("shows a date range for multi-day chores", () => {
+    const markup = renderToStaticMarkup(
+      <ChoreDetailsModal
+        chore={{
+          ...baseChore,
+          duration_days: 3,
+          occurrence_start_date: "2026-03-05",
+          occurrence_date: "2026-03-06",
+        }}
+        error={null}
+        onCancelAction={noop}
+        onClose={noop}
+        onEditAction={noop}
+        onPrimaryAction={noop}
+        submitting={false}
+        todayKey="2026-03-05"
+      />,
+    );
+
+    expect(markup).toContain("Thursday, Mar 5 - Saturday, Mar 7");
+  });
+
   it("disables the backdrop close affordance while submitting", () => {
     const markup = renderToStaticMarkup(
       <ChoreDetailsModal

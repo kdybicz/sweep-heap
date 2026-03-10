@@ -59,6 +59,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `scope=all` updates or cancels the entire series definition.
 - Mutation payloads use `occurrenceStartDate`.
 - Chore list rows include `occurrence_date` (calendar day) and `occurrence_start_date` (instance identity).
+- On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
+- Chores clipped by the current week use a clipped edge treatment at the left and/or right edge (no outer corner radius and no outer vertical border).
 
 ## API Snapshot
 - `GET /api/health`
@@ -92,7 +94,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - No append-only chore event log yet (only latest exception state).
 - Concurrency conflicts are not exposed as explicit retryable responses.
 - Month/year recurrence edge cases can drift from strict start-date anchoring.
-- Board UI exposes cancel actions from the chore details modal for single-occurrence and this-and-following cancellation.
+- Board UI exposes cancel actions from the chore details modal for single-occurrence, this-and-following, and whole-series cancellation.
 
 ## Backlog Links
 - Active execution backlog: `docs/todo.md`.

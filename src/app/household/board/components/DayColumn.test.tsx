@@ -1,82 +1,39 @@
-import { DateTime as LuxonDateTime } from "luxon";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import DayColumn from "@/app/household/board/components/DayColumn";
-import type { ChoreItem } from "@/app/household/board/types";
 
 const noop = () => undefined;
 
-const buildProps = ({
-  day,
-  today,
-  dayChores = [],
-}: {
-  day: ReturnType<typeof LuxonDateTime.fromISO>;
-  today: ReturnType<typeof LuxonDateTime.fromISO>;
-  dayChores?: ChoreItem[];
-}) => ({
-  day,
-  dayKey: day.toISODate(),
-  dayChores,
+const buildProps = ({ dayKey = "2026-03-02", showEmptyState = false } = {}) => ({
+  dayKey,
+  showEmptyState,
   loading: false,
-  showLeftDivider: false,
-  today,
-  onSelectChore: noop,
   onAddChoreForDate: noop,
 });
 
 describe("DayColumn", () => {
-  it("renders a circular highlight for the current day number", () => {
-    const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
-    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ day: today, today })} />);
-
-    expect(markup).toContain(
-      "h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-white",
-    );
-    expect(markup).toContain(">2</span>");
-  });
-
-  it("does not highlight day number when day is not current date", () => {
-    const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
-    const day = LuxonDateTime.fromISO("2026-03-03", { zone: "UTC" });
-    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ day, today })} />);
-
-    expect(markup).not.toContain(
-      "h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-white",
-    );
-    expect(markup).toContain(">3</span>");
-  });
-
-  it("uses weekend background class for weekend days", () => {
-    const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
-    const saturday = LuxonDateTime.fromISO("2026-03-07", { zone: "UTC" });
-    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ day: saturday, today })} />);
-
-    expect(markup).toContain("bg-[var(--weekend-column-bg)]");
-  });
-
-  it("keeps weekday background class for weekday days", () => {
-    const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
-    const weekday = LuxonDateTime.fromISO("2026-03-04", { zone: "UTC" });
-    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ day: weekday, today })} />);
-
-    expect(markup).not.toContain("bg-[var(--weekend-column-bg)]");
-    expect(markup).toContain("bg-[var(--card)]");
-  });
-
   it("keeps add chore enabled for days before today", () => {
-    const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
-    const day = LuxonDateTime.fromISO("2026-03-01", { zone: "UTC" });
-    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ day, today })} />);
+    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ dayKey: "2026-03-01" })} />);
 
     expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>Add chore<\/button>/);
   });
 
   it("keeps add chore enabled for today", () => {
-    const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
-    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ day: today, today })} />);
+    const markup = renderToStaticMarkup(<DayColumn {...buildProps()} />);
 
     expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>Add chore<\/button>/);
+  });
+
+  it("renders no-chore copy when a day has no chores", () => {
+    const markup = renderToStaticMarkup(<DayColumn {...buildProps({ showEmptyState: true })} />);
+
+    expect(markup).toContain("No chores scheduled");
+  });
+
+  it("omits no-chore copy when a day has chores", () => {
+    const markup = renderToStaticMarkup(<DayColumn {...buildProps()} />);
+
+    expect(markup).not.toContain("No chores scheduled");
   });
 });

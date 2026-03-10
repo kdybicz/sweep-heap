@@ -2,6 +2,8 @@ import type { DateTime } from "luxon";
 import { useMemo } from "react";
 
 import DayColumn from "@/app/household/board/components/DayColumn";
+import MultiDayChoreLanes from "@/app/household/board/components/MultiDayChoreLanes";
+import { buildWeekGridLayout } from "@/app/household/board/multi-day-chore-layout";
 import type { ChoreItem } from "@/app/household/board/types";
 
 type WeekGridProps = {
@@ -29,18 +31,11 @@ export default function WeekGrid({
   onSelectChore,
   onAddChoreForDate,
 }: WeekGridProps) {
-  const choresByDay = useMemo(() => {
-    const grouped = new Map<string, ChoreItem[]>();
-    for (const chore of chores) {
-      const dayChores = grouped.get(chore.occurrence_date);
-      if (dayChores) {
-        dayChores.push(chore);
-      } else {
-        grouped.set(chore.occurrence_date, [chore]);
-      }
-    }
-    return grouped;
-  }, [chores]);
+  const todayKey = today.toISODate() ?? "";
+  const { choreLanes, occupiedDayKeys } = useMemo(
+    () => buildWeekGridLayout({ chores, days, todayKey }),
+    [chores, days, todayKey],
+  );
 
   return (
     <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow)]">
@@ -75,24 +70,69 @@ export default function WeekGrid({
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-7 gap-0 bg-[var(--surface)]">
-              {days.map((day, dayIndex) => {
-                const dayKey = day.toISODate();
-                const dayChores = dayKey ? (choresByDay.get(dayKey) ?? []) : [];
-                return (
-                  <DayColumn
-                    day={day}
-                    dayChores={dayChores}
-                    dayKey={dayKey}
-                    key={day.toISO()}
-                    loading={loading}
-                    showLeftDivider={dayIndex > 0}
-                    onAddChoreForDate={onAddChoreForDate}
-                    onSelectChore={onSelectChore}
-                    today={today}
+            <div className="relative overflow-hidden rounded-b-2xl bg-[var(--surface)]">
+              <div className="pointer-events-none absolute inset-y-0 inset-x-2 grid grid-cols-7">
+                {days.map((day, dayIndex) => (
+                  <div
+                    className={dayIndex > 0 ? "border-l border-[var(--stroke-soft)]" : ""}
+                    key={`separator-${day.toISO()}`}
                   />
-                );
-              })}
+                ))}
+              </div>
+              <div className="relative z-10 grid grid-cols-7 gap-0 border-b border-[var(--stroke-soft)] px-2 pb-2 pt-1">
+                {days.map((day) => {
+                  const dayKey = day.toISODate() ?? day.toISO() ?? "";
+                  const isToday = day.hasSame(today, "day");
+
+                  return (
+                    <div
+                      className="flex items-center justify-center px-1 pb-1"
+                      key={`header-${dayKey}`}
+                    >
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
+                        <span>{day.toFormat("ccc")}</span>
+                        <span
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${
+                            isToday ? "bg-[var(--accent)] text-white" : "text-[var(--ink)]"
+                          }`}
+                        >
+                          {day.toFormat("d")}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="relative min-h-[540px]">
+                <div className="pointer-events-none absolute inset-y-0 inset-x-2 grid grid-cols-7 gap-0">
+                  {days.map((day, dayIndex) => {
+                    const isWeekend = day.weekday >= 6;
+                    return (
+                      <div
+                        className={`${isWeekend ? "bg-[var(--weekend-column-bg)]" : "bg-[var(--card)]"} ${dayIndex > 0 ? "border-l border-[var(--stroke-soft)]" : ""}`}
+                        key={`body-${day.toISO()}`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="relative px-2 pb-16 pt-2">
+                  <MultiDayChoreLanes lanes={choreLanes} onSelectChore={onSelectChore} />
+                </div>
+                <div className="pointer-events-none absolute inset-y-0 inset-x-2 z-10 grid grid-cols-7 gap-0">
+                  {days.map((day) => {
+                    const dayKey = day.toISODate();
+                    return (
+                      <DayColumn
+                        dayKey={dayKey}
+                        key={day.toISO()}
+                        loading={loading}
+                        showEmptyState={dayKey ? !occupiedDayKeys.has(dayKey) : false}
+                        onAddChoreForDate={onAddChoreForDate}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>

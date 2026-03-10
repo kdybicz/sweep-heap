@@ -55,6 +55,14 @@ export default function ChoreDetailsModal({
     return null;
   }
 
+  const durationDays = chore.duration_days ?? 1;
+  const occurrenceStart = DateTime.fromISO(chore.occurrence_start_date);
+  const occurrenceEnd = occurrenceStart.plus({ days: durationDays - 1 });
+  const dateLabel =
+    durationDays > 1
+      ? `${occurrenceStart.toFormat("cccc, LLL d")} - ${occurrenceEnd.toFormat("cccc, LLL d")}`
+      : DateTime.fromISO(chore.occurrence_date).toFormat("cccc, LLL d");
+
   const editActionsDisabled = submitting;
   const cancelActionsDisabled = submitting;
 
@@ -80,9 +88,7 @@ export default function ChoreDetailsModal({
           <h3 className="text-xl font-semibold" id={titleId}>
             {chore.title}
           </h3>
-          <p className="text-xs text-[var(--muted)]">
-            {DateTime.fromISO(chore.occurrence_date).toFormat("cccc, LLL d")}
-          </p>
+          <p className="text-xs text-[var(--muted)]">{dateLabel}</p>
           <span className="mt-2 inline-flex items-center gap-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
             <TypeIcon className="h-3.5 w-3.5" type={chore.type} />
             {getChoreTypeLabel(chore.type)}
