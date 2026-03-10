@@ -91,21 +91,14 @@ const householdInviteAcceptPayloadSchema = z.object({
   secret: householdInviteSecretSchema,
 });
 
-const allowedActions = new Set([
-  "create",
-  "set",
-  "cancel",
-  "edit_single",
-  "edit_following",
-  "edit_series",
-]);
-const allowedCancelScopes = new Set(["single", "following"]);
+const allowedActions = new Set(["create", "set", "cancel", "edit"]);
+const allowedScopes = new Set(["single", "following", "all"]);
 
 const choreActionSchema = z
   .unknown()
   .transform((value) => (typeof value === "string" ? value.trim().toLowerCase() : null))
   .refine((value) => value === null || allowedActions.has(value), {
-    message: "Action must be create, set, cancel, edit_single, edit_following, or edit_series",
+    message: "Action must be create, set, cancel, or edit",
   });
 
 const choreStatusSchema = z
@@ -116,7 +109,7 @@ const chorePatchPayloadSchema = z
   .object({
     action: choreActionSchema.optional(),
     status: choreStatusSchema.optional(),
-    cancelScope: z
+    scope: z
       .unknown()
       .transform((value) => (typeof value === "string" ? value.trim().toLowerCase() : null))
       .optional(),
@@ -125,7 +118,7 @@ const chorePatchPayloadSchema = z
   .superRefine((payload, ctx) => {
     const action = payload.action ?? null;
     const status = payload.status ?? null;
-    const cancelScope = payload.cancelScope ?? null;
+    const scope = payload.scope ?? null;
 
     if ((action ?? "set") === "set" && status !== "open" && status !== "closed") {
       ctx.addIssue({
@@ -136,13 +129,13 @@ const chorePatchPayloadSchema = z
     }
 
     if (
-      action === "cancel" &&
-      (typeof cancelScope !== "string" || !allowedCancelScopes.has(cancelScope))
+      (action === "cancel" || action === "edit") &&
+      (typeof scope !== "string" || !allowedScopes.has(scope))
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "cancelScope must be single or following",
-        path: ["cancelScope"],
+        message: "scope must be single, following, or all",
+        path: ["scope"],
       });
     }
   })

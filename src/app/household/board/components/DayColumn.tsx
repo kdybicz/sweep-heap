@@ -90,7 +90,6 @@ export default function DayColumn({
       <button
         className="mx-2 mt-2 rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
         onClick={() => onAddChoreForDate(dayKey)}
-        disabled={day < today}
         type="button"
       >
         Add chore

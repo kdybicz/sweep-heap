@@ -246,12 +246,12 @@ describe("PATCH /api/chores", () => {
     expect(body).toEqual({
       ok: false,
       code: API_ERROR_CODE.VALIDATION_FAILED,
-      error: "Action must be create, set, cancel, edit_single, edit_following, or edit_series",
+      error: "Action must be create, set, cancel, or edit",
     });
     expect(mutateChoreMock).not.toHaveBeenCalled();
   });
 
-  it("forwards edit_following payloads to the service", async () => {
+  it("forwards edit payloads with following scope to the service", async () => {
     getSessionMock.mockResolvedValue({
       user: { id: "21" },
       session: { activeOrganizationId: "11" },
@@ -262,7 +262,8 @@ describe("PATCH /api/chores", () => {
       household: { id: 11 },
     });
     const payload = {
-      action: "edit_following",
+      action: "edit",
+      scope: "following",
       choreId: 3,
       occurrenceStartDate: "2026-01-03",
       title: "Deep clean",
@@ -284,7 +285,7 @@ describe("PATCH /api/chores", () => {
     expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, payload });
   });
 
-  it("forwards edit_series payloads to the service", async () => {
+  it("forwards edit payloads with all scope to the service", async () => {
     getSessionMock.mockResolvedValue({
       user: { id: "21" },
       session: { activeOrganizationId: "11" },
@@ -295,7 +296,8 @@ describe("PATCH /api/chores", () => {
       household: { id: 11 },
     });
     const payload = {
-      action: "edit_series",
+      action: "edit",
+      scope: "all",
       choreId: 3,
       occurrenceStartDate: "2026-01-03",
       title: "Deep clean forever",

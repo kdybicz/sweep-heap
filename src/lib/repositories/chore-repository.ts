@@ -95,7 +95,7 @@ export const getChoreInHousehold = async ({
   householdId: number;
 }) => {
   const result = await pool.query<ChoreInHouseholdRow>(
-    "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, notes from chores where id = $1 and household_id = $2",
+    "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, notes from chores where id = $1 and household_id = $2 and status = 'active'",
     [choreId, householdId],
   );
   return result.rows[0] ?? null;
@@ -158,6 +158,16 @@ export const updateChoreSeriesEndDate = async ({
     choreId,
     seriesEndDate,
   ]);
+};
+
+export const updateChoreStatus = async ({
+  choreId,
+  status,
+}: {
+  choreId: number;
+  status: "active" | "canceled";
+}) => {
+  await pool.query("update chores set status = $2 where id = $1", [choreId, status]);
 };
 
 export const updateChoreSeries = async ({

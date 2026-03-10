@@ -137,7 +137,15 @@ export default function useHouseholdChoreActions({
       setFieldErrors({});
       setSubmitting(true);
       const payload = {
-        action: editingChore ? formMode : "create",
+        action: editingChore ? "edit" : "create",
+        scope:
+          editingChore && formMode === "edit_single"
+            ? "single"
+            : editingChore && formMode === "edit_following"
+              ? "following"
+              : editingChore
+                ? "all"
+                : undefined,
         choreId: editingChore?.id,
         occurrenceStartDate: editingChore?.occurrence_start_date,
         title: newTitle,
@@ -266,7 +274,7 @@ export default function useHouseholdChoreActions({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "cancel",
-            cancelScope: scope,
+            scope,
             choreId: chore.id,
             occurrenceStartDate: chore.occurrence_start_date,
           }),

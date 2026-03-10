@@ -35,8 +35,8 @@ describe("chore form helpers", () => {
     });
   });
 
-  it("builds whole-series edit defaults from the original series start", () => {
-    expect(getChoreFormValuesFromChore(baseChore, "series")).toEqual({
+  it("builds all-chores edit defaults from the original series start", () => {
+    expect(getChoreFormValuesFromChore(baseChore, "all")).toEqual({
       title: "Laundry",
       type: "close_on_done",
       date: "2026-03-01",
@@ -50,13 +50,13 @@ describe("chore form helpers", () => {
   it("maps scopes to edit form modes", () => {
     expect(getChoreFormModeFromScope("single")).toBe("edit_single");
     expect(getChoreFormModeFromScope("following")).toBe("edit_following");
-    expect(getChoreFormModeFromScope("series")).toBe("edit_series");
+    expect(getChoreFormModeFromScope("all")).toBe("edit_all");
   });
 
-  it("returns whole-series modal copy", () => {
-    expect(getChoreFormModalCopy("edit_series")).toEqual({
-      title: "Edit whole series",
-      description: "Update the recurring series in place.",
+  it("returns all-chores modal copy", () => {
+    expect(getChoreFormModalCopy("edit_all")).toEqual({
+      title: "Edit all chores",
+      description: "Update the entire recurring series in place.",
       submitLabel: "Save changes",
     });
   });

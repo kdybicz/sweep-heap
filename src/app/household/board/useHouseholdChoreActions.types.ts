@@ -4,8 +4,8 @@ import type { ChoreItem } from "@/app/household/board/types";
 import type { LoadChoresFn } from "@/app/household/board/useHouseholdChoresData.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
-export type CancelChoreScope = "single" | "following";
-export type EditChoreScope = "single" | "following" | "series";
+export type CancelChoreScope = "single" | "following" | "all";
+export type EditChoreScope = "single" | "following" | "all";
 
 export type UseHouseholdChoreActionsParams = {
   chores: ChoreItem[];

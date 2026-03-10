@@ -36,27 +36,29 @@ describe("ChoreDetailsModal", () => {
   it("shows single cancel action for one-off chores", () => {
     const markup = renderModal(baseChore);
 
-    expect(markup).toContain("Cancel this occurrence");
-    expect(markup).not.toContain("Cancel this and following");
-    expect(markup).toContain("Edit this occurrence");
-    expect(markup).not.toContain("Edit this and following");
-    expect(markup).not.toContain("Edit whole series");
+    expect(markup).toContain("Cancel only this chore");
+    expect(markup).not.toContain("Cancel this and future chores");
+    expect(markup).not.toContain("Cancel all chores");
+    expect(markup).toContain("Edit only this chore");
+    expect(markup).not.toContain("Edit this and future chores");
+    expect(markup).not.toContain("Edit all chores");
   });
 
-  it("shows following cancel action for repeating chores", () => {
+  it("shows Google Calendar-style recurring actions for repeating chores", () => {
     const markup = renderModal({
       ...baseChore,
       is_repeating: true,
     });
 
-    expect(markup).toContain("Cancel this occurrence");
-    expect(markup).toContain("Cancel this and following");
-    expect(markup).toContain("Edit this occurrence");
-    expect(markup).toContain("Edit this and following");
-    expect(markup).toContain("Edit whole series");
+    expect(markup).toContain("Cancel only this chore");
+    expect(markup).toContain("Cancel this and future chores");
+    expect(markup).toContain("Cancel all chores");
+    expect(markup).toContain("Edit only this chore");
+    expect(markup).toContain("Edit this and future chores");
+    expect(markup).toContain("Edit all chores");
   });
 
-  it("disables cancel actions for past occurrences", () => {
+  it("keeps edit and cancel actions enabled for past occurrences", () => {
     const markup = renderToStaticMarkup(
       <ChoreDetailsModal
         chore={{
@@ -75,11 +77,16 @@ describe("ChoreDetailsModal", () => {
       />,
     );
 
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Cancel this occurrence<\/button>/);
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Cancel this and following<\/button>/);
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Edit this occurrence<\/button>/);
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Edit this and following<\/button>/);
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Edit whole series<\/button>/);
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>Cancel only this chore<\/button>/);
+    expect(markup).not.toMatch(
+      /<button[^>]*disabled=""[^>]*>Cancel this and future chores<\/button>/,
+    );
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>Cancel all chores<\/button>/);
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>Edit only this chore<\/button>/);
+    expect(markup).not.toMatch(
+      /<button[^>]*disabled=""[^>]*>Edit this and future chores<\/button>/,
+    );
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>Edit all chores<\/button>/);
   });
 
   it("renders inline API errors", () => {

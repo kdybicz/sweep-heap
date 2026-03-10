@@ -55,8 +55,8 @@ export default function ChoreDetailsModal({
     return null;
   }
 
-  const editActionsDisabled = submitting || chore.occurrence_date < todayKey;
-  const cancelActionsDisabled = editActionsDisabled;
+  const editActionsDisabled = submitting;
+  const cancelActionsDisabled = submitting;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
@@ -130,7 +130,7 @@ export default function ChoreDetailsModal({
               onClick={() => onEditAction(chore, "single")}
               type="button"
             >
-              Edit this occurrence
+              Edit only this chore
             </button>
             {chore.is_repeating ? (
               <button
@@ -139,17 +139,17 @@ export default function ChoreDetailsModal({
                 onClick={() => onEditAction(chore, "following")}
                 type="button"
               >
-                Edit this and following
+                Edit this and future chores
               </button>
             ) : null}
             {chore.is_repeating ? (
               <button
                 className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={editActionsDisabled}
-                onClick={() => onEditAction(chore, "series")}
+                onClick={() => onEditAction(chore, "all")}
                 type="button"
               >
-                Edit whole series
+                Edit all chores
               </button>
             ) : null}
             <button
@@ -158,7 +158,7 @@ export default function ChoreDetailsModal({
               onClick={() => onCancelAction(chore, "single")}
               type="button"
             >
-              Cancel this occurrence
+              Cancel only this chore
             </button>
             {chore.is_repeating ? (
               <button
@@ -167,7 +167,17 @@ export default function ChoreDetailsModal({
                 onClick={() => onCancelAction(chore, "following")}
                 type="button"
               >
-                Cancel this and following
+                Cancel this and future chores
+              </button>
+            ) : null}
+            {chore.is_repeating ? (
+              <button
+                className="rounded-full border border-[var(--danger-stroke)] bg-[var(--surface-weak)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={cancelActionsDisabled}
+                onClick={() => onCancelAction(chore, "all")}
+                type="button"
+              >
+                Cancel all chores
               </button>
             ) : null}
             <button

@@ -1,7 +1,6 @@
 import { DateTime } from "luxon";
 import { API_ERROR_CODE, apiErrorBody } from "@/lib/api-error";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
-import { toISODateOrThrow } from "@/lib/date";
 import type { RepeatRule } from "@/lib/occurrences";
 import { generateOccurrenceInstances } from "@/lib/occurrences";
 import {
@@ -14,8 +13,11 @@ import {
   listChoreExceptionsByHousehold,
   updateChoreSeries,
   updateChoreSeriesEndDate,
+  updateChoreStatus,
   upsertChoreOccurrenceException,
 } from "@/lib/repositories";
+
+type ChoreMutationScope = "single" | "following" | "all";
 
 const toDateString = (value: string | null, timeZone: string) => {
   if (!value) {
@@ -205,29 +207,21 @@ export const mutateChore = async ({
   const rawAction = typeof input.action === "string" ? input.action.trim().toLowerCase() : null;
   const action = rawAction ?? "set";
 
-  if (
-    action !== "create" &&
-    action !== "set" &&
-    action !== "cancel" &&
-    action !== "edit_single" &&
-    action !== "edit_following" &&
-    action !== "edit_series"
-  ) {
+  if (action !== "create" && action !== "set" && action !== "cancel" && action !== "edit") {
     return {
       ok: false,
       status: 400,
       body: {
         ...apiErrorBody({
           code: API_ERROR_CODE.ACTION_INVALID,
-          error: "Action must be create, set, cancel, edit_single, edit_following, or edit_series",
+          error: "Action must be create, set, cancel, or edit",
         }),
       },
     };
   }
 
   const rawStatus = typeof input.status === "string" ? input.status.trim().toLowerCase() : null;
-  const rawCancelScope =
-    typeof input.cancelScope === "string" ? input.cancelScope.trim().toLowerCase() : null;
+  const rawScope = typeof input.scope === "string" ? input.scope.trim().toLowerCase() : null;
   if (action === "set" && rawStatus !== "open" && rawStatus !== "closed") {
     return {
       ok: false,
@@ -241,14 +235,19 @@ export const mutateChore = async ({
     };
   }
 
-  if (action === "cancel" && rawCancelScope !== "single" && rawCancelScope !== "following") {
+  if (
+    (action === "cancel" || action === "edit") &&
+    rawScope !== "single" &&
+    rawScope !== "following" &&
+    rawScope !== "all"
+  ) {
     return {
       ok: false,
       status: 400,
       body: {
         ...apiErrorBody({
           code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-          error: "cancelScope must be single or following",
+          error: "scope must be single, following, or all",
         }),
       },
     };
@@ -266,10 +265,10 @@ export const mutateChore = async ({
   const repeatRule =
     typeof input.repeatRule === "string" ? normalizeRepeatRule(input.repeatRule) : "none";
   const notes = normalizeNotes(input.notes);
+  const scope = rawScope as ChoreMutationScope | null;
 
   if (action === "create") {
     const timeZone = await getHouseholdTimeZoneById(householdId);
-    const today = toISODateOrThrow(DateTime.now().setZone(timeZone));
     const startDateLocal = normalizeDate(input.startDate, timeZone);
     const endDateLocal = normalizeDate(input.endDate, timeZone);
     const seriesEndDateLocal = normalizeDate(input.seriesEndDate, timeZone);
@@ -284,7 +283,6 @@ export const mutateChore = async ({
       endDate: endDateLocal,
       repeatRule,
       seriesEndDate: seriesEndDateLocal,
-      today,
     });
 
     if (Object.keys(fieldErrors).length) {
@@ -397,24 +395,27 @@ export const mutateChore = async ({
   const choreType = chore.type === "stay_open" ? "stay_open" : "close_on_done";
   const choreRepeatRule = normalizeRepeatRule(chore.repeat_rule);
 
-  if (action === "edit_single" || action === "edit_following" || action === "edit_series") {
+  if (action === "edit") {
+    const editScope = scope as ChoreMutationScope;
+    const treatFollowingAsAll =
+      editScope === "following" && occurrenceStartDate === chore.start_date;
     const timeZone = await getHouseholdTimeZoneById(householdId);
-    const today = toISODateOrThrow(DateTime.now().setZone(timeZone));
     const originalSpanDays = spanDaysBetween(chore.start_date, chore.end_date);
-    const defaultStartDate = action === "edit_series" ? chore.start_date : occurrenceStartDate;
+    const useWholeSeriesDefaults = editScope === "all" || treatFollowingAsAll;
+    const defaultStartDate = useWholeSeriesDefaults ? chore.start_date : occurrenceStartDate;
     const nextStartDate = normalizeDate(input.startDate, timeZone) ?? defaultStartDate;
     const nextEndDate =
       normalizeDate(input.endDate, timeZone) ??
       addDays(nextStartDate, originalSpanDays) ??
       nextStartDate;
     const nextRepeatRule =
-      action === "edit_single"
+      editScope === "single"
         ? "none"
         : typeof input.repeatRule === "string"
           ? normalizeRepeatRule(input.repeatRule)
           : choreRepeatRule;
     const nextSeriesEndDate =
-      action === "edit_single"
+      editScope === "single"
         ? null
         : (normalizeDate(input.seriesEndDate, timeZone) ?? chore.series_end_date);
     const nextTitle = title || chore.title;
@@ -429,8 +430,6 @@ export const mutateChore = async ({
       endDate: nextEndDate,
       repeatRule: nextRepeatRule,
       seriesEndDate: nextSeriesEndDate,
-      today,
-      allowPastDates: action === "edit_series",
     });
 
     if (Object.keys(fieldErrors).length) {
@@ -445,20 +444,20 @@ export const mutateChore = async ({
       };
     }
 
-    if (action === "edit_following" && choreRepeatRule === "none") {
+    if (editScope === "following" && choreRepeatRule === "none") {
       return {
         ok: false,
         status: 409,
         body: {
           ...apiErrorBody({
             code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-            error: "edit_following requires a repeating chore",
+            error: "scope following requires a repeating chore",
           }),
         },
       };
     }
 
-    if (action === "edit_series") {
+    if (editScope === "all" || treatFollowingAsAll) {
       await updateChoreSeries({
         choreId,
         title: nextTitle,
@@ -477,11 +476,12 @@ export const mutateChore = async ({
           choreId,
           occurrenceStartDate,
           action,
+          scope: editScope,
         },
       };
     }
 
-    if (action === "edit_following") {
+    if (editScope === "following") {
       const previousSeriesEndDate = DateTime.fromISO(occurrenceStartDate, { zone: "UTC" })
         .minus({ days: 1 })
         .toISODate();
@@ -518,12 +518,13 @@ export const mutateChore = async ({
         createdChoreId,
         occurrenceStartDate,
         action,
+        scope: editScope,
       },
     };
   }
 
   if (action === "cancel") {
-    const cancelScope = rawCancelScope;
+    const cancelScope = scope as ChoreMutationScope;
 
     if (cancelScope === "following" && choreRepeatRule === "none") {
       return {
@@ -532,13 +533,21 @@ export const mutateChore = async ({
         body: {
           ...apiErrorBody({
             code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-            error: "cancelScope following requires a repeating chore",
+            error: "scope following requires a repeating chore",
           }),
         },
       };
     }
 
-    if (cancelScope === "following") {
+    const treatFollowingAsAll =
+      cancelScope === "following" && occurrenceStartDate === chore.start_date;
+
+    if (cancelScope === "all" || treatFollowingAsAll) {
+      await updateChoreStatus({
+        choreId,
+        status: "canceled",
+      });
+    } else if (cancelScope === "following") {
       const nextSeriesEndDate = DateTime.fromISO(occurrenceStartDate, { zone: "UTC" })
         .minus({ days: 1 })
         .toISODate();
@@ -562,7 +571,7 @@ export const mutateChore = async ({
         ok: true,
         choreId,
         occurrenceStartDate,
-        cancelScope,
+        scope: cancelScope,
       },
     };
   }

@@ -10,6 +10,7 @@ const {
   listChoreExceptionsByHouseholdMock,
   updateChoreSeriesMock,
   updateChoreSeriesEndDateMock,
+  updateChoreStatusMock,
   upsertChoreOccurrenceExceptionMock,
   getHouseholdTimeZoneByIdMock,
   normalizeRepeatRuleMock,
@@ -24,6 +25,7 @@ const {
   listChoreExceptionsByHouseholdMock: vi.fn(),
   updateChoreSeriesMock: vi.fn(),
   updateChoreSeriesEndDateMock: vi.fn(),
+  updateChoreStatusMock: vi.fn(),
   upsertChoreOccurrenceExceptionMock: vi.fn(),
   getHouseholdTimeZoneByIdMock: vi.fn(),
   normalizeRepeatRuleMock: vi.fn(),
@@ -40,6 +42,7 @@ vi.mock("@/lib/repositories", () => ({
   listChoreExceptionsByHousehold: listChoreExceptionsByHouseholdMock,
   updateChoreSeries: updateChoreSeriesMock,
   updateChoreSeriesEndDate: updateChoreSeriesEndDateMock,
+  updateChoreStatus: updateChoreStatusMock,
   upsertChoreOccurrenceException: upsertChoreOccurrenceExceptionMock,
   getHouseholdTimeZoneById: getHouseholdTimeZoneByIdMock,
 }));
@@ -79,6 +82,7 @@ describe("mutateChore", () => {
     listChoreExceptionsByHouseholdMock.mockReset();
     updateChoreSeriesMock.mockReset();
     updateChoreSeriesEndDateMock.mockReset();
+    updateChoreStatusMock.mockReset();
     upsertChoreOccurrenceExceptionMock.mockReset();
     getHouseholdTimeZoneByIdMock.mockReset();
     normalizeRepeatRuleMock.mockReset();
@@ -143,6 +147,31 @@ describe("mutateChore", () => {
         title: "Kitchen",
         repeatRule: "week",
         type: "close_on_done",
+      }),
+    );
+  });
+
+  it("creates chores in the past when requested", async () => {
+    insertChoreMock.mockResolvedValue(93);
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "create",
+        title: "Backfill laundry",
+        startDate: "2025-12-20",
+        endDate: "2025-12-21",
+        repeatRule: "none",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(insertChoreMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        householdId: 11,
+        title: "Backfill laundry",
+        startDate: "2025-12-20",
+        endDate: "2025-12-21",
       }),
     );
   });
@@ -228,7 +257,7 @@ describe("mutateChore", () => {
       body: {
         ok: false,
         code: API_ERROR_CODE.ACTION_INVALID,
-        error: "Action must be create, set, cancel, edit_single, edit_following, or edit_series",
+        error: "Action must be create, set, cancel, or edit",
       },
     });
   });
@@ -277,6 +306,98 @@ describe("mutateChore", () => {
       occurrenceStartDate: "2026-01-03",
     });
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it("treats edit scope=following on the first occurrence like all", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Kitchen",
+      type: "close_on_done",
+      start_date: "2026-01-01",
+      end_date: "2026-01-02",
+      series_end_date: "2026-02-28",
+      repeat_rule: "day",
+      notes: "Original notes",
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "following",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-01",
+        title: "Kitchen reset",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      body: {
+        ok: true,
+        choreId: 3,
+        occurrenceStartDate: "2026-01-01",
+        action: "edit",
+        scope: "following",
+      },
+    });
+    expect(updateChoreSeriesMock).toHaveBeenCalledWith({
+      choreId: 3,
+      title: "Kitchen reset",
+      type: "close_on_done",
+      startDate: "2026-01-01",
+      endDate: "2026-01-02",
+      seriesEndDate: "2026-02-28",
+      repeatRule: "day",
+      notes: "Original notes",
+    });
+    expect(updateChoreSeriesEndDateMock).not.toHaveBeenCalled();
+    expect(insertChoreMock).not.toHaveBeenCalled();
+  });
+
+  it("allows first-occurrence following edits for series that started in the past", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Kitchen",
+      type: "close_on_done",
+      start_date: "2025-12-15",
+      end_date: "2025-12-16",
+      series_end_date: "2026-02-28",
+      repeat_rule: "week",
+      notes: "Original notes",
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "following",
+        choreId: 3,
+        occurrenceStartDate: "2025-12-15",
+        title: "Kitchen reset",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      body: {
+        ok: true,
+        choreId: 3,
+        occurrenceStartDate: "2025-12-15",
+        action: "edit",
+        scope: "following",
+      },
+    });
+    expect(updateChoreSeriesMock).toHaveBeenCalledWith({
+      choreId: 3,
+      title: "Kitchen reset",
+      type: "close_on_done",
+      startDate: "2025-12-15",
+      endDate: "2025-12-16",
+      seriesEndDate: "2026-02-28",
+      repeatRule: "week",
+      notes: "Original notes",
+    });
   });
 
   it("closes close-on-done chore occurrence on completion", async () => {
@@ -417,7 +538,7 @@ describe("mutateChore", () => {
     );
   });
 
-  it("rejects cancel when cancelScope is missing", async () => {
+  it("rejects cancel when scope is missing", async () => {
     const result = await mutateChore({
       householdId: 11,
       payload: {
@@ -433,18 +554,18 @@ describe("mutateChore", () => {
       body: {
         ok: false,
         code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-        error: "cancelScope must be single or following",
+        error: "scope must be single, following, or all",
       },
     });
     expect(getChoreInHouseholdMock).not.toHaveBeenCalled();
   });
 
-  it("rejects cancel when cancelScope is invalid", async () => {
+  it("rejects cancel when scope is invalid", async () => {
     const result = await mutateChore({
       householdId: 11,
       payload: {
         action: "cancel",
-        cancelScope: "everything",
+        scope: "everything",
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
       },
@@ -456,13 +577,13 @@ describe("mutateChore", () => {
       body: {
         ok: false,
         code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-        error: "cancelScope must be single or following",
+        error: "scope must be single, following, or all",
       },
     });
     expect(getChoreInHouseholdMock).not.toHaveBeenCalled();
   });
 
-  it("cancels only one occurrence when cancelScope=single", async () => {
+  it("cancels only one occurrence when scope=single", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
       type: "close_on_done",
@@ -476,7 +597,7 @@ describe("mutateChore", () => {
       householdId: 11,
       payload: {
         action: "cancel",
-        cancelScope: "single",
+        scope: "single",
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
       },
@@ -488,7 +609,7 @@ describe("mutateChore", () => {
         ok: true,
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
-        cancelScope: "single",
+        scope: "single",
       },
     });
     expect(upsertChoreOccurrenceExceptionMock).toHaveBeenCalledWith({
@@ -501,7 +622,7 @@ describe("mutateChore", () => {
     expect(updateChoreSeriesEndDateMock).not.toHaveBeenCalled();
   });
 
-  it("creates a detached one-off chore for edit_single", async () => {
+  it("creates a detached one-off chore for edit scope=single", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
       title: "Kitchen",
@@ -517,7 +638,8 @@ describe("mutateChore", () => {
     const result = await mutateChore({
       householdId: 11,
       payload: {
-        action: "edit_single",
+        action: "edit",
+        scope: "single",
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
         title: "Kitchen deep clean",
@@ -532,7 +654,8 @@ describe("mutateChore", () => {
         choreId: 3,
         createdChoreId: 44,
         occurrenceStartDate: "2026-01-05",
-        action: "edit_single",
+        action: "edit",
+        scope: "single",
       },
     });
     expect(upsertChoreOccurrenceExceptionMock).toHaveBeenCalledWith({
@@ -554,7 +677,7 @@ describe("mutateChore", () => {
     });
   });
 
-  it("splits the series and inserts a future branch for edit_following", async () => {
+  it("splits the series and inserts a future branch for edit scope=following", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
       title: "Kitchen",
@@ -570,7 +693,8 @@ describe("mutateChore", () => {
     const result = await mutateChore({
       householdId: 11,
       payload: {
-        action: "edit_following",
+        action: "edit",
+        scope: "following",
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
         title: "Kitchen weekends",
@@ -586,7 +710,8 @@ describe("mutateChore", () => {
         choreId: 3,
         createdChoreId: 45,
         occurrenceStartDate: "2026-01-05",
-        action: "edit_following",
+        action: "edit",
+        scope: "following",
       },
     });
     expect(updateChoreSeriesEndDateMock).toHaveBeenCalledWith({
@@ -605,7 +730,7 @@ describe("mutateChore", () => {
     });
   });
 
-  it("rejects edit_following for non-repeating chores", async () => {
+  it("rejects edit scope=following for non-repeating chores", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
       title: "Kitchen",
@@ -618,7 +743,8 @@ describe("mutateChore", () => {
     const result = await mutateChore({
       householdId: 11,
       payload: {
-        action: "edit_following",
+        action: "edit",
+        scope: "following",
         choreId: 3,
         occurrenceStartDate: "2026-01-03",
       },
@@ -630,13 +756,13 @@ describe("mutateChore", () => {
       body: {
         ok: false,
         code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-        error: "edit_following requires a repeating chore",
+        error: "scope following requires a repeating chore",
       },
     });
     expect(insertChoreMock).not.toHaveBeenCalled();
   });
 
-  it("updates the existing series in place for edit_series", async () => {
+  it("updates the existing series in place for edit scope=all", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
       title: "Kitchen",
@@ -651,7 +777,8 @@ describe("mutateChore", () => {
     const result = await mutateChore({
       householdId: 11,
       payload: {
-        action: "edit_series",
+        action: "edit",
+        scope: "all",
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
         title: "Kitchen reset",
@@ -667,7 +794,8 @@ describe("mutateChore", () => {
         ok: true,
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
-        action: "edit_series",
+        action: "edit",
+        scope: "all",
       },
     });
     expect(updateChoreSeriesMock).toHaveBeenCalledWith({
@@ -684,7 +812,7 @@ describe("mutateChore", () => {
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
   });
 
-  it("cancels this and following occurrences when cancelScope=following", async () => {
+  it("cancels this and future occurrences when scope=following", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
       type: "close_on_done",
@@ -698,7 +826,7 @@ describe("mutateChore", () => {
       householdId: 11,
       payload: {
         action: "cancel",
-        cancelScope: "following",
+        scope: "following",
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
       },
@@ -710,7 +838,7 @@ describe("mutateChore", () => {
         ok: true,
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
-        cancelScope: "following",
+        scope: "following",
       },
     });
     expect(updateChoreSeriesEndDateMock).toHaveBeenCalledWith({
@@ -720,7 +848,7 @@ describe("mutateChore", () => {
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
   });
 
-  it("rejects cancelScope=following for non-repeating chores", async () => {
+  it("rejects scope=following for non-repeating chores", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
       type: "close_on_done",
@@ -732,7 +860,7 @@ describe("mutateChore", () => {
       householdId: 11,
       payload: {
         action: "cancel",
-        cancelScope: "following",
+        scope: "following",
         choreId: 3,
         occurrenceStartDate: "2026-01-03",
       },
@@ -744,11 +872,84 @@ describe("mutateChore", () => {
       body: {
         ok: false,
         code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-        error: "cancelScope following requires a repeating chore",
+        error: "scope following requires a repeating chore",
       },
     });
     expect(updateChoreSeriesEndDateMock).not.toHaveBeenCalled();
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it("cancels all chores when scope=all", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "close_on_done",
+      start_date: "2026-01-01",
+      end_date: "2026-01-01",
+      series_end_date: null,
+      repeat_rule: "day",
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "cancel",
+        scope: "all",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-05",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      body: {
+        ok: true,
+        choreId: 3,
+        occurrenceStartDate: "2026-01-05",
+        scope: "all",
+      },
+    });
+    expect(updateChoreStatusMock).toHaveBeenCalledWith({
+      choreId: 3,
+      status: "canceled",
+    });
+    expect(updateChoreSeriesEndDateMock).not.toHaveBeenCalled();
+    expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it("treats cancel scope=following on the first occurrence like all", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      type: "close_on_done",
+      start_date: "2026-01-01",
+      end_date: "2026-01-01",
+      series_end_date: null,
+      repeat_rule: "day",
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "cancel",
+        scope: "following",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-01",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      body: {
+        ok: true,
+        choreId: 3,
+        occurrenceStartDate: "2026-01-01",
+        scope: "following",
+      },
+    });
+    expect(updateChoreStatusMock).toHaveBeenCalledWith({
+      choreId: 3,
+      status: "canceled",
+    });
+    expect(updateChoreSeriesEndDateMock).not.toHaveBeenCalled();
   });
 
   it("rejects set for a canceled occurrence", async () => {

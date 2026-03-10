@@ -1,9 +1,6 @@
-import { DateTime } from "luxon";
-
 import { describe, expect, it } from "vitest";
 
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
-import { toISODateOrThrow } from "@/lib/date";
 
 describe("normalizeRepeatRule", () => {
   it("maps human-friendly values", () => {
@@ -35,7 +32,6 @@ describe("validateChoreCreate", () => {
       title: "Title is required",
       startDate: "Start date is required",
       endDate: "End date is required",
-      today: "Missing household-local today value",
     });
   });
 
@@ -65,7 +61,7 @@ describe("validateChoreCreate", () => {
     expect(errors.endDate).toBe("End date must be after start date");
   });
 
-  it("prevents past dates", () => {
+  it("allows past dates", () => {
     const errors = validateChoreCreate({
       title: "Sweep",
       type: "close_on_done",
@@ -73,64 +69,10 @@ describe("validateChoreCreate", () => {
       endDate: "2026-02-02",
       repeatRule: "week",
       seriesEndDate: null,
-      today: "2026-02-10",
-    });
-
-    expect(errors.startDate).toBe("Start date cannot be in the past");
-    expect(errors.endDate).toBe("End date cannot be in the past");
-  });
-
-  it("allows past dates when editing an existing series in place", () => {
-    const errors = validateChoreCreate({
-      title: "Sweep",
-      type: "close_on_done",
-      startDate: "2026-02-01",
-      endDate: "2026-02-02",
-      repeatRule: "week",
-      seriesEndDate: null,
-      today: "2026-02-10",
-      allowPastDates: true,
     });
 
     expect(errors.startDate).toBeUndefined();
     expect(errors.endDate).toBeUndefined();
-  });
-
-  it("accepts household-local today when UTC is ahead", () => {
-    const laToday = DateTime.fromISO("2026-02-10T23:30:00", {
-      zone: "America/Los_Angeles",
-    });
-    const utcToday = toISODateOrThrow(laToday.toUTC());
-    const householdToday = toISODateOrThrow(laToday);
-
-    expect(utcToday).toBe("2026-02-11");
-    expect(householdToday).toBe("2026-02-10");
-
-    const errors = validateChoreCreate({
-      title: "Sweep",
-      type: "close_on_done",
-      startDate: householdToday,
-      endDate: "2026-02-11",
-      repeatRule: "none",
-      seriesEndDate: null,
-      today: householdToday,
-    });
-
-    expect(errors.startDate).toBeUndefined();
-    expect(errors.endDate).toBeUndefined();
-  });
-
-  it("requires a household-local today value", () => {
-    const errors = validateChoreCreate({
-      title: "Sweep",
-      type: "close_on_done",
-      startDate: "2026-03-01",
-      endDate: "2026-03-02",
-      repeatRule: "none",
-      seriesEndDate: null,
-    });
-
-    expect(errors.today).toBe("Missing household-local today value");
   });
 
   it("requires repeat end when repeating", () => {
@@ -167,7 +109,6 @@ describe("validateChoreCreate", () => {
       endDate: "2026-03-11",
       repeatRule: "none",
       seriesEndDate: null,
-      today: "2026-03-01",
     });
 
     expect(errors.type).toBe("Invalid chore type");

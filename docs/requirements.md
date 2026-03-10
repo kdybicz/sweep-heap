@@ -155,19 +155,24 @@
 - `action=set` must target a valid generated occurrence start date for that chore series.
 
 ### Cancellation behavior
-- `action=cancel` with `cancelScope=single` upserts an occurrence exception with `kind = canceled` for one instance.
-- `action=cancel` with `cancelScope=following` is allowed only for repeating chores and truncates the series by setting `series_end_date` to one day before the targeted occurrence start date.
+- `action=cancel` requires `scope=single|following|all`.
+- `scope=single` upserts an occurrence exception with `kind = canceled` for one instance.
+- `scope=following` is allowed only for repeating chores and truncates the series by setting `series_end_date` to one day before the targeted occurrence start date.
+- If `scope=following` targets the first occurrence in the series, it falls through to the same whole-series result as `scope=all`.
+- `scope=all` cancels the entire source series by marking the series row canceled.
 - `action=set` on excluded occurrences returns conflict.
 - Mutation payloads use `occurrenceStartDate` (not `occurrenceDate`).
 
 ### Edit behavior
-- `action=edit_single` creates a detached one-off chore row and marks the targeted original occurrence canceled.
-- `action=edit_following` is allowed only for repeating chores, truncates the original series at the day before the targeted occurrence, and creates a new future series row.
-- `action=edit_series` updates the existing series row in place and keeps the recurrence chain intact.
+- `action=edit` requires `scope=single|following|all`.
+- `scope=single` creates a detached one-off chore row and marks the targeted original occurrence canceled.
+- `scope=following` is allowed only for repeating chores, truncates the original series at the day before the targeted occurrence, and creates a new future series row.
+- If `scope=following` targets the first occurrence in the series, it falls through to the same whole-series result as `scope=all`.
+- `scope=all` updates the existing series row in place and keeps the recurrence chain intact.
 - Edit actions accept the same chore fields as create; omitted fields fall back to the source series/occurrence defaults.
 
 ### UI interaction constraints
-- Add-chore buttons are disabled for past dates.
+- Add-chore and edit/cancel actions remain available for past dates; only the primary done/open action is currently blocked for past-dated occurrences.
 - Primary action in chore details is disabled for past-dated occurrences.
 
 ## API Surface (Current Snapshot)
@@ -210,10 +215,8 @@
 - `PATCH /api/chores`
   - `action=create`: create series.
   - `action=set`: mark occurrence done/open.
-  - `action=cancel`: cancel one occurrence (`single`) or this and following (`following`).
-  - `action=edit_single`: replace one generated occurrence with a detached one-off chore.
-  - `action=edit_following`: split a repeating series into a new future branch.
-  - `action=edit_series`: update the existing series directly.
+  - `action=cancel`: cancel one occurrence (`single`), this and future chores (`following`), or the entire series (`all`).
+  - `action=edit`: edit one occurrence (`single`), this and future chores (`following`), or the entire series (`all`).
 - `GET /api/me`
   - Returns current user and memberships.
   - Reconciles stale `active_household_id` when request headers are available.

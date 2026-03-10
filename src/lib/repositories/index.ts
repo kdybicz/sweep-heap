@@ -7,6 +7,7 @@ export {
   listChoreExceptionsByHousehold,
   updateChoreSeries,
   updateChoreSeriesEndDate,
+  updateChoreStatus,
   upsertChoreOccurrenceException,
 } from "@/lib/repositories/chore-repository";
 export {

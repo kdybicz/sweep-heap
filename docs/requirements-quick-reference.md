@@ -44,18 +44,19 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `endDate` is exclusive (next day for an all-day single occurrence).
 - Types: `close_on_done`, `stay_open`.
 - Repeat rules: `none`, `day`, `week`, `biweek`, `month`, `year`.
-- Create validation enforces required fields, date ordering, non-past dates, and repeat/end compatibility.
+- Create validation enforces required fields, date ordering, and repeat/end compatibility.
 - Occurrences are generated lazily from series (date-only, household timezone) and merged with sparse occurrence exceptions keyed by `occurrenceStartDate`.
 
 ### Done and cancel
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.
 - `stay_open`: done sets `status=open`, `closed_reason=done`.
 - `action=set` must target a valid generated occurrence start date for the chore series.
-- `action=cancel` supports `cancelScope=single|following` for one-instance cancel and this-and-following cancel.
-- `cancelScope=following` is valid only for repeating chores.
-- `action=edit_single` creates a detached one-off chore and cancels the original occurrence.
-- `action=edit_following` splits a repeating series into a new future branch.
-- `action=edit_series` updates the existing series in place.
+- Creating chores and edit/cancel actions are allowed for past dates; only the primary done/open action is currently blocked for past occurrences.
+- `action=cancel|edit` requires `scope=single|following|all`.
+- `scope=following` is valid only for repeating chores; if the targeted occurrence is the first series instance, it falls through to the same whole-series result as `all`.
+- `scope=single` creates occurrence-only exceptions or one-off edits.
+- `scope=following` splits a repeating series into a new future branch.
+- `scope=all` updates or cancels the entire series definition.
 - Mutation payloads use `occurrenceStartDate`.
 - Chore list rows include `occurrence_date` (calendar day) and `occurrence_start_date` (instance identity).
 

@@ -119,13 +119,14 @@ For household member/invite role-management routes:
 
 For `PATCH /api/chores`:
 
-- Support `action: "create" | "set" | "cancel" | "edit_single" | "edit_following" | "edit_series"`.
+- Support `action: "create" | "set" | "cancel" | "edit"`.
 - For `action: "set"`, validate that `occurrenceStartDate` is a generated series occurrence start date for the chore and return `409` when it is outside schedule.
-- For `action: "cancel"`, support `cancelScope: "single" | "following"` and keep behavior deterministic (single upserts a `kind = canceled` exception, following truncates the series).
-- For `action: "cancel"` with `cancelScope: "following"`, require a repeating chore (`repeatRule !== "none"`) and return `409` for non-repeating chores.
-- For `action: "edit_single"`, create a detached one-off chore and mark the original occurrence canceled.
-- For `action: "edit_following"`, require a repeating chore, truncate the original series, and insert a new future branch row.
-- For `action: "edit_series"`, update the current series row in place using the submitted fields/defaults.
+- For `action: "cancel" | "edit"`, require `scope: "single" | "following" | "all"`.
+- Scope semantics follow Google Calendar: `single` affects only the selected occurrence, `following` affects the selected occurrence plus later ones, and `all` affects the full series definition.
+- Scope resolution is based on the selected occurrence's position in the series; do not use household-local `today` as a cutoff.
+- For `scope: "single"`, cancel upserts a `kind = canceled` exception and edit creates a detached one-off chore while canceling the original occurrence.
+- For `scope: "following"`, require a repeating chore (`repeatRule !== "none"`) and truncate the original series before the targeted occurrence unless that occurrence is the first series instance; first-instance `following` falls through to whole-series behavior.
+- For `scope: "all"`, cancel marks the source series row canceled and edit updates the current series row in place using the submitted fields/defaults.
 - Keep `UndoToastStack` and related undo UI pieces isolated so they can be reconnected later without shaping the active mutation contract.
 
 ## 10) Invite Deduplication Contract

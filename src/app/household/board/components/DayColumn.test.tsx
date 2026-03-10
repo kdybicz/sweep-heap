@@ -65,12 +65,12 @@ describe("DayColumn", () => {
     expect(markup).toContain("bg-[var(--card)]");
   });
 
-  it("disables add chore for days before today", () => {
+  it("keeps add chore enabled for days before today", () => {
     const today = LuxonDateTime.fromISO("2026-03-02", { zone: "UTC" });
     const day = LuxonDateTime.fromISO("2026-03-01", { zone: "UTC" });
     const markup = renderToStaticMarkup(<DayColumn {...buildProps({ day, today })} />);
 
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Add chore<\/button>/);
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>Add chore<\/button>/);
   });
 
   it("keeps add chore enabled for today", () => {
