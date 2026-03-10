@@ -177,6 +177,7 @@
 - In the create/edit modal, repeating chores default `Repeat ends` to `Never`; selecting `On date` reveals the repeat-end date field and sends `seriesEndDate`.
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores that start before or end after the visible week use a clipped edge treatment on the continued side (no outer corner radius and no outer vertical border).
+- In the sidebar Today list, multi-day chores are collapsed to a single entry per occurrence and may reuse the same compact single-card styling as one-day chores.
 
 ## API Surface (Current Snapshot)
 - Failure envelope contract: API routes return `{ ok: false, code: string, error: string }` for handled errors.

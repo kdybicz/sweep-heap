@@ -63,6 +63,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Chore list rows include `occurrence_date` (calendar day) and `occurrence_start_date` (instance identity).
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores clipped by the current week use a clipped edge treatment at the left and/or right edge (no outer corner radius and no outer vertical border).
+- The sidebar Today list collapses multi-day chores to one entry per occurrence.
 
 ## API Snapshot
 - `GET /api/health`

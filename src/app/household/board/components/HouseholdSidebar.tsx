@@ -13,6 +13,19 @@ type HouseholdSidebarProps = {
   todayChores: ChoreItem[];
 };
 
+const getTodaySidebarChores = (todayChores: ChoreItem[]) => {
+  const seen = new Set<string>();
+
+  return todayChores.filter((chore) => {
+    const key = `${chore.id}:${chore.occurrence_start_date}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+};
+
 export default function HouseholdSidebar({
   doneChores,
   totalChores,
@@ -22,6 +35,8 @@ export default function HouseholdSidebar({
   loadingToday,
   todayChores,
 }: HouseholdSidebarProps) {
+  const sidebarTodayChores = getTodaySidebarChores(todayChores);
+
   return (
     <aside className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]">
@@ -81,9 +96,9 @@ export default function HouseholdSidebar({
         <div className="mt-4 flex flex-col gap-2">
           {loadingToday ? (
             <div className="text-xs text-[var(--muted)]">Loading chores...</div>
-          ) : todayChores.length ? (
+          ) : sidebarTodayChores.length ? (
             <>
-              {todayChores.slice(0, 3).map((chore) => (
+              {sidebarTodayChores.slice(0, 3).map((chore) => (
                 <div
                   key={`${chore.id}-${chore.occurrence_start_date}-${chore.occurrence_date}-today`}
                   className="flex items-center justify-between rounded-xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-3 py-2 text-xs font-semibold"
@@ -107,9 +122,9 @@ export default function HouseholdSidebar({
                   </div>
                 </div>
               ))}
-              {todayChores.length > 3 ? (
+              {sidebarTodayChores.length > 3 ? (
                 <div className="text-xs text-[var(--muted)]">
-                  +{todayChores.length - 3} more today
+                  +{sidebarTodayChores.length - 3} more today
                 </div>
               ) : null}
             </>
