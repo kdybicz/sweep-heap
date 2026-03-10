@@ -812,6 +812,71 @@ describe("mutateChore", () => {
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
   });
 
+  it("clears series end date for edit scope=all when explicitly set to null", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Kitchen",
+      type: "close_on_done",
+      start_date: "2026-01-01",
+      end_date: "2026-01-02",
+      series_end_date: "2026-02-28",
+      repeat_rule: "day",
+      notes: "Original notes",
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "all",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-05",
+        seriesEndDate: null,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(updateChoreSeriesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        choreId: 3,
+        seriesEndDate: null,
+      }),
+    );
+  });
+
+  it("clears series end date for edit scope=following when explicitly set to null", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Kitchen",
+      type: "close_on_done",
+      start_date: "2026-01-01",
+      end_date: "2026-01-02",
+      series_end_date: "2026-02-28",
+      repeat_rule: "day",
+      notes: "Original notes",
+    });
+    insertChoreMock.mockResolvedValue(46);
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "following",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-05",
+        seriesEndDate: null,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(insertChoreMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        householdId: 11,
+        seriesEndDate: null,
+      }),
+    );
+  });
+
   it("cancels this and future occurrences when scope=following", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,

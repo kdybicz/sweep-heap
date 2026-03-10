@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useId, useRef } from "react";
 
+import type { RepeatEndMode } from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 import { useDialogFocusTrap } from "@/lib/use-dialog-focus-trap";
 
@@ -17,6 +18,7 @@ type AddChoreModalProps = {
   newDate: string;
   newEndDate: string;
   newRepeat: string;
+  newRepeatEndMode: RepeatEndMode;
   newRepeatEnd: string;
   newNotes: string;
   onClose: () => void;
@@ -27,6 +29,7 @@ type AddChoreModalProps = {
   onDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
   onRepeatChange: (value: string) => void;
+  onRepeatEndModeChange: (value: RepeatEndMode) => void;
   onRepeatEndChange: (value: string) => void;
   onNotesChange: (value: string) => void;
 };
@@ -44,6 +47,7 @@ export default function AddChoreModal({
   newDate,
   newEndDate,
   newRepeat,
+  newRepeatEndMode,
   newRepeatEnd,
   newNotes,
   onClose,
@@ -54,6 +58,7 @@ export default function AddChoreModal({
   onDateChange,
   onEndDateChange,
   onRepeatChange,
+  onRepeatEndModeChange,
   onRepeatEndChange,
   onNotesChange,
 }: AddChoreModalProps) {
@@ -235,24 +240,37 @@ export default function AddChoreModal({
               ) : null}
             </label>
             {newRepeat !== "none" ? (
-              <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+              <div className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
                 Repeat ends
-                <input
-                  className={`rounded-xl border bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)] ${
-                    fieldErrors.repeatEnd
-                      ? "border-[var(--danger)] ring-1 ring-[var(--danger)]"
-                      : "border-[var(--stroke)]"
-                  }`}
-                  type="date"
-                  value={newRepeatEnd}
-                  onChange={(event) => onRepeatEndChange(event.target.value)}
-                />
-                {fieldErrors.repeatEnd ? (
-                  <span className="text-[0.65rem] font-semibold text-[var(--danger-ink)]">
-                    {fieldErrors.repeatEnd}
-                  </span>
+                <select
+                  className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                  value={newRepeatEndMode}
+                  onChange={(event) => onRepeatEndModeChange(event.target.value as RepeatEndMode)}
+                >
+                  <option value="never">Never</option>
+                  <option value="on_date">On date</option>
+                </select>
+                {newRepeatEndMode === "on_date" ? (
+                  <label className="flex flex-col gap-2 text-[0.65rem] font-semibold normal-case tracking-normal text-[var(--muted)]">
+                    End repeat on
+                    <input
+                      className={`rounded-xl border bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)] ${
+                        fieldErrors.repeatEnd
+                          ? "border-[var(--danger)] ring-1 ring-[var(--danger)]"
+                          : "border-[var(--stroke)]"
+                      }`}
+                      type="date"
+                      value={newRepeatEnd}
+                      onChange={(event) => onRepeatEndChange(event.target.value)}
+                    />
+                    {fieldErrors.repeatEnd ? (
+                      <span className="text-[0.65rem] font-semibold text-[var(--danger-ink)]">
+                        {fieldErrors.repeatEnd}
+                      </span>
+                    ) : null}
+                  </label>
                 ) : null}
-              </label>
+              </div>
             ) : null}
           </div>
           <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">

@@ -3,6 +3,7 @@ import {
   getChoreFormModalCopy,
   getChoreFormModeFromScope,
   getChoreFormValuesFromChore,
+  getSeriesEndDateForSubmit,
 } from "@/app/household/board/chore-form";
 import type { ChoreItem } from "@/app/household/board/types";
 
@@ -30,7 +31,8 @@ describe("chore form helpers", () => {
       date: "2026-03-08",
       endDate: "2026-03-09",
       repeat: "none",
-      repeatEnd: "2026-04-30",
+      repeatEndMode: "never",
+      repeatEnd: "2026-03-08",
       notes: "Use gentle cycle",
     });
   });
@@ -41,16 +43,71 @@ describe("chore form helpers", () => {
       type: "close_on_done",
       date: "2026-03-01",
       endDate: "2026-03-02",
-      repeat: "week",
+      repeat: "weekly",
+      repeatEndMode: "on_date",
       repeatEnd: "2026-04-30",
       notes: "Use gentle cycle",
     });
+  });
+
+  it("defaults repeat end mode to never when a chore has no series end date", () => {
+    expect(
+      getChoreFormValuesFromChore(
+        {
+          ...baseChore,
+          repeat_rule: "week",
+          series_end_date: null,
+        },
+        "all",
+      ),
+    ).toEqual({
+      title: "Laundry",
+      type: "close_on_done",
+      date: "2026-03-01",
+      endDate: "2026-03-02",
+      repeat: "weekly",
+      repeatEndMode: "never",
+      repeatEnd: "2026-03-01",
+      notes: "Use gentle cycle",
+    });
+  });
+
+  it("maps canonical repeat rules to UI select values", () => {
+    expect(
+      getChoreFormValuesFromChore(
+        {
+          ...baseChore,
+          repeat_rule: "biweek",
+        },
+        "all",
+      ).repeat,
+    ).toBe("biweekly");
   });
 
   it("maps scopes to edit form modes", () => {
     expect(getChoreFormModeFromScope("single")).toBe("edit_single");
     expect(getChoreFormModeFromScope("following")).toBe("edit_following");
     expect(getChoreFormModeFromScope("all")).toBe("edit_all");
+  });
+
+  it("submits null series end date when repeat end mode is never", () => {
+    expect(
+      getSeriesEndDateForSubmit({
+        repeat: "weekly",
+        repeatEndMode: "never",
+        repeatEnd: "2026-04-30",
+      }),
+    ).toBeNull();
+  });
+
+  it("submits repeat end date when repeat end mode is on date", () => {
+    expect(
+      getSeriesEndDateForSubmit({
+        repeat: "weekly",
+        repeatEndMode: "on_date",
+        repeatEnd: "2026-04-30",
+      }),
+    ).toBe("2026-04-30");
   });
 
   it("returns all-chores modal copy", () => {

@@ -10,12 +10,14 @@ import {
   getChoreFormModalCopy,
   getChoreFormModeFromScope,
   getChoreFormValuesFromChore,
+  getSeriesEndDateForSubmit,
 } from "@/app/household/board/chore-form";
 import { addDaysToDateKey, getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
   CancelChoreScope,
   EditChoreScope,
+  RepeatEndMode,
   UseHouseholdChoreActionsModel,
   UseHouseholdChoreActionsParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
@@ -58,6 +60,7 @@ export default function useHouseholdChoreActions({
   const [newRepeat, setNewRepeat] = useState("none");
   const [newEndDate, setNewEndDate] = useState(() => getHouseholdTodayKey(timeZone));
   const [newRepeatEnd, setNewRepeatEnd] = useState(() => getHouseholdTodayKey(timeZone));
+  const [newRepeatEndMode, setNewRepeatEndMode] = useState<RepeatEndMode>("never");
   const [newNotes, setNewNotes] = useState("");
   const [selectedChore, setSelectedChore] = useState<ChoreItem | null>(null);
   const [selectedChoreError, setSelectedChoreError] = useState<string | null>(null);
@@ -83,6 +86,7 @@ export default function useHouseholdChoreActions({
     setNewDate(values.date);
     setNewEndDate(values.endDate);
     setNewRepeat(values.repeat);
+    setNewRepeatEndMode(values.repeatEndMode);
     setNewRepeatEnd(values.repeatEnd);
     setNewNotes(values.notes);
   }, []);
@@ -101,6 +105,7 @@ export default function useHouseholdChoreActions({
     const defaultTodayKey = getHouseholdTodayKey(timeZone);
     setNewDate(defaultTodayKey);
     setNewRepeat("none");
+    setNewRepeatEndMode("never");
     setNewEndDate(defaultTodayKey);
     setNewRepeatEnd(defaultTodayKey);
     setNewNotes("");
@@ -122,6 +127,7 @@ export default function useHouseholdChoreActions({
       if (dayKey) {
         setNewDate(dayKey);
         setNewEndDate(dayKey);
+        setNewRepeatEndMode("never");
         setNewRepeatEnd(dayKey);
       }
     },
@@ -151,7 +157,11 @@ export default function useHouseholdChoreActions({
         startDate: newDate,
         endDate: addDaysToDateKey(newEndDate, 1),
         repeatRule: newRepeat,
-        seriesEndDate: newRepeat !== "none" ? newRepeatEnd : null,
+        seriesEndDate: getSeriesEndDateForSubmit({
+          repeat: newRepeat,
+          repeatEndMode: newRepeatEndMode,
+          repeatEnd: newRepeatEnd,
+        }),
         notes: newNotes,
       };
 
@@ -196,6 +206,7 @@ export default function useHouseholdChoreActions({
       formMode,
       newNotes,
       newRepeat,
+      newRepeatEndMode,
       newRepeatEnd,
       newTitle,
       newType,
@@ -345,6 +356,7 @@ export default function useHouseholdChoreActions({
     newDate,
     newEndDate,
     newRepeat,
+    newRepeatEndMode,
     newRepeatEnd,
     newNotes,
     closeAddChoreModal,
@@ -355,6 +367,7 @@ export default function useHouseholdChoreActions({
     setNewDate,
     setNewEndDate,
     setNewRepeat,
+    setNewRepeatEndMode,
     setNewRepeatEnd,
     setNewNotes,
     selectedChore,

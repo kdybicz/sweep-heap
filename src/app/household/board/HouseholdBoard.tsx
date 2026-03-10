@@ -80,6 +80,7 @@ function HouseholdBoardContent() {
         newEndDate={board.addChoreModal.endDate}
         newNotes={board.addChoreModal.notes}
         newRepeat={board.addChoreModal.repeat}
+        newRepeatEndMode={board.addChoreModal.repeatEndMode}
         newRepeatEnd={board.addChoreModal.repeatEnd}
         newTitle={board.addChoreModal.title}
         newType={board.addChoreModal.type}
@@ -89,6 +90,7 @@ function HouseholdBoardContent() {
         onEndDateChange={board.addChoreModal.onEndDateChange}
         onNotesChange={board.addChoreModal.onNotesChange}
         onRepeatChange={board.addChoreModal.onRepeatChange}
+        onRepeatEndModeChange={board.addChoreModal.onRepeatEndModeChange}
         onRepeatEndChange={board.addChoreModal.onRepeatEndChange}
         onSubmit={board.addChoreModal.onSubmit}
         onTitleChange={board.addChoreModal.onTitleChange}

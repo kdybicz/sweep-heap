@@ -3,6 +3,23 @@ import type { ChoreItem } from "@/app/household/board/types";
 import type { EditChoreScope } from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
+const toRepeatSelectValue = (repeatRule: string | null | undefined) => {
+  switch (repeatRule) {
+    case "day":
+      return "daily";
+    case "week":
+      return "weekly";
+    case "biweek":
+      return "biweekly";
+    case "month":
+      return "monthly";
+    case "year":
+      return "yearly";
+    default:
+      return "none";
+  }
+};
+
 export type ChoreFormMode = "create" | "edit_single" | "edit_following" | "edit_all";
 
 export type ChoreFormValues = {
@@ -11,8 +28,21 @@ export type ChoreFormValues = {
   date: string;
   endDate: string;
   repeat: string;
+  repeatEndMode: "never" | "on_date";
   repeatEnd: string;
   notes: string;
+};
+
+export const getSeriesEndDateForSubmit = ({
+  repeat,
+  repeatEndMode,
+  repeatEnd,
+}: Pick<ChoreFormValues, "repeat" | "repeatEndMode" | "repeatEnd">) => {
+  if (repeat === "none" || repeatEndMode !== "on_date") {
+    return null;
+  }
+
+  return repeatEnd;
 };
 
 export const getChoreFormModalCopy = (formMode: ChoreFormMode) => {
@@ -62,8 +92,9 @@ export const getChoreFormValuesFromChore = (
     type: chore.type,
     date: startDate,
     endDate: subtractDaysFromDateKey(addDaysToDateKey(startDate, durationDays), 1),
-    repeat: scope === "single" ? "none" : (chore.repeat_rule ?? "none"),
-    repeatEnd: chore.series_end_date ?? startDate,
+    repeat: scope === "single" ? "none" : toRepeatSelectValue(chore.repeat_rule),
+    repeatEndMode: scope === "single" ? "never" : chore.series_end_date ? "on_date" : "never",
+    repeatEnd: scope === "single" ? startDate : (chore.series_end_date ?? startDate),
     notes: chore.notes ?? "",
   };
 };

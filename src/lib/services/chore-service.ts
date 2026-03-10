@@ -414,10 +414,15 @@ export const mutateChore = async ({
         : typeof input.repeatRule === "string"
           ? normalizeRepeatRule(input.repeatRule)
           : choreRepeatRule;
+    const hasSeriesEndDateInput = Object.hasOwn(input, "seriesEndDate");
     const nextSeriesEndDate =
       editScope === "single"
         ? null
-        : (normalizeDate(input.seriesEndDate, timeZone) ?? chore.series_end_date);
+        : hasSeriesEndDateInput
+          ? input.seriesEndDate === null
+            ? null
+            : (normalizeDate(input.seriesEndDate, timeZone) ?? chore.series_end_date)
+          : chore.series_end_date;
     const nextTitle = title || chore.title;
     const nextType =
       inputType === "stay_open" || inputType === "close_on_done" ? inputType : choreType;

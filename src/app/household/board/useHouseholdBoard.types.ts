@@ -5,6 +5,7 @@ import type { ChoreItem } from "@/app/household/board/types";
 import type {
   CancelChoreScope,
   EditChoreScope,
+  RepeatEndMode,
 } from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
@@ -43,6 +44,7 @@ export type AddChoreModalModel = {
   date: string;
   endDate: string;
   repeat: string;
+  repeatEndMode: RepeatEndMode;
   repeatEnd: string;
   notes: string;
   onClose: () => void;
@@ -53,6 +55,7 @@ export type AddChoreModalModel = {
   onDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
   onRepeatChange: (value: string) => void;
+  onRepeatEndModeChange: (value: RepeatEndMode) => void;
   onRepeatEndChange: (value: string) => void;
   onNotesChange: (value: string) => void;
 };

@@ -6,6 +6,7 @@ import type { ChoreType } from "@/lib/chore-ui-state";
 
 export type CancelChoreScope = "single" | "following" | "all";
 export type EditChoreScope = "single" | "following" | "all";
+export type RepeatEndMode = "never" | "on_date";
 
 export type UseHouseholdChoreActionsParams = {
   chores: ChoreItem[];
@@ -28,6 +29,7 @@ export type UseHouseholdChoreActionsModel = {
   newDate: string;
   newEndDate: string;
   newRepeat: string;
+  newRepeatEndMode: RepeatEndMode;
   newRepeatEnd: string;
   newNotes: string;
   closeAddChoreModal: () => void;
@@ -38,6 +40,7 @@ export type UseHouseholdChoreActionsModel = {
   setNewDate: (value: string) => void;
   setNewEndDate: (value: string) => void;
   setNewRepeat: (value: string) => void;
+  setNewRepeatEndMode: (value: RepeatEndMode) => void;
   setNewRepeatEnd: (value: string) => void;
   setNewNotes: (value: string) => void;
   selectedChore: ChoreItem | null;

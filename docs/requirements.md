@@ -129,7 +129,6 @@
 - `title` required.
 - `type` must be valid.
 - `startDate` and `endDate` required.
-- `startDate` and `endDate` cannot be before household-local `today`.
 - API/storage `endDate` is exclusive and must be after `startDate`.
 - `seriesEndDate` is allowed only when repeat is not `none`.
 - `seriesEndDate` must be on or after `startDate` when provided.
@@ -175,6 +174,7 @@
 - Add-chore and edit/cancel actions remain available for past dates; only the primary done/open action is currently blocked for past-dated occurrences.
 - Primary action in chore details is disabled for past-dated occurrences.
 - In the create/edit modal, the end-date input is inclusive; the UI converts it to the exclusive API/storage `endDate` internally.
+- In the create/edit modal, repeating chores default `Repeat ends` to `Never`; selecting `On date` reveals the repeat-end date field and sends `seriesEndDate`.
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores that start before or end after the visible week use a clipped edge treatment on the continued side (no outer corner radius and no outer vertical border).
 

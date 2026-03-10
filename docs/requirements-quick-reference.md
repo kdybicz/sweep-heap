@@ -43,6 +43,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Series fields: `title`, `type`, `startDate`, `endDate`, `repeatRule`, optional `seriesEndDate`, `notes`.
 - API/storage `endDate` is exclusive (next day for an all-day single occurrence).
 - The create/edit modal shows an inclusive end date and converts it to the exclusive API/storage value on submit.
+- The create/edit modal defaults repeating chores to `Repeat ends = Never`; `On date` reveals the repeat-end date picker.
 - Types: `close_on_done`, `stay_open`.
 - Repeat rules: `none`, `day`, `week`, `biweek`, `month`, `year`.
 - Create validation enforces required fields, date ordering, and repeat/end compatibility.
