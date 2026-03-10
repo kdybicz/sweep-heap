@@ -17,6 +17,9 @@ export const addDaysToDateKey = (dateKey: string, days: number) => {
   return parsed.plus({ days }).toISODate() ?? dateKey;
 };
 
+export const subtractDaysFromDateKey = (dateKey: string, days: number) =>
+  addDaysToDateKey(dateKey, -days);
+
 export const startOfWeek = (date: DateTime) =>
   date.minus({ days: date.weekday - 1 }).startOf("day");
 

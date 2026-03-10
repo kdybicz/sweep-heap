@@ -80,7 +80,7 @@ Keep page-level access rules aligned with API permissions:
 In `src/lib/occurrences.ts`:
 
 - Non-repeating (`repeatRule === "none"`) chores must include any day where the chore span overlaps the query range.
-- Treat `endDate` as exclusive for span math.
+- Treat API/storage `endDate` as exclusive for span math; convert from the inclusive create/edit form input at the UI boundary.
 - Recurrence cursor loops must guard against non-advancing values (`nextCursor.equals(cursor)`) to avoid hangs.
 - Keep date math timezone-aware and day-based (`Luxon`, `startOf("day")`, ISO date keys).
 

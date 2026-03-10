@@ -193,7 +193,7 @@ export default function AddChoreModal({
               ) : null}
             </label>
             <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-              End date (exclusive)
+              End date
               <input
                 className={`rounded-xl border bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)] ${
                   fieldErrors.endDate
@@ -208,11 +208,7 @@ export default function AddChoreModal({
                 <span className="text-[0.65rem] font-semibold text-[var(--danger-ink)]">
                   {fieldErrors.endDate}
                 </span>
-              ) : (
-                <span className="text-[0.65rem] font-semibold normal-case tracking-normal text-[var(--muted)]">
-                  Use the next day for an all-day chore.
-                </span>
-              )}
+              ) : null}
             </label>
             <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
               Repeat

@@ -56,9 +56,7 @@ export default function useHouseholdChoreActions({
   const [newType, setNewType] = useState<ChoreType>("close_on_done");
   const [newDate, setNewDate] = useState(() => getHouseholdTodayKey(timeZone));
   const [newRepeat, setNewRepeat] = useState("none");
-  const [newEndDate, setNewEndDate] = useState(() =>
-    addDaysToDateKey(getHouseholdTodayKey(timeZone), 1),
-  );
+  const [newEndDate, setNewEndDate] = useState(() => getHouseholdTodayKey(timeZone));
   const [newRepeatEnd, setNewRepeatEnd] = useState(() => getHouseholdTodayKey(timeZone));
   const [newNotes, setNewNotes] = useState("");
   const [selectedChore, setSelectedChore] = useState<ChoreItem | null>(null);
@@ -72,10 +70,10 @@ export default function useHouseholdChoreActions({
   }, [newDate, newRepeatEnd]);
 
   useEffect(() => {
-    if (newEndDate > newDate) {
+    if (newEndDate >= newDate) {
       return;
     }
-    setNewEndDate(addDaysToDateKey(newDate, 1));
+    setNewEndDate(newDate);
   }, [newDate, newEndDate]);
 
   const populateFormFromChore = useCallback((chore: ChoreItem, scope: EditChoreScope) => {
@@ -103,7 +101,7 @@ export default function useHouseholdChoreActions({
     const defaultTodayKey = getHouseholdTodayKey(timeZone);
     setNewDate(defaultTodayKey);
     setNewRepeat("none");
-    setNewEndDate(addDaysToDateKey(defaultTodayKey, 1));
+    setNewEndDate(defaultTodayKey);
     setNewRepeatEnd(defaultTodayKey);
     setNewNotes("");
     setSubmitError(null);
@@ -123,7 +121,7 @@ export default function useHouseholdChoreActions({
       onOpenAddChoreModal();
       if (dayKey) {
         setNewDate(dayKey);
-        setNewEndDate(addDaysToDateKey(dayKey, 1));
+        setNewEndDate(dayKey);
         setNewRepeatEnd(dayKey);
       }
     },
@@ -151,7 +149,7 @@ export default function useHouseholdChoreActions({
         title: newTitle,
         type: newType,
         startDate: newDate,
-        endDate: newEndDate,
+        endDate: addDaysToDateKey(newEndDate, 1),
         repeatRule: newRepeat,
         seriesEndDate: newRepeat !== "none" ? newRepeatEnd : null,
         notes: newNotes,

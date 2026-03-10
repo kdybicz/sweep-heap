@@ -1,4 +1,4 @@
-import { addDaysToDateKey } from "@/app/household/board/date-utils";
+import { addDaysToDateKey, subtractDaysFromDateKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
 import type { EditChoreScope } from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
@@ -61,7 +61,7 @@ export const getChoreFormValuesFromChore = (
     title: chore.title,
     type: chore.type,
     date: startDate,
-    endDate: addDaysToDateKey(startDate, durationDays),
+    endDate: subtractDaysFromDateKey(addDaysToDateKey(startDate, durationDays), 1),
     repeat: scope === "single" ? "none" : (chore.repeat_rule ?? "none"),
     repeatEnd: chore.series_end_date ?? startDate,
     notes: chore.notes ?? "",
