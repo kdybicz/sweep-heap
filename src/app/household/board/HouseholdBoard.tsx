@@ -36,13 +36,13 @@ export default function HouseholdBoard() {
 function HouseholdBoardContent() {
   const board = useHouseholdBoard();
   const [previewChore, setPreviewChore] = useState<ChoreItem | null>(null);
-  const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null);
+  const [previewAnchorElement, setPreviewAnchorElement] = useState<HTMLElement | null>(null);
   const { canSwitchHouseholds, householdIcon, householdName, isHouseholdAdmin, userName } =
     useHouseholdViewer();
 
   const closePreview = useCallback(() => {
     setPreviewChore(null);
-    setPreviewAnchorRect(null);
+    setPreviewAnchorElement(null);
   }, []);
 
   useEffect(() => {
@@ -92,9 +92,9 @@ function HouseholdBoardContent() {
             onNextWeek={board.week.onNextWeek}
             onOpenChoreDetails={board.week.onSelectChore}
             onPreviousWeek={board.week.onPreviousWeek}
-            onPreviewChore={(chore, anchorRect) => {
+            onPreviewChore={(chore, anchorElement) => {
               setPreviewChore(chore);
-              setPreviewAnchorRect(anchorRect);
+              setPreviewAnchorElement(anchorElement);
             }}
             onResetWeek={board.sidebar.onResetWeek}
             rangeLabel={board.week.rangeLabel}
@@ -143,7 +143,7 @@ function HouseholdBoardContent() {
         todayKey={board.choreDetailsModal.todayKey}
       />
       <ChorePreviewPopover
-        anchorRect={previewAnchorRect}
+        anchorElement={previewAnchorElement}
         chore={visiblePreviewChore}
         onClose={closePreview}
         onOpenDetails={board.week.onSelectChore}

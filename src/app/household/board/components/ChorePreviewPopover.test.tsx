@@ -5,7 +5,10 @@ import ChorePreviewPopover from "@/app/household/board/components/ChorePreviewPo
 import type { ChoreItem } from "@/app/household/board/types";
 
 const noop = () => undefined;
-const anchorRect = { left: 10, top: 20, width: 100, height: 32, bottom: 52 } as DOMRect;
+const anchorElement = {
+  isConnected: true,
+  getBoundingClientRect: () => ({ left: 10, top: 20, width: 100, height: 32, bottom: 52 }),
+} as unknown as HTMLElement;
 
 const createChore = (overrides: Partial<ChoreItem> = {}): ChoreItem => ({
   id: 1,
@@ -23,7 +26,7 @@ describe("ChorePreviewPopover", () => {
   it("renders an open details action and notes placeholder", () => {
     const markup = renderToStaticMarkup(
       <ChorePreviewPopover
-        anchorRect={anchorRect}
+        anchorElement={anchorElement}
         chore={createChore({ repeat_rule: "week", notes: null })}
         onClose={noop}
         onOpenDetails={noop}
@@ -38,7 +41,7 @@ describe("ChorePreviewPopover", () => {
   it("uses a clamped inline width style for narrow viewports", () => {
     const markup = renderToStaticMarkup(
       <ChorePreviewPopover
-        anchorRect={anchorRect}
+        anchorElement={anchorElement}
         chore={createChore()}
         onClose={noop}
         onOpenDetails={noop}

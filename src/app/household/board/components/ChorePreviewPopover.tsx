@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -11,24 +12,108 @@ import type { ChoreItem } from "@/app/household/board/types";
 
 type ChorePreviewPopoverProps = {
   chore: ChoreItem | null;
-  anchorRect: DOMRect | null;
+  anchorElement: HTMLElement | null;
   onClose: () => void;
   onOpenDetails: (chore: ChoreItem) => void;
 };
 
+const formatPreviewInputDate = (value: string) => {
+  const parsed = DateTime.fromISO(value, { zone: "UTC" });
+  if (!parsed.isValid) {
+    return value;
+  }
+
+  return parsed.toFormat("dd/MM/yyyy");
+};
+
+type InlineDateFieldProps = {
+  value: string;
+  onChange: (value: string) => void;
+  minWidthClassName?: string;
+};
+
+function InlineDateField({
+  value,
+  onChange,
+  minWidthClassName = "min-w-[7.75rem]",
+}: InlineDateFieldProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div
+      className={`relative inline-flex ${minWidthClassName} rounded-md border border-transparent transition-all duration-150 hover:border-[var(--stroke)] hover:shadow-[inset_0_0_0_1px_var(--stroke-soft)] focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_1px_var(--accent)]`}
+    >
+      <button
+        className="w-full rounded-md px-2 py-0.5 text-left text-[0.88rem] font-medium text-[var(--ink)] outline-none"
+        onClick={() => {
+          const input = inputRef.current;
+          if (!input) {
+            return;
+          }
+
+          if (typeof input.showPicker === "function") {
+            input.showPicker();
+            return;
+          }
+
+          input.click();
+        }}
+        type="button"
+      >
+        {formatPreviewInputDate(value)}
+      </button>
+      <input
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+        onChange={(event) => onChange(event.target.value)}
+        ref={inputRef}
+        tabIndex={-1}
+        type="date"
+        value={value}
+      />
+    </div>
+  );
+}
+
 export default function ChorePreviewPopover({
   chore,
-  anchorRect,
+  anchorElement,
   onClose,
   onOpenDetails,
 }: ChorePreviewPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [repeat, setRepeat] = useState<PreviewRepeatValue>("none");
   const [repeatEndMode, setRepeatEndMode] = useState<PreviewRepeatEndMode>("never");
   const [repeatEnd, setRepeatEnd] = useState("");
+
+  useEffect(() => {
+    if (!chore || !anchorElement) {
+      setAnchorRect(null);
+      return;
+    }
+
+    const updateRect = () => {
+      if (!anchorElement.isConnected) {
+        onClose();
+        return;
+      }
+
+      setAnchorRect(anchorElement.getBoundingClientRect());
+    };
+
+    updateRect();
+
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
+  }, [anchorElement, chore, onClose]);
 
   useEffect(() => {
     if (!chore) {
@@ -70,22 +155,27 @@ export default function ChorePreviewPopover({
     setRepeatEnd(nextState.repeatEnd);
   }, [chore]);
 
-  if (!chore || !anchorRect) {
+  const currentAnchorRect = anchorRect ?? anchorElement?.getBoundingClientRect() ?? null;
+
+  if (!chore || !currentAnchorRect) {
     return null;
   }
 
   const repeatLabel = getChorePreviewRepeatLabel(chore);
-  const preferredWidth = isExpanded ? 420 : 320;
+  const preferredWidth = isExpanded ? 360 : 320;
   const viewportWidth = typeof window === "undefined" ? 1440 : window.innerWidth;
   const viewportHeight = typeof window === "undefined" ? 900 : window.innerHeight;
   const popoverWidth = Math.min(preferredWidth, viewportWidth - 32);
   const estimatedHeight = isExpanded ? 330 : chore.notes ? 235 : 185;
-  const left = Math.min(Math.max(anchorRect.left, 16), viewportWidth - popoverWidth - 16);
-  const prefersAbove = anchorRect.bottom + estimatedHeight + 16 > viewportHeight;
+  const left = Math.min(Math.max(currentAnchorRect.left, 16), viewportWidth - popoverWidth - 16);
+  const prefersAbove = currentAnchorRect.bottom + estimatedHeight + 16 > viewportHeight;
   const top = prefersAbove
-    ? Math.max(anchorRect.top - estimatedHeight - 12, 16)
-    : Math.min(anchorRect.bottom + 12, viewportHeight - estimatedHeight - 16);
-  const notchLeft = Math.min(Math.max(anchorRect.left + anchorRect.width / 2 - left - 9, 22), 246);
+    ? Math.max(currentAnchorRect.top - estimatedHeight - 12, 16)
+    : Math.min(currentAnchorRect.bottom + 12, viewportHeight - estimatedHeight - 16);
+  const notchLeft = Math.min(
+    Math.max(currentAnchorRect.left + currentAnchorRect.width / 2 - left - 9, 22),
+    popoverWidth - 34,
+  );
 
   return (
     <div
@@ -101,83 +191,87 @@ export default function ChorePreviewPopover({
       <div className="border-b border-[var(--stroke-soft)] px-4 pb-3 pt-3">
         <h3 className="text-base font-semibold leading-tight text-[var(--ink)]">{chore.title}</h3>
       </div>
-      <button
-        className="block w-full px-4 pb-3 pt-3 text-left transition hover:bg-[var(--surface-strong)]/25"
-        onClick={() => setIsExpanded((current) => !current)}
-        type="button"
+      <div
+        className={`overflow-hidden transition-all duration-200 ease-out ${
+          isExpanded ? "max-h-0 opacity-0" : "max-h-28 opacity-100"
+        }`}
       >
-        <div className="min-w-0">
-          <div className="text-[0.82rem] font-semibold leading-tight text-[var(--muted)]">
-            {getChorePreviewDateLabel(chore)}
+        <button
+          aria-expanded={isExpanded}
+          className="block w-full px-4 pb-3 pt-3 text-left transition hover:bg-[var(--surface-strong)]/25"
+          onClick={() => setIsExpanded(true)}
+          type="button"
+        >
+          <div className="min-w-0">
+            <div className="text-[0.82rem] font-semibold leading-tight text-[var(--muted)]">
+              {getChorePreviewDateLabel(chore)}
+            </div>
+            {repeatLabel ? (
+              <div className="pt-1.5">
+                <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]/70"
+                  />
+                  {repeatLabel}
+                </span>
+              </div>
+            ) : null}
           </div>
-          {repeatLabel ? (
-            <div className="pt-1.5">
-              <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
-                <span
-                  aria-hidden="true"
-                  className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]/70"
-                />
-                {repeatLabel}
-              </span>
-            </div>
-          ) : null}
-        </div>
-      </button>
-      {isExpanded ? (
-        <div className="border-t border-[var(--stroke-soft)] bg-[var(--surface-strong)]/35 px-4 py-3">
-          <div className="space-y-2.5 text-sm leading-tight text-[var(--ink)]">
-            <div className="grid grid-cols-[88px_1fr] items-center gap-x-4">
+        </button>
+      </div>
+      <div
+        className={`overflow-hidden transition-all duration-200 ease-out ${
+          isExpanded ? "max-h-[20rem] opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        <div className="bg-[var(--surface-strong)]/35 px-4 py-2.5">
+          <div className="space-y-1.5 text-sm leading-tight text-[var(--ink)]">
+            <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
               <span className="text-right text-[var(--muted)]">starts:</span>
-              <input
-                className="w-full bg-transparent px-0 py-0 text-[0.95rem] font-semibold text-[var(--ink)] outline-none"
-                onChange={(event) => setStartDate(event.target.value)}
-                type="date"
-                value={startDate}
-              />
+              <InlineDateField onChange={setStartDate} value={startDate} />
             </div>
-            <div className="grid grid-cols-[88px_1fr] items-center gap-x-4">
+            <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
               <span className="text-right text-[var(--muted)]">ends:</span>
-              <input
-                className="w-full bg-transparent px-0 py-0 text-[0.95rem] font-semibold text-[var(--ink)] outline-none"
-                onChange={(event) => setEndDate(event.target.value)}
-                type="date"
-                value={endDate}
-              />
+              <InlineDateField onChange={setEndDate} value={endDate} />
             </div>
-            <div className="grid grid-cols-[88px_1fr] items-center gap-x-4">
+            <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
               <span className="text-right text-[var(--muted)]">repeat:</span>
-              <select
-                className="w-full bg-transparent px-0 py-0 text-[0.95rem] font-semibold text-[var(--ink)] outline-none"
-                onChange={(event) => setRepeat(event.target.value as PreviewRepeatValue)}
-                value={repeat}
-              >
-                <option value="none">Does not repeat</option>
-                <option value="daily">Every day</option>
-                <option value="weekly">Every week</option>
-                <option value="biweekly">Every 2 weeks</option>
-                <option value="monthly">Every month</option>
-                <option value="yearly">Every year</option>
-              </select>
+              <div className="inline-flex rounded-md border border-transparent transition-all duration-150 hover:border-[var(--stroke)] hover:shadow-[inset_0_0_0_1px_var(--stroke-soft)] focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_1px_var(--accent)]">
+                <select
+                  className="bg-transparent px-2 py-0.5 text-[0.88rem] font-medium text-[var(--ink)] outline-none"
+                  onChange={(event) => setRepeat(event.target.value as PreviewRepeatValue)}
+                  value={repeat}
+                >
+                  <option value="none">Does not repeat</option>
+                  <option value="daily">Every day</option>
+                  <option value="weekly">Every week</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="monthly">Every month</option>
+                  <option value="yearly">Every year</option>
+                </select>
+              </div>
             </div>
             {repeat !== "none" ? (
-              <div className="grid grid-cols-[88px_1fr] items-center gap-x-4">
+              <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
                 <span className="text-right text-[var(--muted)]">end repeat:</span>
-                <div className="flex items-center gap-4">
-                  <select
-                    className="bg-transparent px-0 py-0 text-[0.95rem] font-semibold text-[var(--ink)] outline-none"
-                    onChange={(event) =>
-                      setRepeatEndMode(event.target.value as PreviewRepeatEndMode)
-                    }
-                    value={repeatEndMode}
-                  >
-                    <option value="never">Never</option>
-                    <option value="on_date">On date</option>
-                  </select>
+                <div className="flex items-center gap-2.5">
+                  <div className="inline-flex rounded-md border border-transparent transition-all duration-150 hover:border-[var(--stroke)] hover:shadow-[inset_0_0_0_1px_var(--stroke-soft)] focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_1px_var(--accent)]">
+                    <select
+                      className="bg-transparent px-2 py-0.5 text-[0.88rem] font-medium text-[var(--ink)] outline-none"
+                      onChange={(event) =>
+                        setRepeatEndMode(event.target.value as PreviewRepeatEndMode)
+                      }
+                      value={repeatEndMode}
+                    >
+                      <option value="never">Never</option>
+                      <option value="on_date">On date</option>
+                    </select>
+                  </div>
                   {repeatEndMode === "on_date" ? (
-                    <input
-                      className="bg-transparent px-0 py-0 text-[0.95rem] font-semibold text-[var(--ink)] outline-none"
-                      onChange={(event) => setRepeatEnd(event.target.value)}
-                      type="date"
+                    <InlineDateField
+                      minWidthClassName="min-w-[7.75rem]"
+                      onChange={setRepeatEnd}
                       value={repeatEnd}
                     />
                   ) : null}
@@ -186,7 +280,7 @@ export default function ChorePreviewPopover({
             ) : null}
           </div>
         </div>
-      ) : null}
+      </div>
       <div
         className={`border-t border-[var(--stroke-soft)] px-4 py-3 text-sm leading-snug ${
           chore.notes ? "text-[var(--muted)]" : "italic text-[var(--muted)]/70"

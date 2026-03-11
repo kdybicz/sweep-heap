@@ -4,7 +4,7 @@ import type { MultiDaySpan } from "@/app/household/board/multi-day-chore-layout"
 type MultiDayChoreLanesProps = {
   lanes: MultiDaySpan[][];
   onOpenChoreDetails: (chore: MultiDaySpan["chore"]) => void;
-  onPreviewChore: (chore: MultiDaySpan["chore"], anchorRect: DOMRect) => void;
+  onPreviewChore: (chore: MultiDaySpan["chore"], anchorElement: HTMLElement) => void;
 };
 
 const getShapeClasses = (span: MultiDaySpan) => {

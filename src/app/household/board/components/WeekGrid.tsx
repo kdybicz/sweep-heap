@@ -16,7 +16,7 @@ type WeekGridProps = {
   loading: boolean;
   today: DateTime;
   onOpenChoreDetails: (chore: ChoreItem) => void;
-  onPreviewChore: (chore: ChoreItem, anchorRect: DOMRect) => void;
+  onPreviewChore: (chore: ChoreItem, anchorElement: HTMLElement) => void;
   onAddChoreForDate: (dayKey: string | null) => void;
 };
 

@@ -10,7 +10,7 @@ let previewClickTimeout: number | null = null;
 type BoardChoreButtonProps = {
   chore: ChoreItem;
   onOpenChoreDetails: (chore: ChoreItem) => void;
-  onPreviewChore: (chore: ChoreItem, anchorRect: DOMRect) => void;
+  onPreviewChore: (chore: ChoreItem, anchorElement: HTMLElement) => void;
   className?: string;
   shapeClassName?: string;
   statusExtra?: string | null;
@@ -65,9 +65,9 @@ export default function BoardChoreButton({
           window.clearTimeout(previewClickTimeout);
         }
 
-        const anchorRect = event.currentTarget.getBoundingClientRect();
+        const anchorElement = event.currentTarget;
         previewClickTimeout = window.setTimeout(() => {
-          onPreviewChore(chore, anchorRect);
+          onPreviewChore(chore, anchorElement);
           previewClickTimeout = null;
         }, 200);
       }}
