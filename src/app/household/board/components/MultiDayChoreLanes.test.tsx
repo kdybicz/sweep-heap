@@ -34,7 +34,9 @@ describe("MultiDayChoreLanes", () => {
       ],
     ];
 
-    const markup = renderToStaticMarkup(<MultiDayChoreLanes lanes={lanes} onSelectChore={noop} />);
+    const markup = renderToStaticMarkup(
+      <MultiDayChoreLanes lanes={lanes} onOpenChoreDetails={noop} onPreviewChore={noop} />,
+    );
 
     expect(markup).toContain('data-continuation="left"');
     expect(markup).toContain('data-continuation="right"');

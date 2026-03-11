@@ -1,12 +1,16 @@
 import type { CSSProperties } from "react";
+import { useEffect } from "react";
 
 import { StateIcon } from "@/app/household/board/components/ChoreIcons";
 import type { ChoreItem } from "@/app/household/board/types";
 import { getChoreStateLabel, isChoreCompleted } from "@/lib/chore-ui-state";
 
+let previewClickTimeout: number | null = null;
+
 type BoardChoreButtonProps = {
   chore: ChoreItem;
-  onSelectChore: (chore: ChoreItem) => void;
+  onOpenChoreDetails: (chore: ChoreItem) => void;
+  onPreviewChore: (chore: ChoreItem, anchorRect: DOMRect) => void;
   className?: string;
   shapeClassName?: string;
   statusExtra?: string | null;
@@ -31,18 +35,49 @@ const getChoreClasses = (chore: ChoreItem) => {
 
 export default function BoardChoreButton({
   chore,
-  onSelectChore,
+  onOpenChoreDetails,
+  onPreviewChore,
   className,
   shapeClassName,
   statusExtra,
   style,
 }: BoardChoreButtonProps) {
   const showLineThrough = isChoreCompleted(chore) && chore.type === "close_on_done";
+  useEffect(() => {
+    return () => {
+      if (previewClickTimeout !== null) {
+        window.clearTimeout(previewClickTimeout);
+        previewClickTimeout = null;
+      }
+    };
+  }, []);
 
   return (
     <button
       className={`flex min-w-0 items-center justify-between gap-2 border px-2.5 py-2 text-left text-[0.7rem] font-semibold transition ${shapeClassName ?? "rounded-lg"} ${getChoreClasses(chore)} ${className ?? ""}`}
-      onClick={() => onSelectChore(chore)}
+      onClick={(event) => {
+        if (event.detail === 0) {
+          onOpenChoreDetails(chore);
+          return;
+        }
+
+        if (previewClickTimeout !== null) {
+          window.clearTimeout(previewClickTimeout);
+        }
+
+        const anchorRect = event.currentTarget.getBoundingClientRect();
+        previewClickTimeout = window.setTimeout(() => {
+          onPreviewChore(chore, anchorRect);
+          previewClickTimeout = null;
+        }, 200);
+      }}
+      onDoubleClick={() => {
+        if (previewClickTimeout !== null) {
+          window.clearTimeout(previewClickTimeout);
+          previewClickTimeout = null;
+        }
+        onOpenChoreDetails(chore);
+      }}
       style={style}
       type="button"
     >

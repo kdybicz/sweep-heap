@@ -15,7 +15,8 @@ type WeekGridProps = {
   chores: ChoreItem[];
   loading: boolean;
   today: DateTime;
-  onSelectChore: (chore: ChoreItem) => void;
+  onOpenChoreDetails: (chore: ChoreItem) => void;
+  onPreviewChore: (chore: ChoreItem, anchorRect: DOMRect) => void;
   onAddChoreForDate: (dayKey: string | null) => void;
 };
 
@@ -28,7 +29,8 @@ export default function WeekGrid({
   chores,
   loading,
   today,
-  onSelectChore,
+  onOpenChoreDetails,
+  onPreviewChore,
   onAddChoreForDate,
 }: WeekGridProps) {
   const todayKey = today.toISODate() ?? "";
@@ -116,7 +118,11 @@ export default function WeekGrid({
                   })}
                 </div>
                 <div className="relative px-2 pb-16 pt-2">
-                  <MultiDayChoreLanes lanes={choreLanes} onSelectChore={onSelectChore} />
+                  <MultiDayChoreLanes
+                    lanes={choreLanes}
+                    onOpenChoreDetails={onOpenChoreDetails}
+                    onPreviewChore={onPreviewChore}
+                  />
                 </div>
                 <div className="pointer-events-none absolute inset-y-0 inset-x-2 z-10 grid grid-cols-7 gap-0">
                   {days.map((day) => {

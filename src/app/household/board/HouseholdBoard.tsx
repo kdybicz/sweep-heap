@@ -1,14 +1,16 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import AccountHeader from "@/app/household/board/components/AccountHeader";
 import AddChoreModal from "@/app/household/board/components/AddChoreModal";
 import ChoreDetailsModal from "@/app/household/board/components/ChoreDetailsModal";
+import ChorePreviewPopover from "@/app/household/board/components/ChorePreviewPopover";
 import HouseholdSidebar from "@/app/household/board/components/HouseholdSidebar";
 import WeekGrid from "@/app/household/board/components/WeekGrid";
 import { useHouseholdViewer } from "@/app/household/board/HouseholdViewerContext";
+import type { ChoreItem } from "@/app/household/board/types";
 import useHouseholdBoard from "@/app/household/board/useHouseholdBoard";
 
 export default function HouseholdBoard() {
@@ -33,8 +35,32 @@ export default function HouseholdBoard() {
 
 function HouseholdBoardContent() {
   const board = useHouseholdBoard();
+  const [previewChore, setPreviewChore] = useState<ChoreItem | null>(null);
+  const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null);
   const { canSwitchHouseholds, householdIcon, householdName, isHouseholdAdmin, userName } =
     useHouseholdViewer();
+
+  const closePreview = useCallback(() => {
+    setPreviewChore(null);
+    setPreviewAnchorRect(null);
+  }, []);
+
+  useEffect(() => {
+    if (board.choreDetailsModal.chore) {
+      closePreview();
+    }
+  }, [board.choreDetailsModal.chore, closePreview]);
+
+  const visiblePreviewChore =
+    previewChore &&
+    board.week.chores.some(
+      (chore) =>
+        chore.id === previewChore.id &&
+        chore.occurrence_start_date === previewChore.occurrence_start_date &&
+        chore.occurrence_date === previewChore.occurrence_date,
+    )
+      ? previewChore
+      : null;
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -64,9 +90,13 @@ function HouseholdBoardContent() {
             loading={board.week.loading}
             onAddChoreForDate={board.week.onAddChoreForDate}
             onNextWeek={board.week.onNextWeek}
+            onOpenChoreDetails={board.week.onSelectChore}
             onPreviousWeek={board.week.onPreviousWeek}
+            onPreviewChore={(chore, anchorRect) => {
+              setPreviewChore(chore);
+              setPreviewAnchorRect(anchorRect);
+            }}
             onResetWeek={board.sidebar.onResetWeek}
-            onSelectChore={board.week.onSelectChore}
             rangeLabel={board.week.rangeLabel}
             today={board.sidebar.today}
           />
@@ -111,6 +141,12 @@ function HouseholdBoardContent() {
         onPrimaryAction={board.choreDetailsModal.onPrimaryAction}
         submitting={board.choreDetailsModal.submitting}
         todayKey={board.choreDetailsModal.todayKey}
+      />
+      <ChorePreviewPopover
+        anchorRect={previewAnchorRect}
+        chore={visiblePreviewChore}
+        onClose={closePreview}
+        onOpenDetails={board.week.onSelectChore}
       />
     </div>
   );

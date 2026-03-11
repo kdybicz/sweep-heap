@@ -3,7 +3,8 @@ import type { MultiDaySpan } from "@/app/household/board/multi-day-chore-layout"
 
 type MultiDayChoreLanesProps = {
   lanes: MultiDaySpan[][];
-  onSelectChore: (chore: MultiDaySpan["chore"]) => void;
+  onOpenChoreDetails: (chore: MultiDaySpan["chore"]) => void;
+  onPreviewChore: (chore: MultiDaySpan["chore"], anchorRect: DOMRect) => void;
 };
 
 const getShapeClasses = (span: MultiDaySpan) => {
@@ -13,7 +14,11 @@ const getShapeClasses = (span: MultiDaySpan) => {
   return `${leftShape} ${rightShape}`;
 };
 
-export default function MultiDayChoreLanes({ lanes, onSelectChore }: MultiDayChoreLanesProps) {
+export default function MultiDayChoreLanes({
+  lanes,
+  onOpenChoreDetails,
+  onPreviewChore,
+}: MultiDayChoreLanesProps) {
   if (!lanes.length) {
     return null;
   }
@@ -32,7 +37,8 @@ export default function MultiDayChoreLanes({ lanes, onSelectChore }: MultiDayCho
                 <BoardChoreButton
                   chore={span.chore}
                   className="h-11 w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                  onSelectChore={onSelectChore}
+                  onOpenChoreDetails={onOpenChoreDetails}
+                  onPreviewChore={onPreviewChore}
                   shapeClassName={getShapeClasses(span)}
                 />
                 {span.continuesBefore ? <span aria-hidden="true" data-continuation="left" /> : null}

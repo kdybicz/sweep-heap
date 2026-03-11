@@ -55,9 +55,10 @@ describe("WeekGrid", () => {
         loading={false}
         onAddChoreForDate={noop}
         onNextWeek={noop}
+        onOpenChoreDetails={noop}
         onPreviousWeek={noop}
+        onPreviewChore={noop}
         onResetWeek={noop}
-        onSelectChore={noop}
         rangeLabel="Mar 2 - Mar 8"
         today={DateTime.fromISO("2026-03-05", { zone: "UTC" })}
       />,
