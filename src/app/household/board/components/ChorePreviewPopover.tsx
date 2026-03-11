@@ -95,7 +95,11 @@ export default function ChorePreviewPopover({
           ) : null}
         </div>
       </div>
-      <div className="border-t border-[var(--stroke-soft)] px-4 py-3 text-sm leading-snug text-[var(--muted)]">
+      <div
+        className={`border-t border-[var(--stroke-soft)] px-4 py-3 text-sm leading-snug ${
+          chore.notes ? "text-[var(--muted)]" : "italic text-[var(--muted)]/70"
+        }`}
+      >
         {chore.notes ? chore.notes : "Add Notes"}
       </div>
       <div className="border-t border-[var(--stroke-soft)] px-4 py-2.5">
