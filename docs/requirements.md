@@ -178,7 +178,7 @@
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores that start before or end after the visible week use a clipped edge treatment on the continued side (no outer corner radius and no outer vertical border).
 - In the sidebar Today list, multi-day chores are collapsed to a single entry per occurrence and may reuse the same compact single-card styling as one-day chores.
-- Single click on a board chore opens a compact preview popover with title, date span, repeat cadence, and notes; double click opens the full chore details modal.
+- Single click on a board chore opens a compact preview popover with title, date span, repeat cadence, and notes; clicking the metadata block expands inline editing UI for date/repeat fields without persisting changes yet, and double click opens the full chore details modal.
 
 ## API Surface (Current Snapshot)
 - Failure envelope contract: API routes return `{ ok: false, code: string, error: string }` for handled errors.

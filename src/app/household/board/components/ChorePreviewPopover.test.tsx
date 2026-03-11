@@ -34,4 +34,17 @@ describe("ChorePreviewPopover", () => {
     expect(markup).toContain("Add Notes");
     expect(markup).toContain("Repeats weekly");
   });
+
+  it("uses a clamped inline width style for narrow viewports", () => {
+    const markup = renderToStaticMarkup(
+      <ChorePreviewPopover
+        anchorRect={anchorRect}
+        chore={createChore()}
+        onClose={noop}
+        onOpenDetails={noop}
+      />,
+    );
+
+    expect(markup).toContain("width:320px");
+  });
 });

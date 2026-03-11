@@ -64,7 +64,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores clipped by the current week use a clipped edge treatment at the left and/or right edge (no outer corner radius and no outer vertical border).
 - The sidebar Today list collapses multi-day chores to one entry per occurrence.
-- Single click opens a compact chore preview popover; double click opens the full chore details modal.
+- Single click opens a compact chore preview popover; clicking the metadata block expands local inline editing UI in the popover, and double click opens the full chore details modal.
 
 ## API Snapshot
 - `GET /api/health`
