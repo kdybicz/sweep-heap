@@ -399,8 +399,15 @@ export async function PATCH(request: Request) {
             headers: request.headers,
           })) as OrganizationMemberLike;
 
+          const refreshedMember =
+            (await findTargetMemberByUserId({
+              householdId: household.id,
+              request,
+              targetUserId,
+            })) ?? member;
+
           return Response.json(
-            { ok: true, member: mapOrganizationMember(member) },
+            { ok: true, member: mapOrganizationMember(refreshedMember) },
             { headers: adminAccess.responseHeaders },
           );
         } catch (error) {

@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   readApiJsonResponse,
@@ -52,6 +54,18 @@ type HouseholdMembersApiResponse = {
     role: string;
     joinedAt: string;
   };
+  members?: Array<{
+    userId: number | string;
+    name?: string | null;
+    email: string;
+    role: string;
+    joinedAt: string;
+  }>;
+};
+
+type ActionsMenuPosition = {
+  left: number;
+  top: number;
 };
 
 export default function HouseholdMembersView({
@@ -60,6 +74,8 @@ export default function HouseholdMembersView({
   initialPendingInvites,
   viewerUserId,
 }: HouseholdMembersViewProps) {
+  const router = useRouter();
+  const actionsMenuButtonsRef = useRef(new Map<string, HTMLButtonElement>());
   const [members, setMembers] = useState(() => sortMembers(initialMembers));
   const [pendingInvites, setPendingInvites] = useState(() =>
     sortPendingInvites(initialPendingInvites),
@@ -71,7 +87,10 @@ export default function HouseholdMembersView({
   const [resendingInviteId, setResendingInviteId] = useState<number | null>(null);
   const [revokingInviteId, setRevokingInviteId] = useState<number | null>(null);
   const [roleUpdatingUserId, setRoleUpdatingUserId] = useState<number | null>(null);
+  const [transferringOwnerUserId, setTransferringOwnerUserId] = useState<number | null>(null);
   const [removingUserId, setRemovingUserId] = useState<number | null>(null);
+  const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
+  const [actionsMenuPosition, setActionsMenuPosition] = useState<ActionsMenuPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -89,6 +108,92 @@ export default function HouseholdMembersView({
     }
     return rows.filter((row) => toSearchText(row).includes(trimmedQuery));
   }, [members, pendingInvites, query]);
+
+  const updateActionsMenuPosition = useCallback((menuId: string) => {
+    const button = actionsMenuButtonsRef.current.get(menuId);
+    if (!button) {
+      setActionsMenuPosition(null);
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+    setActionsMenuPosition({
+      left: rect.right,
+      top: rect.bottom + 8,
+    });
+  }, []);
+
+  const setActionsMenuButtonRef = useCallback(
+    (menuId: string) => (node: HTMLButtonElement | null) => {
+      if (node) {
+        actionsMenuButtonsRef.current.set(menuId, node);
+        return;
+      }
+
+      actionsMenuButtonsRef.current.delete(menuId);
+    },
+    [],
+  );
+
+  const toggleActionsMenu = useCallback(
+    (menuId: string) => {
+      setOpenActionsMenuId((currentMenuId) => {
+        if (currentMenuId === menuId) {
+          setActionsMenuPosition(null);
+          return null;
+        }
+
+        updateActionsMenuPosition(menuId);
+        return menuId;
+      });
+    },
+    [updateActionsMenuPosition],
+  );
+
+  useEffect(() => {
+    if (!openActionsMenuId) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (
+        target.closest(`[data-actions-menu-root="${openActionsMenuId}"]`) ||
+        target.closest(`[data-actions-menu-panel="${openActionsMenuId}"]`)
+      ) {
+        return;
+      }
+
+      setOpenActionsMenuId(null);
+      setActionsMenuPosition(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenActionsMenuId(null);
+        setActionsMenuPosition(null);
+      }
+    };
+
+    const handleViewportChange = () => {
+      updateActionsMenuPosition(openActionsMenuId);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [openActionsMenuId, updateActionsMenuPosition]);
 
   const upsertMember = (nextMember: HouseholdMember) => {
     setMembers((previousMembers) =>
@@ -125,6 +230,8 @@ export default function HouseholdMembersView({
         }),
       });
       const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      setOpenActionsMenuId(null);
+      setActionsMenuPosition(null);
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
@@ -179,6 +286,8 @@ export default function HouseholdMembersView({
         method: "POST",
       });
       const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      setOpenActionsMenuId(null);
+      setActionsMenuPosition(null);
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
@@ -224,6 +333,8 @@ export default function HouseholdMembersView({
         method: "DELETE",
       });
       const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      setOpenActionsMenuId(null);
+      setActionsMenuPosition(null);
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
@@ -269,6 +380,8 @@ export default function HouseholdMembersView({
         }),
       });
       const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      setOpenActionsMenuId(null);
+      setActionsMenuPosition(null);
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
@@ -317,6 +430,8 @@ export default function HouseholdMembersView({
         }),
       });
       const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      setOpenActionsMenuId(null);
+      setActionsMenuPosition(null);
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
@@ -337,6 +452,79 @@ export default function HouseholdMembersView({
     } finally {
       setRemovingUserId(null);
     }
+  };
+
+  const handleTransferOwnership = async (member: HouseholdMember) => {
+    const memberLabel = member.name?.trim() || member.email;
+    const confirmed = window.confirm(
+      `Transfer household ownership to ${memberLabel}? You will become an admin.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setOpenActionsMenuId(null);
+    setActionsMenuPosition(null);
+    setError(null);
+    setMessage(null);
+    setTransferringOwnerUserId(member.userId);
+
+    try {
+      const response = await fetch("/api/households/members/owner-transfer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: member.userId,
+        }),
+      });
+      const data = await readApiJsonResponse<HouseholdMembersApiResponse>(response);
+      if (recoverFromHouseholdContextError(data)) {
+        return;
+      }
+      if (!data?.ok || !Array.isArray(data.members)) {
+        setError(data?.error ?? "Failed to transfer ownership");
+        setTransferringOwnerUserId(null);
+        return;
+      }
+
+      for (const updatedMember of data.members) {
+        upsertMember({
+          userId: Number(updatedMember.userId),
+          name: typeof updatedMember.name === "string" ? updatedMember.name : null,
+          email: String(updatedMember.email),
+          role: toHouseholdMemberRole(updatedMember.role),
+          joinedAt: String(updatedMember.joinedAt),
+        });
+      }
+
+      setMessage(`Ownership transferred to ${memberLabel}.`);
+      router.refresh();
+    } catch (transferError) {
+      const transferMessage =
+        transferError instanceof Error ? transferError.message : "Failed to transfer ownership";
+      setError(transferMessage);
+    } finally {
+      setTransferringOwnerUserId(null);
+    }
+  };
+
+  const renderActionsMenu = (menuId: string, className: string, content: ReactNode) => {
+    if (openActionsMenuId !== menuId || !actionsMenuPosition || typeof document === "undefined") {
+      return null;
+    }
+
+    return createPortal(
+      <div
+        className={`fixed z-30 -translate-x-full ${className}`}
+        data-actions-menu-panel={menuId}
+        style={{ left: actionsMenuPosition.left, top: actionsMenuPosition.top }}
+      >
+        {content}
+      </div>,
+      document.body,
+    );
   };
 
   return (
@@ -438,6 +626,8 @@ export default function HouseholdMembersView({
                   const disableResend = isResending || isRevoking || !canManageOwnerInviteRole;
                   const disableRevoke =
                     !canAdministerMembers || isResending || isRevoking || !canManageOwnerInviteRole;
+                  const actionsMenuId = `invite-${row.invite.id}`;
+                  const disableActionsMenu = disableResend && disableRevoke;
 
                   return (
                     <tr
@@ -462,25 +652,50 @@ export default function HouseholdMembersView({
                         {formatDate(row.invite.createdAt)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-2">
+                        <div
+                          className="relative inline-flex justify-end"
+                          data-actions-menu-root={actionsMenuId}
+                        >
                           <button
-                            className="rounded-full border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-expanded={openActionsMenuId === actionsMenuId}
+                            aria-label="Open invite actions"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--stroke)] bg-[var(--surface-weak)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={disableActionsMenu}
+                            onClick={() => toggleActionsMenu(actionsMenuId)}
+                            ref={setActionsMenuButtonRef(actionsMenuId)}
                             type="button"
-                            onClick={() => handleResendInvite(row.invite)}
-                            disabled={disableResend}
                           >
-                            {isResending ? "Resending..." : "Resend"}
+                            <span className="sr-only">Open invite actions</span>
+                            <span className="flex items-center gap-0.5 text-[var(--muted)]">
+                              <span className="h-1 w-1 rounded-full bg-current" />
+                              <span className="h-1 w-1 rounded-full bg-current" />
+                              <span className="h-1 w-1 rounded-full bg-current" />
+                            </span>
                           </button>
-                          {canAdministerMembers ? (
-                            <button
-                              className="rounded-full border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-3 py-2 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-                              type="button"
-                              onClick={() => handleRevokeInvite(row.invite)}
-                              disabled={disableRevoke}
-                            >
-                              {isRevoking ? "Revoking..." : "Revoke"}
-                            </button>
-                          ) : null}
+                          {renderActionsMenu(
+                            actionsMenuId,
+                            "min-w-40 rounded-xl border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
+                            <>
+                              <button
+                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={disableResend}
+                                onClick={() => handleResendInvite(row.invite)}
+                                type="button"
+                              >
+                                <span>Resend invite</span>
+                                <span>{isResending ? "..." : null}</span>
+                              </button>
+                              <button
+                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={disableRevoke}
+                                onClick={() => handleRevokeInvite(row.invite)}
+                                type="button"
+                              >
+                                <span>Revoke</span>
+                                <span>{isRevoking ? "..." : null}</span>
+                              </button>
+                            </>,
+                          )}
                         </div>
                         <div className="mt-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
                           Expires {formatDate(row.invite.expiresAt)}
@@ -493,13 +708,28 @@ export default function HouseholdMembersView({
                 const member = row.member;
                 const isViewer = member.userId === viewerUserId;
                 const roleIsUpdating = roleUpdatingUserId === member.userId;
+                const isTransferringOwner = transferringOwnerUserId === member.userId;
                 const isRemoving = removingUserId === member.userId;
                 const canEditOwnerMembers = canManageOwnerRole || member.role !== "owner";
                 const canEditMemberRole = canAdministerMembers && canEditOwnerMembers;
                 const disableRoleChange =
-                  !canEditMemberRole || isViewer || roleIsUpdating || isRemoving;
+                  !canEditMemberRole ||
+                  isViewer ||
+                  roleIsUpdating ||
+                  isRemoving ||
+                  isTransferringOwner;
                 const disableRemove =
-                  !canEditMemberRole || isViewer || roleIsUpdating || isRemoving;
+                  !canEditMemberRole ||
+                  isViewer ||
+                  roleIsUpdating ||
+                  isRemoving ||
+                  isTransferringOwner;
+                const showTransferOwnership =
+                  canManageOwnerRole && !isViewer && member.role !== "owner";
+                const disableTransferOwnership =
+                  roleIsUpdating || isRemoving || isTransferringOwner || !showTransferOwnership;
+                const actionsMenuId = `member-${member.userId}`;
+                const disableActionsMenu = disableTransferOwnership && disableRemove;
 
                 return (
                   <tr
@@ -545,20 +775,51 @@ export default function HouseholdMembersView({
                     </td>
                     <td className="px-4 py-3 text-[var(--muted)]">{formatDate(member.joinedAt)}</td>
                     <td className="px-4 py-3 text-right">
-                      {canAdministerMembers ? (
+                      <div
+                        className="relative inline-flex justify-end"
+                        data-actions-menu-root={actionsMenuId}
+                      >
                         <button
-                          className="rounded-full border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-expanded={openActionsMenuId === actionsMenuId}
+                          aria-label="Open member actions"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--stroke)] bg-[var(--surface-weak)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={disableActionsMenu}
+                          onClick={() => toggleActionsMenu(actionsMenuId)}
+                          ref={setActionsMenuButtonRef(actionsMenuId)}
                           type="button"
-                          onClick={() => handleRemove(member)}
-                          disabled={disableRemove}
                         >
-                          {isRemoving ? "Removing..." : "Remove"}
+                          <span className="sr-only">Open member actions</span>
+                          <span className="flex items-center gap-0.5 text-[var(--muted)]">
+                            <span className="h-1 w-1 rounded-full bg-current" />
+                            <span className="h-1 w-1 rounded-full bg-current" />
+                            <span className="h-1 w-1 rounded-full bg-current" />
+                          </span>
                         </button>
-                      ) : (
-                        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-                          -
-                        </span>
-                      )}
+                        {renderActionsMenu(
+                          actionsMenuId,
+                          "min-w-48 rounded-xl border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
+                          <>
+                            <button
+                              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={disableTransferOwnership}
+                              onClick={() => handleTransferOwnership(member)}
+                              type="button"
+                            >
+                              <span>Transfer ownership</span>
+                              <span>{isTransferringOwner ? "..." : null}</span>
+                            </button>
+                            <button
+                              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={disableRemove}
+                              onClick={() => handleRemove(member)}
+                              type="button"
+                            >
+                              <span>Remove</span>
+                              <span>{isRemoving ? "..." : null}</span>
+                            </button>
+                          </>,
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

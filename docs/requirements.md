@@ -104,7 +104,8 @@
 - A household can be deleted only when the acting owner is its only active member.
 - Users cannot change their own role through the members API.
 - Household administrators cannot remove themselves through the members API.
-- There is currently no dedicated self-leave or owner-transfer API; when either flow is added, it must reconcile `active_household_id` using the same stale-session healing rules as other household membership changes.
+- Owners can transfer ownership to another active household member; transfer promotes the target to `owner` and demotes the acting owner to `admin` in the same guarded flow.
+- There is currently no dedicated self-leave API; when it is added, it must reconcile `active_household_id` using the same stale-session healing rules as other household membership changes.
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ## Invite Rules
@@ -249,7 +250,7 @@
 - On confirmed delete:
   - User row is removed.
   - Any households that become empty (no active memberships) are also removed.
-- Current remediation is limited: owner transfer is not implemented yet, so blocked owners can remove other active members but cannot complete a transfer flow in-app today.
+- Current remediation is still limited: self-leave and owner-leave-after-transfer are not implemented yet.
 
 ## Planned Ownership and Deletion Rules
 - Deleting a user's last household should leave the user in onboarding with no active household; they may create a new household afterward.

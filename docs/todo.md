@@ -41,7 +41,6 @@ Use `docs/requirements-quick-reference.md` when you need the short version while
 - Scope:
   - Ensure active-household state is cleared or re-resolved when memberships or households are removed through all paths, not just active-household deletion.
   - Review owner/membership transitions for edge cases such as owner removal, invite acceptance, and deleted active memberships.
-  - Add reconciliation hooks immediately when self-leave or owner-transfer endpoints are introduced; those flows do not exist yet.
+  - Add reconciliation hooks immediately when self-leave endpoints are introduced; that flow does not exist yet.
   - Add self-leave for non-owners.
-  - Add owner transfer.
   - Add owner leave after transfer.

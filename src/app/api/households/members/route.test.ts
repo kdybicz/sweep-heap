@@ -304,16 +304,28 @@ describe("/api/households/members route", () => {
         userId: 7,
       },
     });
-    listMembersMock.mockResolvedValue({
-      members: [
-        {
-          id: 44,
-          userId: 9,
-          role: "member",
-          createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        },
-      ],
-    });
+    listMembersMock
+      .mockResolvedValueOnce({
+        members: [
+          {
+            id: 44,
+            userId: 9,
+            role: "member",
+            createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        members: [
+          {
+            id: 44,
+            userId: 9,
+            role: "owner",
+            createdAt: new Date("2026-01-01T00:00:00.000Z"),
+            user: { name: "Taylor", email: "taylor@example.com" },
+          },
+        ],
+      });
     updateMemberRoleMock.mockResolvedValue({
       id: 44,
       userId: 9,
@@ -333,6 +345,53 @@ describe("/api/households/members route", () => {
     expect(updateMemberRoleMock).toHaveBeenCalledTimes(1);
     expect(updateMemberRoleMock.mock.calls[0]?.[0]?.body?.role).toBe("owner");
     expect(body.member.role).toBe("owner");
+  });
+
+  it("PATCH re-reads the updated member when the mutation response omits user details", async () => {
+    listMembersMock
+      .mockResolvedValueOnce({
+        members: [
+          {
+            id: 44,
+            userId: 9,
+            role: "member",
+            createdAt: new Date("2026-01-01T00:00:00.000Z"),
+            user: { name: "Taylor", email: "taylor@example.com" },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        members: [
+          {
+            id: 44,
+            userId: 9,
+            role: "admin",
+            createdAt: new Date("2026-01-01T00:00:00.000Z"),
+            user: { name: "Taylor", email: "taylor@example.com" },
+          },
+        ],
+      });
+    updateMemberRoleMock.mockResolvedValue({
+      id: 44,
+      userId: 9,
+      role: "admin",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
+
+    const response = await PATCH(requestWithBody("PATCH", { userId: 9, role: "admin" }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      ok: true,
+      member: {
+        userId: 9,
+        name: "Taylor",
+        email: "taylor@example.com",
+        role: "admin",
+        joinedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
   });
 
   it("PATCH blocks admins from assigning owner role", async () => {

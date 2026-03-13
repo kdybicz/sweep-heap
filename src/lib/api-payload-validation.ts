@@ -86,6 +86,10 @@ const householdMemberRemovePayloadSchema = z.object({
   userId: householdMemberUserIdSchema,
 });
 
+const householdOwnerTransferPayloadSchema = z.object({
+  userId: householdMemberUserIdSchema,
+});
+
 const householdInviteAcceptPayloadSchema = z.object({
   invitationId: householdInviteIdSchema,
   secret: householdInviteSecretSchema,
@@ -155,6 +159,11 @@ export const validateHouseholdMemberRemovePayload = (
   payload: Record<string, unknown>,
 ): PayloadValidationResult<{ userId: number }> =>
   toValidationResult(householdMemberRemovePayloadSchema.safeParse(payload));
+
+export const validateHouseholdOwnerTransferPayload = (
+  payload: Record<string, unknown>,
+): PayloadValidationResult<{ userId: number }> =>
+  toValidationResult(householdOwnerTransferPayloadSchema.safeParse(payload));
 
 export const validateHouseholdInviteAcceptPayload = (
   payload: Record<string, unknown>,

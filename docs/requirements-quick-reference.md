@@ -5,7 +5,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## Current Product Surface
 - Auth: magic-link sign in/out.
 - Household: create, edit, role-aware membership.
-- Members: invite, resend, revoke, promote/demote, remove.
+- Members: invite, resend, revoke, promote/demote, remove, transfer ownership.
 - Board: weekly chores view, today panel, add chore, mark done, edit occurrence/following/series, cancel.
 - Settings: profile edit, appearance theme, account deletion flow.
 
@@ -15,7 +15,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Any signed-in user can create a household, including users who already belong to another active household.
 - Active household comes from session `active_household_id`, with one-household bootstrap fallback when the session selection is missing or stale.
 - Owner/admin-only: edit household, revoke invites, change roles, remove members.
-- Owner-only: delete household, and only when no other active members remain.
+- Owner-only: delete household, transfer ownership, and delete only when no other active members remain.
 - Household create/edit validates time zone; invalid values return `400` (`Invalid time zone`).
 - Household time zone is required in storage and household lookups should fail loudly rather than silently defaulting when a household record is missing.
 - `POST /api/households` rolls back the new household if session activation fails and restores the prior active household when one existed; if rollback cannot be completed, it returns `500` with `Failed to activate new household and roll back create`.
