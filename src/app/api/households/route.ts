@@ -4,13 +4,10 @@ import { auth } from "@/auth";
 import { requireApiHousehold, requireApiHouseholdAdmin, requireApiSession } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { parseJsonObjectBody } from "@/lib/http";
-import {
-  createHouseholdWithOwner,
-  listActiveHouseholdsForUser,
-  updateHouseholdById,
-} from "@/lib/repositories";
+import { createHouseholdWithOwner, updateHouseholdById } from "@/lib/repositories";
 import {
   householdHasOtherActiveMembers,
+  reconcileActiveHouseholdAfterMembershipMutation,
   resolveActiveHousehold,
   withHouseholdMutationLock,
 } from "@/lib/services";
@@ -358,29 +355,14 @@ export async function DELETE(request: Request) {
         let nextPath = "/household/setup";
         let activeHouseholdActivated = false;
         try {
-          const remainingHouseholds = await listActiveHouseholdsForUser(
-            householdAccess.sessionContext.userId,
-          );
-          if (remainingHouseholds.length === 1) {
-            try {
-              const setActiveResponse = await auth.api.setActiveOrganization({
-                asResponse: true,
-                body: {
-                  organizationId: String(remainingHouseholds[0].id),
-                },
-                headers: request.headers,
-              });
-              appendSetCookieHeaders(responseHeaders, setActiveResponse.headers);
-              assertOkResponse(setActiveResponse, "Activate remaining household failed");
-              nextPath = "/household";
-              activeHouseholdActivated = true;
-            } catch (error) {
-              console.error("Failed to activate remaining household after delete", error);
-              nextPath = "/household";
-            }
-          } else if (remainingHouseholds.length > 1) {
-            nextPath = "/household/select";
-          }
+          const mutationResult = await reconcileActiveHouseholdAfterMembershipMutation({
+            requestHeaders: request.headers,
+            sessionActiveHouseholdId: householdAccess.sessionContext.sessionActiveHouseholdId,
+            userId: householdAccess.sessionContext.userId,
+          });
+          appendSetCookieHeaders(responseHeaders, mutationResult.responseHeaders);
+          nextPath = mutationResult.nextPath;
+          activeHouseholdActivated = mutationResult.activeHouseholdActivated;
         } catch (error) {
           console.error("Failed to inspect remaining households after delete", error);
           nextPath = "/household/select";

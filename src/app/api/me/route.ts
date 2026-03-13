@@ -21,6 +21,17 @@ const handleUnexpectedError = (
   });
 };
 
+type ReconciliationError = Error & {
+  responseHeaders?: Headers;
+};
+
+const getErrorResponseHeaders = (error: unknown) => {
+  const reconciliationError = error as ReconciliationError;
+  return reconciliationError.responseHeaders instanceof Headers
+    ? reconciliationError.responseHeaders
+    : new Headers();
+};
+
 const getReconciledResponseHeaders = async ({
   request,
   sessionActiveHouseholdId,
@@ -42,7 +53,7 @@ const getReconciledResponseHeaders = async ({
     });
   } catch (error) {
     console.error("Failed to reconcile active household session during /api/me", error);
-    return new Headers();
+    return getErrorResponseHeaders(error);
   }
 };
 

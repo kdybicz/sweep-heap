@@ -30,6 +30,17 @@ type ApiHouseholdAccess =
     }
   | ApiAccessFailure;
 
+type ReconciliationError = Error & {
+  responseHeaders?: Headers;
+};
+
+const getErrorResponseHeaders = (error: unknown) => {
+  const reconciliationError = error as ReconciliationError;
+  return reconciliationError.responseHeaders instanceof Headers
+    ? reconciliationError.responseHeaders
+    : new Headers();
+};
+
 export const withResponseHeaders = (response: Response, headers: Headers) => {
   if ([...headers.entries()].length === 0) {
     return response;
@@ -105,7 +116,7 @@ export const requireApiHousehold = async (
           });
         } catch (error) {
           console.error("Failed to reconcile active household session", error);
-          return new Headers();
+          return getErrorResponseHeaders(error);
         }
       })()
     : new Headers();

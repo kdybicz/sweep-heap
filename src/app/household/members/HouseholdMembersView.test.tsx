@@ -38,7 +38,7 @@ describe("HouseholdMembersView", () => {
     expect(markup).toContain("Open member actions");
   });
 
-  it("renders disabled actions menu trigger when no member actions are available", () => {
+  it("keeps the actions menu available for a non-owner viewer who can leave", () => {
     const markup = renderToStaticMarkup(
       <HouseholdMembersView
         canAdministerMembers={false}
@@ -48,6 +48,57 @@ describe("HouseholdMembersView", () => {
             name: "Viewer",
             email: "viewer@example.com",
             role: "member",
+            joinedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ]}
+        initialPendingInvites={[]}
+        viewerUserId={7}
+      />,
+    );
+
+    expect(markup).toMatch(/Open member actions/);
+    expect(markup).toContain("leave your own membership");
+    expect(markup).not.toMatch(/disabled=""/);
+  });
+
+  it("does not show Leave household on other members' rows", () => {
+    const markup = renderToStaticMarkup(
+      <HouseholdMembersView
+        canAdministerMembers={true}
+        initialMembers={[
+          {
+            userId: 7,
+            name: "Owner",
+            email: "owner@example.com",
+            role: "owner",
+            joinedAt: "2026-01-01T00:00:00.000Z",
+          },
+          {
+            userId: 9,
+            name: "Taylor",
+            email: "taylor@example.com",
+            role: "member",
+            joinedAt: "2026-01-02T00:00:00.000Z",
+          },
+        ]}
+        initialPendingInvites={[]}
+        viewerUserId={7}
+      />,
+    );
+
+    expect(markup).not.toContain("Leave household");
+  });
+
+  it("renders a disabled actions menu trigger when the viewer is still the owner", () => {
+    const markup = renderToStaticMarkup(
+      <HouseholdMembersView
+        canAdministerMembers={true}
+        initialMembers={[
+          {
+            userId: 7,
+            name: "Owner",
+            email: "owner@example.com",
+            role: "owner",
             joinedAt: "2026-01-01T00:00:00.000Z",
           },
         ]}

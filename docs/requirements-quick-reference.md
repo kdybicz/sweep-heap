@@ -5,7 +5,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## Current Product Surface
 - Auth: magic-link sign in/out.
 - Household: create, edit, role-aware membership.
-- Members: invite, resend, revoke, promote/demote, remove, transfer ownership.
+- Members: invite, resend, revoke, promote/demote, remove, leave, transfer ownership.
 - Board: weekly chores view, today panel, add chore, mark done, edit occurrence/following/series, cancel.
 - Settings: profile edit, appearance theme, account deletion flow.
 
@@ -15,7 +15,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Any signed-in user can create a household, including users who already belong to another active household.
 - Active household comes from session `active_household_id`, with one-household bootstrap fallback when the session selection is missing or stale.
 - Owner/admin-only: edit household, revoke invites, change roles, remove members.
-- Owner-only: delete household, transfer ownership, and delete only when no other active members remain.
+- Owner-only: delete household, transfer ownership, and manage owner-role memberships/invites.
+- Non-owner members can leave the active household; owners transfer first, then leave as non-owners.
 - Household create/edit validates time zone; invalid values return `400` (`Invalid time zone`).
 - Household time zone is required in storage and household lookups should fail loudly rather than silently defaulting when a household record is missing.
 - `POST /api/households` rolls back the new household if session activation fails and restores the prior active household when one existed; if rollback cannot be completed, it returns `500` with `Failed to activate new household and roll back create`.
@@ -30,6 +31,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Plain magic-link sign-in should return through the same onboarding redirect entry point; invite sign-in keeps the invite-complete callback.
 - Users cannot change their own role from the members endpoint.
 - Household administrators cannot remove themselves from the members endpoint.
+- `POST /api/households/members/leave` attempts to reconcile stale `active_household_id` after self-leave; if Better Auth session healing fails after membership removal, the route still returns a best-effort `nextPath` and later household-scoped requests can finish healing.
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ### Invites
@@ -71,6 +73,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `GET|POST|PATCH|DELETE /api/households`
 - `POST /api/households/active`
 - `GET|POST|PATCH|DELETE /api/households/members`
+- `POST /api/households/members/leave`
+- `POST /api/households/members/owner-transfer`
 - `POST|DELETE /api/households/members/invites/[inviteId]`
 - `POST /api/households/invites/accept`
 - `GET /api/households/invites/complete`
@@ -79,7 +83,6 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `POST /api/me/delete-request`
 - `POST /api/me/delete-confirm`
 - Account deletion is blocked while the user still owns a household with other active members.
-- Owner transfer is not implemented yet, so blocked account deletion currently means removing other active members rather than completing an in-app transfer flow.
 - Delete-request email delivery is required; SMTP failures return `500`.
 - Household deletion still returns to `/household` if reactivating the sole remaining household fails; one-household bootstrap fallback covers the stale-session gap, with best-effort healing on a later household-scoped API request.
 - If post-delete remaining-household inspection fails entirely, household deletion falls back to `/household/select`.
@@ -102,7 +105,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ## Backlog Links
 - Active execution backlog: `docs/todo.md`.
-- Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`, `TODO-4`.
+- Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`.
 
 ## Change Checklist
 - Keep route handlers thin and transport-focused.

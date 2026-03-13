@@ -1,4 +1,5 @@
 export {
+  reconcileActiveHouseholdAfterMembershipMutation,
   reconcileActiveHouseholdSession,
   resolveActiveHousehold,
 } from "@/lib/services/active-household-service";

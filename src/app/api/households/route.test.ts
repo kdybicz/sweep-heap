@@ -8,6 +8,7 @@ const {
   getSessionMock,
   createHouseholdWithOwnerMock,
   listActiveHouseholdsForUserMock,
+  reconcileActiveHouseholdAfterMembershipMutationMock,
   reconcileActiveHouseholdSessionMock,
   resolveActiveHouseholdMock,
   updateHouseholdByIdMock,
@@ -19,6 +20,7 @@ const {
   getSessionMock: vi.fn(),
   createHouseholdWithOwnerMock: vi.fn(),
   listActiveHouseholdsForUserMock: vi.fn(),
+  reconcileActiveHouseholdAfterMembershipMutationMock: vi.fn(),
   reconcileActiveHouseholdSessionMock: vi.fn(),
   resolveActiveHouseholdMock: vi.fn(),
   updateHouseholdByIdMock: vi.fn(),
@@ -45,6 +47,8 @@ vi.mock("@/lib/repositories", () => ({
 
 vi.mock("@/lib/services", () => ({
   householdHasOtherActiveMembers: householdHasOtherActiveMembersMock,
+  reconcileActiveHouseholdAfterMembershipMutation:
+    reconcileActiveHouseholdAfterMembershipMutationMock,
   reconcileActiveHouseholdSession: reconcileActiveHouseholdSessionMock,
   resolveActiveHousehold: resolveActiveHouseholdMock,
   withHouseholdMutationLock: withHouseholdMutationLockMock,
@@ -74,6 +78,7 @@ describe("/api/households route", () => {
     getSessionMock.mockReset();
     createHouseholdWithOwnerMock.mockReset();
     listActiveHouseholdsForUserMock.mockReset();
+    reconcileActiveHouseholdAfterMembershipMutationMock.mockReset();
     reconcileActiveHouseholdSessionMock.mockReset();
     resolveActiveHouseholdMock.mockReset();
     updateHouseholdByIdMock.mockReset();
@@ -88,6 +93,12 @@ describe("/api/households route", () => {
     );
     householdHasOtherActiveMembersMock.mockResolvedValue(false);
     listActiveHouseholdsForUserMock.mockResolvedValue([]);
+    reconcileActiveHouseholdAfterMembershipMutationMock.mockResolvedValue({
+      activeHouseholdActivated: false,
+      nextPath: "/household/setup",
+      resolution: { status: "none" },
+      responseHeaders: new Headers(),
+    });
     reconcileActiveHouseholdSessionMock.mockResolvedValue(new Headers());
     resolveActiveHouseholdMock.mockResolvedValue({ status: "none" });
     setActiveOrganizationMock.mockResolvedValue(
@@ -148,6 +159,43 @@ describe("/api/households route", () => {
       error: "Household required",
       code: API_ERROR_CODE.HOUSEHOLD_REQUIRED,
     });
+  });
+
+  it("DELETE preserves reconciliation cookies when household access healing returns non-ok", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "7" },
+        session: { activeOrganizationId: "11" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({ status: "none" });
+      const reconciliationError = new Error("set active failed") as Error & {
+        responseHeaders?: Headers;
+      };
+      reconciliationError.responseHeaders = new Headers({
+        "set-cookie": "better-auth.session=healed; Path=/; HttpOnly",
+      });
+      reconcileActiveHouseholdSessionMock.mockRejectedValueOnce(reconciliationError);
+
+      const response = await DELETE(
+        new Request("http://localhost/api/households", { method: "DELETE" }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(body).toEqual({
+        ok: false,
+        error: "Household required",
+        code: API_ERROR_CODE.HOUSEHOLD_REQUIRED,
+      });
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=healed");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to reconcile active household session",
+        reconciliationError,
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("GET returns invalid user when session user id is not numeric", async () => {
@@ -944,6 +992,11 @@ describe("/api/households route", () => {
       },
       headers: expect.any(Headers),
     });
+    expect(reconcileActiveHouseholdAfterMembershipMutationMock).toHaveBeenCalledWith({
+      requestHeaders: expect.any(Headers),
+      sessionActiveHouseholdId: 3,
+      userId: 9,
+    });
   });
 
   it("DELETE activates the only remaining household", async () => {
@@ -959,15 +1012,24 @@ describe("/api/households route", () => {
         role: "owner",
       },
     });
-    listActiveHouseholdsForUserMock.mockResolvedValue([
-      {
-        id: 7,
-        name: "Cabin",
-        timeZone: "UTC",
-        icon: "🏕",
-        role: "member",
+    reconcileActiveHouseholdAfterMembershipMutationMock.mockResolvedValue({
+      activeHouseholdActivated: true,
+      nextPath: "/household",
+      resolution: {
+        status: "resolved",
+        source: "fallback",
+        household: {
+          id: 7,
+          name: "Cabin",
+          timeZone: "UTC",
+          icon: "🏕",
+          role: "member",
+        },
       },
-    ]);
+      responseHeaders: new Headers({
+        "set-cookie": "better-auth.session=reactivated; Path=/; HttpOnly",
+      }),
+    });
 
     const response = await DELETE(
       new Request("http://localhost/api/households", { method: "DELETE" }),
@@ -981,13 +1043,7 @@ describe("/api/households route", () => {
       activeHouseholdActivated: true,
       nextPath: "/household",
     });
-    expect(setActiveOrganizationMock).toHaveBeenCalledWith({
-      asResponse: true,
-      body: {
-        organizationId: "7",
-      },
-      headers: expect.any(Headers),
-    });
+    expect(response.headers.get("set-cookie")).toContain("better-auth.session=deleted");
   });
 
   it("DELETE returns 500 when Better Auth delete returns non-ok response", async () => {
@@ -1029,7 +1085,7 @@ describe("/api/households route", () => {
         error: "Failed to delete household",
       });
       expect(response.headers.get("set-cookie")).toContain("better-auth.session=deleted");
-      expect(listActiveHouseholdsForUserMock).not.toHaveBeenCalled();
+      expect(reconcileActiveHouseholdAfterMembershipMutationMock).not.toHaveBeenCalled();
       expect(consoleErrorSpy).toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
@@ -1049,22 +1105,30 @@ describe("/api/households route", () => {
         role: "owner",
       },
     });
-    listActiveHouseholdsForUserMock.mockResolvedValue([
-      {
-        id: 7,
-        name: "Cabin",
-        timeZone: "UTC",
-        icon: "🏕",
-        role: "member",
+    reconcileActiveHouseholdAfterMembershipMutationMock.mockResolvedValue({
+      activeHouseholdActivated: false,
+      nextPath: "/household/select",
+      resolution: {
+        status: "selection-required",
+        households: [
+          {
+            id: 7,
+            name: "Cabin",
+            timeZone: "UTC",
+            icon: "🏕",
+            role: "member",
+          },
+          {
+            id: 8,
+            name: "Studio",
+            timeZone: "Europe/Warsaw",
+            icon: null,
+            role: "owner",
+          },
+        ],
       },
-      {
-        id: 8,
-        name: "Studio",
-        timeZone: "Europe/Warsaw",
-        icon: null,
-        role: "owner",
-      },
-    ]);
+      responseHeaders: new Headers(),
+    });
 
     const response = await DELETE(
       new Request("http://localhost/api/households", { method: "DELETE" }),
@@ -1098,7 +1162,9 @@ describe("/api/households route", () => {
           role: "owner",
         },
       });
-      listActiveHouseholdsForUserMock.mockRejectedValue(new Error("db failed after delete"));
+      reconcileActiveHouseholdAfterMembershipMutationMock.mockRejectedValue(
+        new Error("db failed after delete"),
+      );
 
       const response = await DELETE(
         new Request("http://localhost/api/households", { method: "DELETE" }),
@@ -1135,16 +1201,22 @@ describe("/api/households route", () => {
         role: "owner",
       },
     });
-    listActiveHouseholdsForUserMock.mockResolvedValue([
-      {
-        id: 7,
-        name: "Cabin",
-        timeZone: "UTC",
-        icon: "🏕",
-        role: "member",
+    reconcileActiveHouseholdAfterMembershipMutationMock.mockResolvedValue({
+      activeHouseholdActivated: false,
+      nextPath: "/household",
+      resolution: {
+        status: "resolved",
+        source: "fallback",
+        household: {
+          id: 7,
+          name: "Cabin",
+          timeZone: "UTC",
+          icon: "🏕",
+          role: "member",
+        },
       },
-    ]);
-    setActiveOrganizationMock.mockRejectedValueOnce(new Error("cookie write failed"));
+      responseHeaders: new Headers(),
+    });
 
     const response = await DELETE(
       new Request("http://localhost/api/households", { method: "DELETE" }),
@@ -1161,53 +1233,50 @@ describe("/api/households route", () => {
   });
 
   it("DELETE keeps household fallback path when activation returns non-ok response", async () => {
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    try {
-      getSessionMock.mockResolvedValue({
-        user: { id: "9" },
-        session: { activeOrganizationId: "3" },
-      });
-      resolveActiveHouseholdMock.mockResolvedValue({
+    getSessionMock.mockResolvedValue({
+      user: { id: "9" },
+      session: { activeOrganizationId: "3" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: {
+        id: 3,
+        name: "Flat",
+        timeZone: "UTC",
+        icon: null,
+        role: "owner",
+      },
+    });
+    reconcileActiveHouseholdAfterMembershipMutationMock.mockResolvedValue({
+      activeHouseholdActivated: false,
+      nextPath: "/household",
+      resolution: {
         status: "resolved",
-        source: "session",
+        source: "fallback",
         household: {
-          id: 3,
-          name: "Flat",
-          timeZone: "UTC",
-          icon: null,
-          role: "owner",
-        },
-      });
-      listActiveHouseholdsForUserMock.mockResolvedValue([
-        {
           id: 7,
           name: "Cabin",
           timeZone: "UTC",
           icon: "🏕",
           role: "member",
         },
-      ]);
-      setActiveOrganizationMock.mockResolvedValueOnce(new Response(null, { status: 500 }));
+      },
+      responseHeaders: new Headers(),
+    });
 
-      const response = await DELETE(
-        new Request("http://localhost/api/households", { method: "DELETE" }),
-      );
-      const body = await response.json();
+    const response = await DELETE(
+      new Request("http://localhost/api/households", { method: "DELETE" }),
+    );
+    const body = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(body).toEqual({
-        ok: true,
-        deletedHouseholdId: 3,
-        activeHouseholdActivated: false,
-        nextPath: "/household",
-      });
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "Failed to activate remaining household after delete",
-        expect.any(Error),
-      );
-    } finally {
-      consoleErrorSpy.mockRestore();
-    }
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      ok: true,
+      deletedHouseholdId: 3,
+      activeHouseholdActivated: false,
+      nextPath: "/household",
+    });
   });
 
   it("GET returns selection required when multiple households exist without an active choice", async () => {

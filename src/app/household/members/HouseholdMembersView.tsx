@@ -89,6 +89,7 @@ export default function HouseholdMembersView({
   const [roleUpdatingUserId, setRoleUpdatingUserId] = useState<number | null>(null);
   const [transferringOwnerUserId, setTransferringOwnerUserId] = useState<number | null>(null);
   const [removingUserId, setRemovingUserId] = useState<number | null>(null);
+  const [leavingHousehold, setLeavingHousehold] = useState(false);
   const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
   const [actionsMenuPosition, setActionsMenuPosition] = useState<ActionsMenuPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -510,6 +511,49 @@ export default function HouseholdMembersView({
     }
   };
 
+  const handleLeaveHousehold = async () => {
+    const confirmed = window.confirm(
+      "Leave this household? You will switch to another household or onboarding if this is your last one.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setOpenActionsMenuId(null);
+    setActionsMenuPosition(null);
+    setError(null);
+    setMessage(null);
+    setLeavingHousehold(true);
+
+    try {
+      const response = await fetch("/api/households/members/leave", {
+        method: "POST",
+      });
+      const data = await readApiJsonResponse<
+        HouseholdMembersApiResponse & {
+          activeHouseholdActivated?: boolean;
+          nextPath?: string;
+        }
+      >(response);
+      if (recoverFromHouseholdContextError(data)) {
+        return;
+      }
+      if (!data?.ok) {
+        setError(data?.error ?? "Failed to leave household");
+        setLeavingHousehold(false);
+        return;
+      }
+
+      router.push(typeof data.nextPath === "string" ? data.nextPath : "/household/setup");
+      router.refresh();
+    } catch (leaveError) {
+      const leaveMessage =
+        leaveError instanceof Error ? leaveError.message : "Failed to leave household";
+      setError(leaveMessage);
+      setLeavingHousehold(false);
+    }
+  };
+
   const renderActionsMenu = (menuId: string, className: string, content: ReactNode) => {
     if (openActionsMenuId !== menuId || !actionsMenuPosition || typeof document === "undefined") {
       return null;
@@ -599,7 +643,8 @@ export default function HouseholdMembersView({
 
       {!canAdministerMembers ? (
         <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold text-[var(--muted)]">
-          You can invite new members. Role changes and removals are limited to admins and owners.
+          You can invite new members and leave your own membership. Role changes and removals are
+          limited to admins and owners.
         </div>
       ) : null}
 
@@ -710,6 +755,8 @@ export default function HouseholdMembersView({
                 const roleIsUpdating = roleUpdatingUserId === member.userId;
                 const isTransferringOwner = transferringOwnerUserId === member.userId;
                 const isRemoving = removingUserId === member.userId;
+                const canLeaveHousehold = isViewer && member.role !== "owner";
+                const isLeavingHousehold = isViewer && leavingHousehold;
                 const canEditOwnerMembers = canManageOwnerRole || member.role !== "owner";
                 const canEditMemberRole = canAdministerMembers && canEditOwnerMembers;
                 const disableRoleChange =
@@ -717,19 +764,28 @@ export default function HouseholdMembersView({
                   isViewer ||
                   roleIsUpdating ||
                   isRemoving ||
-                  isTransferringOwner;
+                  isTransferringOwner ||
+                  isLeavingHousehold;
                 const disableRemove =
                   !canEditMemberRole ||
                   isViewer ||
                   roleIsUpdating ||
                   isRemoving ||
-                  isTransferringOwner;
+                  isTransferringOwner ||
+                  isLeavingHousehold;
                 const showTransferOwnership =
                   canManageOwnerRole && !isViewer && member.role !== "owner";
                 const disableTransferOwnership =
                   roleIsUpdating || isRemoving || isTransferringOwner || !showTransferOwnership;
+                const disableLeaveHousehold =
+                  !canLeaveHousehold ||
+                  roleIsUpdating ||
+                  isRemoving ||
+                  isTransferringOwner ||
+                  isLeavingHousehold;
                 const actionsMenuId = `member-${member.userId}`;
-                const disableActionsMenu = disableTransferOwnership && disableRemove;
+                const disableActionsMenu =
+                  disableTransferOwnership && disableRemove && disableLeaveHousehold;
 
                 return (
                   <tr
@@ -817,6 +873,17 @@ export default function HouseholdMembersView({
                               <span>Remove</span>
                               <span>{isRemoving ? "..." : null}</span>
                             </button>
+                            {canLeaveHousehold ? (
+                              <button
+                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={disableLeaveHousehold}
+                                onClick={handleLeaveHousehold}
+                                type="button"
+                              >
+                                <span>Leave household</span>
+                                <span>{isLeavingHousehold ? "..." : null}</span>
+                              </button>
+                            ) : null}
                           </>,
                         )}
                       </div>

@@ -7,7 +7,7 @@
 - For a compact day-to-day version, use `docs/requirements-quick-reference.md`.
 
 ## Status
-- Last reviewed against code: 2026-03-08.
+- Last reviewed against code: 2026-03-13.
 - Product phase: MVP with active iteration.
 - Current scope includes auth, households, members/invites, chores board UI, and account settings.
 
@@ -27,7 +27,6 @@
   - `TODO-1`: integration and end-to-end coverage hardening.
   - `TODO-2`: API rate limiting and abuse protections.
   - `TODO-3`: stricter DB constraints with a staged migration rollout.
-  - `TODO-4`: household ownership and deletion lifecycle.
 - Workflow rule: when completing a TODO item, update this file in the same change if behavior, constraints, or caveats changed.
 
 ## Tech and Architecture Baseline
@@ -105,7 +104,10 @@
 - Users cannot change their own role through the members API.
 - Household administrators cannot remove themselves through the members API.
 - Owners can transfer ownership to another active household member; transfer promotes the target to `owner` and demotes the acting owner to `admin` in the same guarded flow.
-- There is currently no dedicated self-leave API; when it is added, it must reconcile `active_household_id` using the same stale-session healing rules as other household membership changes.
+- Non-owner members can leave the active household through the dedicated self-leave API.
+- Owners must transfer ownership before leaving; after transfer, the former owner can leave through the same self-leave flow.
+- Self-leave attempts to reconcile `active_household_id` before returning: the sole remaining household is activated, multiple remaining households require `/household/select`, and no remaining households return the user to `/household/setup`.
+- If self-leave session healing fails after membership removal, the route still succeeds with a best-effort `nextPath`; later page/API bootstrap may heal the stale selection on the next household-scoped request.
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ## Invite Rules
@@ -208,6 +210,12 @@
   - Updates member role (owner/admin only).
 - `DELETE /api/households/members`
   - Removes member (owner/admin only).
+- `POST /api/households/members/leave`
+  - Removes the current non-owner member from the active household.
+  - Attempts to reconcile active-household session state before returning the next client path.
+  - If post-leave session healing fails, response still succeeds with a best-effort `nextPath`; later household-scoped requests can finish healing stale session state.
+- `POST /api/households/members/owner-transfer`
+  - Transfers ownership to another active household member and demotes the acting owner to `admin`.
 - `POST /api/households/members/invites/[inviteId]`
   - Resends pending invite.
 - `DELETE /api/households/members/invites/[inviteId]`
@@ -250,12 +258,11 @@
 - On confirmed delete:
   - User row is removed.
   - Any households that become empty (no active memberships) are also removed.
-- Current remediation is still limited: self-leave and owner-leave-after-transfer are not implemented yet.
 
-## Planned Ownership and Deletion Rules
-- Deleting a user's last household should leave the user in onboarding with no active household; they may create a new household afterward.
-- When an active household is deleted or the user's membership in it ends, `active_household_id` must be cleared or re-resolved before the next household-scoped action.
-- Multi-household support should treat `active_household_id` as the acting context; membership list and ownership checks must be evaluated against the targeted household, not inferred by latest membership.
+## Ownership and Deletion Reconciliation (Current)
+- Deleting a user's last household leaves the user in onboarding with no active household; they may create a new household afterward.
+- When an active household is deleted or the user's membership in it ends through self-leave, `active_household_id` is cleared or re-resolved when possible before the client continues; if Better Auth session healing fails, later bootstrap fallback may finish healing stale selection.
+- Multi-household support treats `active_household_id` as the acting context; membership list and ownership checks are evaluated against the targeted household, not inferred by latest membership.
 
 ## Code Organization Conventions
 - Keep route handlers transport-focused (auth, parsing, response mapping).

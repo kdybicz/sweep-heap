@@ -199,6 +199,54 @@ describe("/api/me route", () => {
     expect(body.activeHouseholdId).toBeNull();
   });
 
+  it("GET preserves reconciliation cookies when session healing returns non-ok", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({
+        user: {
+          id: "4",
+          name: "Alex",
+          email: "alex@example.com",
+        },
+        session: {
+          activeOrganizationId: "12",
+        },
+      });
+      getUserMembershipsMock.mockResolvedValue([]);
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "session",
+        household: {
+          id: 12,
+          name: "Home",
+          role: "admin",
+          icon: null,
+          timeZone: "UTC",
+        },
+      });
+      const reconciliationError = new Error("set active failed") as Error & {
+        responseHeaders?: Headers;
+      };
+      reconciliationError.responseHeaders = new Headers({
+        "set-cookie": "better-auth.session=healed; Path=/; HttpOnly",
+      });
+      reconcileActiveHouseholdSessionMock.mockRejectedValueOnce(reconciliationError);
+
+      const response = await GET(new Request("http://localhost/api/me"));
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session=healed");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to reconcile active household session during /api/me",
+        reconciliationError,
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it("GET returns consistent 500 envelope on unexpected errors", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
