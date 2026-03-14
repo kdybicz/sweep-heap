@@ -71,8 +71,8 @@ Keep page-level access rules aligned with API permissions:
 
 - Server-rendered pages for privileged actions must enforce the same role checks as the API they submit to.
 - Household-scoped product pages (board, profile, settings, household management) should require an active household before rendering.
-- The pre-household onboarding surface is limited to auth, invite acceptance, and household setup.
-- Public entry points such as `/` and `/auth` should redirect signed-in users to `/household` or `/household/setup` rather than leaving them on public pages.
+- The signed-in pre-active-household surface includes auth redirects, invite acceptance, household setup, and household selection when multiple memberships exist without a valid active selection.
+- Public entry points such as `/` and `/auth` should redirect signed-in users to `/household`, `/household/select`, or `/household/setup` rather than leaving them on public pages.
 - For household owner/admin flows (for example `/household/edit` with `PATCH /api/households`), redirect non-privileged members before rendering the edit form.
 
 ## 5) Recurrence and Occurrence Generation
@@ -83,6 +83,7 @@ In `src/lib/occurrences.ts`:
 - Treat API/storage `endDate` as exclusive for span math; convert from the inclusive create/edit form input at the UI boundary.
 - Recurrence cursor loops must guard against non-advancing values (`nextCursor.equals(cursor)`) to avoid hangs.
 - Keep date math timezone-aware and day-based (`Luxon`, `startOf("day")`, ISO date keys).
+- Keep `src/lib/occurrences.ts` overlap behavior aligned with the SQL prefilters in `src/lib/repositories/chore-repository.ts`; changing only one side can silently drop or over-include chores.
 
 ## 6) Testing Standards for Contracts
 
@@ -101,12 +102,20 @@ Prefer adding regression tests for bugs that were fixed.
 
 ## 7) Maintenance Rule
 
+Documentation and implementation should stay in sync:
+
+- Keep documentation, names, comments, and examples aligned with current behavior.
+- Make non-obvious assumptions and edge cases explicit in code or docs where future maintainers are likely to look.
+- When inconsistencies are found, fix small safe issues promptly; if a larger issue cannot be resolved in the current change, document the affected files, the risk, and the recommended follow-up.
+
+## 8) Maintenance Rule
+
 If a recurring surprise gets fixed and becomes a standard:
 
 1. Document the standard here.
 2. Remove or shorten the matching note in `AGENTS.md`.
 
-## 8) Members API Consistency
+## 9) Members API Consistency
 
 For household member/invite role-management routes:
 
@@ -115,7 +124,7 @@ For household member/invite role-management routes:
 - Enforce owner-role protections at the API boundary (`403`): non-owners cannot manage owner memberships or owner-role invites.
 - Translate Better Auth business-rule conflicts (for example last-owner) to consistent `409` responses.
 
-## 9) Chore Mutation Contract
+## 10) Chore Mutation Contract
 
 For `PATCH /api/chores`:
 
@@ -129,14 +138,14 @@ For `PATCH /api/chores`:
 - For `scope: "all"`, cancel marks the source series row canceled and edit updates the current series row in place using the submitted fields/defaults.
 - Keep `UndoToastStack` and related undo UI pieces isolated so they can be reconnected later without shaping the active mutation contract.
 
-## 10) Invite Deduplication Contract
+## 11) Invite Deduplication Contract
 
 For household invite creation:
 
 - Keep email normalization (`trim().toLowerCase()`) before persistence.
 - Enforce one pending invite per `(household, email)` with a partial unique DB index and handle race conflicts by returning the already-pending invite response.
 
-## 11) Invite Acceptance Handoff
+## 12) Invite Acceptance Handoff
 
 For household invite acceptance:
 
@@ -146,7 +155,7 @@ For household invite acceptance:
 - If membership is created but post-accept active-household switching fails, recover to a household selection/setup path instead of bouncing back to an already-consumed invite.
 - For local redirect targets, use `src/lib/safe-local-path.ts` instead of ad-hoc checks. Decode once when validating user-entered callback params (for example `/auth`), but keep nested redirect targets encoded when validating values already parsed from `URLSearchParams` (for example `/signout?redirectTo=...`) so inner callback query strings are not truncated. Reject network-path variants using both `/` and `\` prefixes; backslash forms like `/\\evil.com` are not safe local paths.
 
-## 12) Build vs Buy Recommendation Standard
+## 13) Build vs Buy Recommendation Standard
 
 When proposing implementation approaches (in issues, plans, or PR summaries):
 
@@ -156,7 +165,7 @@ When proposing implementation approaches (in issues, plans, or PR summaries):
   - In-house solution: pros and cons (control, customization, delivery time, maintenance burden, long-term risk).
 - End with a clear recommendation and rationale; choose in-house only when constraints require it (for example domain-specific requirements, licensing/compliance limits, or lack of a mature ecosystem fit).
 
-## 13) PoC Database Compatibility Policy
+## 14) PoC Database Compatibility Policy
 
 Current project posture:
 

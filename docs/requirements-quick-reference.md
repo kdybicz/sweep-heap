@@ -4,7 +4,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ## Current Product Surface
 - Auth: magic-link sign in/out.
-- Household: create, edit, role-aware membership.
+- Household: create, select active household, edit, role-aware membership.
 - Members: invite, resend, revoke, promote/demote, remove, leave, transfer ownership.
 - Board: weekly chores view, today panel, add chore, mark done, edit occurrence/following/series, cancel.
 - Settings: profile edit, appearance theme, account deletion flow.
@@ -25,7 +25,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Household selection uses session `active_household_id` as the primary context; when multiple memberships exist without an active selection, redirect to `/household/select` or handle `HOUSEHOLD_SELECTION_REQUIRED`.
 - Client fetch flows that lose household context mid-request should recover by redirecting to `/household/setup` for `HOUSEHOLD_REQUIRED`, or `/household/select` for `HOUSEHOLD_SELECTION_REQUIRED` and `HOUSEHOLD_NOT_FOUND`.
 - `/api/me` also reconciles stale `active_household_id` when request headers are available.
-- Signed-in users without an active household should stay in the auth/onboarding flow until setup or invite acceptance completes.
+- Signed-in users without an active household should stay in the signed-in onboarding flow until setup or invite acceptance completes, except when they need `/household/select` to choose among multiple memberships.
 - Settings, profile, and board pages stay behind active-household access.
 - `/` and `/auth` should bounce signed-in users into `/household`, `/household/select`, or `/household/setup` based on context.
 - Plain magic-link sign-in should return through the same onboarding redirect entry point; invite sign-in keeps the invite-complete callback.
@@ -111,8 +111,9 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`.
 
 ## Change Checklist
-- Keep route handlers thin and transport-focused.
+- Prefer route handlers to stay thin and transport-focused, but treat current route-local member/invite policy checks as real contract until they are deliberately extracted.
 - Keep SQL in repositories; keep domain rules in services.
-- For household member/invite routes, keep branching and policy checks in services rather than route handlers.
+- When changing household member/invite flows, review the route handlers and colocated route tests first; much of the current branching and Better Auth orchestration still lives there.
+- When changing recurrence overlap behavior, update both `src/lib/occurrences.ts` and `src/lib/repositories/chore-repository.ts`.
 - Add or update focused tests when behavior changes.
 - If behavior intentionally changes, update both requirements docs.

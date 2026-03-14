@@ -5,7 +5,8 @@ in the AGENTS.md file to help prevent future agents from having the same issue.
 
 - Command precedence in this repo: prefer `make` targets first, and use direct `yarn` only when an equivalent `make` target is missing.
 - After code changes, run `make dev-fix` and report the results. For docs-only updates, skip this unless explicitly requested. (This repo uses Yarn under the hood, not npm or pnpm.)
-- After code changes, also review related documentation and tests to confirm they still match the implementation and update them when needed.
+- After code changes, review the related documentation and tests for the touched behavior and update them when needed.
+- Actively watch for documentation/code drift, misleading names or comments, hidden assumptions, inconsistent patterns, and surprising behavior that could confuse future contributors or coding agents. Fix small, low-risk issues when clearly correct; otherwise report them with exact file references, why they are misleading or risky, and the recommended follow-up.
 - After finishing the requested work, look for similar or related functionality that may need the same change; if you find any, call it out and propose a follow-up update.
 - Canonical implementation standards belong in `docs/engineering-patterns.md`; keep this file focused on surprises and agent workflow gotchas.
 - `@next/env` import interop can differ across runners (Node ESM vs Drizzle/tsx transpilation). In Node-run `.mjs` scripts, use `import * as nextEnv from "@next/env"` and resolve with `nextEnv.default ?? nextEnv` before destructuring `loadEnvConfig`; keep `drizzle.config.ts` on the simpler `import { loadEnvConfig } from "@next/env"` unless migrate tooling shows interop issues.

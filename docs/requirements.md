@@ -89,8 +89,8 @@
 - Household create/update rejects invalid time zones with `400` (`Invalid time zone`) instead of silently coercing to `UTC`.
 - When an authenticated user has no active household, household-gated APIs return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
 - Client fetch flows that lose household context mid-request should branch on `code` and recover to `/household/setup` for `HOUSEHOLD_REQUIRED`, or `/household/select` for `HOUSEHOLD_SELECTION_REQUIRED` and `HOUSEHOLD_NOT_FOUND`.
-- Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household.
-- Settings, profile, and board pages stay household-gated; only auth, invite acceptance, and household setup remain available during onboarding.
+- Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household, unless they need `/household/select` to choose among multiple existing memberships.
+- Settings, profile, and board pages stay household-gated; the signed-in pre-active-household surface is limited to auth redirects, invite acceptance, household setup, and household selection.
 - Public entry points like `/` and `/auth` should immediately redirect signed-in users to `/household`, `/household/select`, or `/household/setup` based on active-household state and onboarding completeness.
 - Default magic-link sign-in should return through an entry point that applies the same onboarding redirect policy; invite sign-in should keep its explicit callback to `/api/households/invites/complete`.
 - Non-admin members can invite and resend invites.
@@ -267,9 +267,9 @@
 - Multi-household support treats `active_household_id` as the acting context; membership list and ownership checks are evaluated against the targeted household, not inferred by latest membership.
 
 ## Code Organization Conventions
-- Keep route handlers transport-focused (auth, parsing, response mapping).
+- Prefer route handlers to stay transport-focused (auth, parsing, response mapping), but note that some current household member/invite routes still contain role-policy branching and Better Auth orchestration inline.
 - Keep SQL/data access in `src/lib/repositories/*-repository.ts`.
-- Keep domain logic in `src/lib/services/*-service.ts`.
+- Keep reusable domain logic in `src/lib/services/*-service.ts`; when behavior remains route-local today, treat the route file and its colocated tests as the current contract until that logic is intentionally extracted.
 - Use barrel exports from `src/lib/repositories/index.ts` and `src/lib/services/index.ts`.
 
 ## Testing and Quality Gates
@@ -289,5 +289,5 @@
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in `TODO-3`.
 
 ## Decision Notes for Future Work
-- If recurrence behavior is changed, update both `generateOccurrences` and tests first, then align API and UI assumptions.
+- If recurrence behavior is changed, update both `src/lib/occurrences.ts` and the overlap prefilters in `src/lib/repositories/chore-repository.ts`, then align tests plus API/UI assumptions.
 - If auditability becomes mandatory, introduce append-only event storage instead of relying on exception row replacement.
