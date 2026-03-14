@@ -56,6 +56,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ### Done and cancel
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.
 - `stay_open`: done sets `status=open`, `closed_reason=done`.
+- Completion undo is currently disabled; `UndoToastStack` is parked in the codebase but not wired into the board.
 - `action=set` must target a valid generated occurrence start date for the chore series.
 - Creating chores and edit/cancel actions are allowed for past dates; only the primary done/open action is currently blocked for past occurrences.
 - `action=cancel|edit` requires `scope=single|following|all`.

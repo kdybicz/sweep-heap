@@ -77,11 +77,19 @@ export default function AccountDropdown({
         <div className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
           {label}
         </div>
-        {shortcuts.map((shortcut) => (
-          <Link className={itemClassName} href={shortcut.href} key={shortcut.href}>
-            {shortcut.label}
-          </Link>
-        ))}
+        {shortcuts.map((shortcut) =>
+          shortcut.href === "/signout" ? (
+            <form action="/signout" key={shortcut.href} method="post">
+              <button className={`${itemClassName} w-full text-left`} type="submit">
+                {shortcut.label}
+              </button>
+            </form>
+          ) : (
+            <Link className={itemClassName} href={shortcut.href} key={shortcut.href}>
+              {shortcut.label}
+            </Link>
+          ),
+        )}
       </div>
     </details>
   );

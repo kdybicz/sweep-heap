@@ -52,7 +52,7 @@
   - Create chore series.
   - View chores for week and for today.
   - Mark occurrence done.
-  - Undo recent done action with countdown bar.
+  - No active undo UI for done actions; the old toast/countdown work is currently disabled.
 - User profile update (name), appearance settings (system/light/dark), account deletion confirmation flow.
 - Health endpoint for DB connectivity.
 

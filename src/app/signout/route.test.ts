@@ -1,12 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { headersMock, signOutMock } = vi.hoisted(() => ({
-  headersMock: vi.fn(),
+const { signOutMock } = vi.hoisted(() => ({
   signOutMock: vi.fn(),
-}));
-
-vi.mock("next/headers", () => ({
-  headers: headersMock,
 }));
 
 vi.mock("@/auth", () => ({
@@ -17,14 +12,28 @@ vi.mock("@/auth", () => ({
   },
 }));
 
-import { GET } from "@/app/signout/route";
+import { GET, POST } from "@/app/signout/route";
+
+const requestWithFormData = (entries: Record<string, string>, origin = "http://localhost") => {
+  const formData = new URLSearchParams();
+  for (const [key, value] of Object.entries(entries)) {
+    formData.set(key, value);
+  }
+
+  return new Request("http://localhost/signout", {
+    method: "POST",
+    body: formData,
+    headers: {
+      cookie: "better-auth.session=abc",
+      "content-type": "application/x-www-form-urlencoded",
+      origin,
+    },
+  });
+};
 
 describe("/signout route", () => {
   beforeEach(() => {
-    headersMock.mockReset();
     signOutMock.mockReset();
-
-    headersMock.mockResolvedValue(new Headers({ cookie: "better-auth.session=abc" }));
     signOutMock.mockResolvedValue(
       new Response(null, {
         headers: {
@@ -34,18 +43,25 @@ describe("/signout route", () => {
     );
   });
 
+  it("rejects GET requests", async () => {
+    const response = await GET();
+
+    expect(response.status).toBe(405);
+  });
+
   it("redirects to the safe local target after signing out", async () => {
-    const response = await GET(
-      new Request(
-        "http://localhost/signout?redirectTo=%2Fauth%3Femail%3Dinvite%2540example.com%26callbackURL%3D%252Fapi%252Fhouseholds%252Finvites%252Fcomplete%253FinvitationId%253D12%2526secret%253Ds3cr3t",
-      ),
+    const response = await POST(
+      requestWithFormData({
+        redirectTo:
+          "/auth?email=invite@example.com&callbackURL=%2Fapi%2Fhouseholds%2Finvites%2Fcomplete%3FinvitationId%3D12%26secret%3Ds3cr3t",
+      }),
     );
 
     expect(signOutMock).toHaveBeenCalledWith({
       headers: expect.any(Headers),
       asResponse: true,
     });
-    expect(response.status).toBe(302);
+    expect(response.status).toBe(303);
     const location = new URL(response.headers.get("location") ?? "", "http://localhost");
     expect(location.pathname).toBe("/auth");
     expect(location.searchParams.get("email")).toBe("invite@example.com");
@@ -56,27 +72,66 @@ describe("/signout route", () => {
   });
 
   it("falls back to landing for unsafe redirect targets", async () => {
-    const response = await GET(
-      new Request("http://localhost/signout?redirectTo=https://example.com/evil"),
+    const response = await POST(
+      requestWithFormData({
+        redirectTo: "https://example.com/evil",
+      }),
     );
 
-    expect(response.status).toBe(302);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("http://localhost/");
   });
 
   it("falls back to landing for backslash network-path redirects", async () => {
-    const response = await GET(new Request("http://localhost/signout?redirectTo=%2F%5Cevil.com"));
+    const response = await POST(
+      requestWithFormData({
+        redirectTo: "/\\evil.com",
+      }),
+    );
 
-    expect(response.status).toBe(302);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("http://localhost/");
   });
 
-  it("returns 500 when sign out responds non-ok", async () => {
+  it("rejects cross-origin sign-out submissions", async () => {
+    const response = await POST(requestWithFormData({}, "https://evil.example"));
+
+    expect(response.status).toBe(403);
+    expect(signOutMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects to failure recovery when sign out responds non-ok", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       signOutMock.mockResolvedValue(new Response(null, { status: 500 }));
 
-      const response = await GET(new Request("http://localhost/signout"));
+      const response = await POST(
+        requestWithFormData({
+          redirectTo: "/auth",
+          failureRedirectTo: "/household/invite?invitationId=12&secret=s3cr3t&error=signout-failed",
+        }),
+      );
+
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe(
+        "http://localhost/household/invite?invitationId=12&secret=s3cr3t&error=signout-failed",
+      );
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("returns 500 when sign out fails without an explicit failure redirect", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      signOutMock.mockResolvedValue(new Response(null, { status: 500 }));
+
+      const response = await POST(
+        requestWithFormData({
+          redirectTo: "/",
+        }),
+      );
 
       expect(response.status).toBe(500);
       expect(consoleErrorSpy).toHaveBeenCalled();

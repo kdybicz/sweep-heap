@@ -40,61 +40,6 @@ const copySetCookieHeaders = (response: Response) => {
   return responseHeaders;
 };
 
-export const toHouseholdInviteCompletePath = ({
-  invitationId,
-  secret,
-}: {
-  invitationId: number;
-  secret: string;
-}) => {
-  const url = new URL("/api/households/invites/complete", "http://localhost");
-  url.searchParams.set("invitationId", String(invitationId));
-  url.searchParams.set("secret", secret);
-  return `${url.pathname}${url.search}`;
-};
-
-export const buildHouseholdInviteSignInRedirectUrl = ({
-  email,
-  invitationId,
-  secret,
-}: {
-  email: string;
-  invitationId: number;
-  secret: string;
-}) => {
-  const url = new URL("/auth", "http://localhost");
-  url.searchParams.set("email", email);
-  url.searchParams.set(
-    "callbackURL",
-    toHouseholdInviteCompletePath({
-      invitationId,
-      secret,
-    }),
-  );
-  return `${url.pathname}${url.search}`;
-};
-
-export const buildHouseholdInviteSwitchAccountUrl = ({
-  email,
-  invitationId,
-  secret,
-}: {
-  email: string;
-  invitationId: number;
-  secret: string;
-}) => {
-  const url = new URL("/signout", "http://localhost");
-  url.searchParams.set(
-    "redirectTo",
-    buildHouseholdInviteSignInRedirectUrl({
-      email,
-      invitationId,
-      secret,
-    }),
-  );
-  return `${url.pathname}${url.search}`;
-};
-
 export const getPendingHouseholdInvite = async ({
   invitationId,
   secret,

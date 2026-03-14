@@ -236,15 +236,10 @@ describe("/api/households/invites/accept route", () => {
     expect(body.ok).toBe(true);
     expect(typeof body.redirectUrl).toBe("string");
     const redirectUrl = new URL(body.redirectUrl, "http://localhost");
-    expect(redirectUrl.pathname).toBe("/signout");
-    const redirectTo = redirectUrl.searchParams.get("redirectTo");
-    expect(typeof redirectTo).toBe("string");
-    const authRedirectUrl = new URL(redirectTo ?? "", "http://localhost");
-    expect(authRedirectUrl.pathname).toBe("/auth");
-    expect(authRedirectUrl.searchParams.get("email")).toBe("invited@example.com");
-    expect(authRedirectUrl.searchParams.get("callbackURL")).toBe(
-      "/api/households/invites/complete?invitationId=12&secret=invite-secret",
-    );
+    expect(redirectUrl.pathname).toBe("/household/invite");
+    expect(redirectUrl.searchParams.get("invitationId")).toBe("12");
+    expect(redirectUrl.searchParams.get("secret")).toBe("invite-secret");
+    expect(redirectUrl.searchParams.get("error")).toBe("sign-in");
   });
 
   it("starts switch-account flow when accept detects a recipient mismatch", async () => {
@@ -270,7 +265,8 @@ describe("/api/households/invites/accept route", () => {
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
     const redirectUrl = new URL(body.redirectUrl, "http://localhost");
-    expect(redirectUrl.pathname).toBe("/signout");
+    expect(redirectUrl.pathname).toBe("/household/invite");
+    expect(redirectUrl.searchParams.get("error")).toBe("sign-in");
   });
 
   it("returns consistent 500 envelope on unexpected errors", async () => {

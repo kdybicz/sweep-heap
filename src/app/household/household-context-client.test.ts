@@ -10,6 +10,7 @@ import {
 
 describe("household context client helpers", () => {
   it("maps missing household access states to redirect paths", () => {
+    expect(getHouseholdContextRedirectPath("UNAUTHORIZED")).toBe("/auth");
     expect(getHouseholdContextRedirectPath("HOUSEHOLD_REQUIRED")).toBe("/household/setup");
     expect(getHouseholdContextRedirectPath("HOUSEHOLD_SELECTION_REQUIRED")).toBe(
       "/household/select",
@@ -73,6 +74,28 @@ describe("household context client helpers", () => {
         }),
       ).toBe(true);
       expect(assignMock).toHaveBeenCalledWith("/household/select");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("redirects browser to auth when session recovery is required", () => {
+    const assignMock = vi.fn();
+    vi.stubGlobal("window", {
+      location: {
+        assign: assignMock,
+      },
+    });
+
+    try {
+      expect(
+        recoverFromHouseholdContextError({
+          ok: false,
+          code: "UNAUTHORIZED",
+          error: "Unauthorized",
+        }),
+      ).toBe(true);
+      expect(assignMock).toHaveBeenCalledWith("/auth");
     } finally {
       vi.unstubAllGlobals();
     }

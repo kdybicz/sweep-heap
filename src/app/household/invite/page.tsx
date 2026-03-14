@@ -2,15 +2,19 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import HouseholdInviteAcceptanceForm from "@/app/household/invite/HouseholdInviteAcceptanceForm";
 import { getSession } from "@/auth";
+import {
+  buildHouseholdInviteSignInRedirectUrl,
+  toHouseholdInvitePagePath,
+} from "@/lib/household-invite-paths";
 import { hashHouseholdInviteSecret } from "@/lib/household-invite-secret";
 import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
-import { buildHouseholdInviteSwitchAccountUrl } from "@/lib/services/household-invite-service";
 
 export const dynamic = "force-dynamic";
 
 const inviteErrorMessages: Record<string, string> = {
   invalid: "This invite is invalid or expired. Ask for a fresh invite.",
   "sign-in": "Sign in with the invited email address to continue.",
+  "signout-failed": "We could not sign you out. Please try again.",
   unexpected: "We could not complete your invite. Please try again.",
 };
 
@@ -68,9 +72,16 @@ export default async function HouseholdInvitePage({
   const needsAccountSwitch = !!sessionEmail && sessionEmail !== inviteEmail;
   const canRecoverBySwitchingAccount =
     !!sessionEmail && (needsAccountSwitch || errorCode === "sign-in");
-  const switchAccountUrl = canRecoverBySwitchingAccount
-    ? buildHouseholdInviteSwitchAccountUrl({
+  const switchAccountRedirectTo = canRecoverBySwitchingAccount
+    ? buildHouseholdInviteSignInRedirectUrl({
         email: invite.email,
+        invitationId: numericInvitationId,
+        secret: inviteSecret,
+      })
+    : null;
+  const switchAccountFailureRedirectTo = canRecoverBySwitchingAccount
+    ? toHouseholdInvitePagePath({
+        error: "signout-failed",
         invitationId: numericInvitationId,
         secret: inviteSecret,
       })
@@ -90,7 +101,9 @@ export default async function HouseholdInvitePage({
         </header>
 
         <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">
-          {canRecoverBySwitchingAccount && switchAccountUrl ? (
+          {canRecoverBySwitchingAccount &&
+          switchAccountRedirectTo &&
+          switchAccountFailureRedirectTo ? (
             <div className="flex flex-col gap-4">
               {needsAccountSwitch ? (
                 <p className="text-sm text-[var(--muted)]">
@@ -110,12 +123,20 @@ export default async function HouseholdInvitePage({
                   {initialError}
                 </div>
               ) : null}
-              <Link
-                className="inline-flex w-fit rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
-                href={switchAccountUrl}
-              >
-                Sign out and continue
-              </Link>
+              <form action="/signout" method="post">
+                <input name="redirectTo" type="hidden" value={switchAccountRedirectTo} />
+                <input
+                  name="failureRedirectTo"
+                  type="hidden"
+                  value={switchAccountFailureRedirectTo}
+                />
+                <button
+                  className="inline-flex w-fit rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
+                  type="submit"
+                >
+                  Sign out and continue
+                </button>
+              </form>
             </div>
           ) : (
             <HouseholdInviteAcceptanceForm

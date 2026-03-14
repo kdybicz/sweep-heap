@@ -1,10 +1,12 @@
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { validateHouseholdInviteAcceptPayload } from "@/lib/api-payload-validation";
+import {
+  buildHouseholdInviteSignInRedirectUrl,
+  toHouseholdInvitePagePath,
+} from "@/lib/household-invite-paths";
 import { parseJsonObjectBody } from "@/lib/http";
 import {
   acceptHouseholdInvite,
-  buildHouseholdInviteSignInRedirectUrl,
-  buildHouseholdInviteSwitchAccountUrl,
   getHouseholdInviteSessionEmail,
   getPendingHouseholdInvite,
 } from "@/lib/services/household-invite-service";
@@ -57,8 +59,8 @@ export async function POST(request: Request) {
     if (sessionEmail !== invite.email.trim().toLowerCase()) {
       return Response.json({
         ok: true,
-        redirectUrl: buildHouseholdInviteSwitchAccountUrl({
-          email: invite.email,
+        redirectUrl: toHouseholdInvitePagePath({
+          error: "sign-in",
           invitationId,
           secret,
         }),
@@ -82,8 +84,8 @@ export async function POST(request: Request) {
       if (acceptance.reason === "recipient-mismatch") {
         return Response.json({
           ok: true,
-          redirectUrl: buildHouseholdInviteSwitchAccountUrl({
-            email: invite.email,
+          redirectUrl: toHouseholdInvitePagePath({
+            error: "sign-in",
             invitationId,
             secret,
           }),

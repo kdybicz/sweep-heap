@@ -17,7 +17,7 @@ export const readApiJsonResponse = async <T>(response: Pick<Response, "headers" 
 
 export class HouseholdContextRedirectError extends Error {
   code: ApiErrorCode;
-  redirectPath: "/household/select" | "/household/setup";
+  redirectPath: "/auth" | "/household/select" | "/household/setup";
 
   constructor({
     code,
@@ -26,7 +26,7 @@ export class HouseholdContextRedirectError extends Error {
   }: {
     code: ApiErrorCode;
     error?: string;
-    redirectPath: "/household/select" | "/household/setup";
+    redirectPath: "/auth" | "/household/select" | "/household/setup";
   }) {
     super(error ?? "Household context recovery required");
     this.name = "HouseholdContextRedirectError";
@@ -37,6 +37,8 @@ export class HouseholdContextRedirectError extends Error {
 
 export const getHouseholdContextRedirectPath = (code?: string) => {
   switch (code) {
+    case API_ERROR_CODE.UNAUTHORIZED:
+      return "/auth" as const;
     case API_ERROR_CODE.HOUSEHOLD_REQUIRED:
       return "/household/setup" as const;
     case API_ERROR_CODE.HOUSEHOLD_NOT_FOUND:
