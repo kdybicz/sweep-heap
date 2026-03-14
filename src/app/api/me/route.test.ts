@@ -239,7 +239,7 @@ describe("/api/me route", () => {
       expect(body.ok).toBe(true);
       expect(response.headers.get("set-cookie")).toContain("better-auth.session=healed");
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "Failed to reconcile active household session during /api/me",
+        "Failed to reconcile active household session",
         reconciliationError,
       );
     } finally {

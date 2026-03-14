@@ -18,11 +18,26 @@ export type SessionContext =
       error: "Invalid user" | "Unauthorized";
     };
 
-export const getSessionContext = async (): Promise<SessionContext> => {
-  const session = await getSession();
+export type SessionContextOk = Extract<SessionContext, { ok: true }>;
+
+const toSessionActiveHouseholdId = (value: unknown) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const sessionActiveHouseholdId = Number(value);
+
+  return Number.isInteger(sessionActiveHouseholdId) && sessionActiveHouseholdId > 0
+    ? sessionActiveHouseholdId
+    : null;
+};
+
+export const parseSessionContext = (
+  session: Awaited<ReturnType<typeof getSession>>,
+): SessionContext => {
   const sessionUser = session?.user;
   const rawUserId = sessionUser?.id;
-  if (!sessionUser || rawUserId === undefined || rawUserId === null) {
+  if (rawUserId === undefined || rawUserId === null || rawUserId === "") {
     return {
       ok: false,
       userId: null,
@@ -43,27 +58,23 @@ export const getSessionContext = async (): Promise<SessionContext> => {
     };
   }
 
-  const rawSessionActiveHouseholdId = session?.session?.activeOrganizationId;
-  const sessionActiveHouseholdId =
-    rawSessionActiveHouseholdId === undefined ||
-    rawSessionActiveHouseholdId === null ||
-    rawSessionActiveHouseholdId === ""
-      ? null
-      : Number(rawSessionActiveHouseholdId);
-
   return {
     ok: true,
-    sessionActiveHouseholdId:
-      typeof sessionActiveHouseholdId === "number" &&
-      Number.isInteger(sessionActiveHouseholdId) &&
-      sessionActiveHouseholdId > 0
-        ? sessionActiveHouseholdId
-        : null,
+    sessionActiveHouseholdId: toSessionActiveHouseholdId(session?.session?.activeOrganizationId),
     userId,
     sessionUserId: String(rawUserId),
-    sessionUserName: typeof sessionUser.name === "string" ? sessionUser.name : null,
-    sessionUserEmail: typeof sessionUser.email === "string" ? sessionUser.email : null,
+    sessionUserName: typeof sessionUser?.name === "string" ? sessionUser.name : null,
+    sessionUserEmail: typeof sessionUser?.email === "string" ? sessionUser.email : null,
   };
+};
+
+export const getSessionContext = async (): Promise<SessionContext> => {
+  return parseSessionContext(await getSession());
+};
+
+export const getOptionalSessionContext = async (): Promise<SessionContextOk | null> => {
+  const sessionContext = await getSessionContext();
+  return sessionContext.ok ? sessionContext : null;
 };
 
 export const sessionErrorResponse = ({

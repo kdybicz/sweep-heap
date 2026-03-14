@@ -1,8 +1,7 @@
-import { requireApiSession } from "@/lib/api-access";
+import { requireApiSessionHouseholdResolution } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { parseJsonObjectBody } from "@/lib/http";
 import { getUserMemberships, updateUserNameById } from "@/lib/repositories";
-import { reconcileActiveHouseholdSession, resolveActiveHousehold } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -21,60 +20,18 @@ const handleUnexpectedError = (
   });
 };
 
-type ReconciliationError = Error & {
-  responseHeaders?: Headers;
-};
-
-const getErrorResponseHeaders = (error: unknown) => {
-  const reconciliationError = error as ReconciliationError;
-  return reconciliationError.responseHeaders instanceof Headers
-    ? reconciliationError.responseHeaders
-    : new Headers();
-};
-
-const getReconciledResponseHeaders = async ({
-  request,
-  sessionActiveHouseholdId,
-  resolution,
-}: {
-  request: Request | undefined;
-  sessionActiveHouseholdId: number | null;
-  resolution: Awaited<ReturnType<typeof resolveActiveHousehold>>;
-}) => {
-  if (!request) {
-    return new Headers();
-  }
-
-  try {
-    return await reconcileActiveHouseholdSession({
-      requestHeaders: request.headers,
-      resolution,
-      sessionActiveHouseholdId,
-    });
-  } catch (error) {
-    console.error("Failed to reconcile active household session during /api/me", error);
-    return getErrorResponseHeaders(error);
-  }
-};
-
 export async function GET(request?: Request) {
   let responseHeaders = new Headers();
   try {
-    const sessionAccess = await requireApiSession();
-    if (!sessionAccess.ok) {
-      return sessionAccess.response;
+    const sessionResolutionAccess = await requireApiSessionHouseholdResolution(request?.headers);
+    if (!sessionResolutionAccess.ok) {
+      return sessionResolutionAccess.response;
     }
 
-    const memberships = await getUserMemberships(sessionAccess.sessionContext.userId);
-    const activeHousehold = await resolveActiveHousehold({
-      sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
-      userId: sessionAccess.sessionContext.userId,
-    });
-    responseHeaders = await getReconciledResponseHeaders({
-      request,
-      resolution: activeHousehold,
-      sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
-    });
+    const { activeHousehold, sessionContext } = sessionResolutionAccess;
+    responseHeaders = sessionResolutionAccess.responseHeaders;
+
+    const memberships = await getUserMemberships(sessionContext.userId);
     const activeHouseholdId =
       activeHousehold.status === "resolved" ? activeHousehold.household.id : null;
 
@@ -82,9 +39,9 @@ export async function GET(request?: Request) {
       {
         ok: true,
         user: {
-          id: sessionAccess.sessionContext.sessionUserId,
-          email: sessionAccess.sessionContext.sessionUserEmail,
-          name: sessionAccess.sessionContext.sessionUserName,
+          id: sessionContext.sessionUserId,
+          email: sessionContext.sessionUserEmail,
+          name: sessionContext.sessionUserName,
         },
         memberships,
         activeHouseholdId,
@@ -99,20 +56,13 @@ export async function GET(request?: Request) {
 export async function PATCH(request: Request) {
   let responseHeaders = new Headers();
   try {
-    const sessionAccess = await requireApiSession();
-    if (!sessionAccess.ok) {
-      return sessionAccess.response;
+    const sessionResolutionAccess = await requireApiSessionHouseholdResolution(request.headers);
+    if (!sessionResolutionAccess.ok) {
+      return sessionResolutionAccess.response;
     }
 
-    const activeHousehold = await resolveActiveHousehold({
-      sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
-      userId: sessionAccess.sessionContext.userId,
-    });
-    responseHeaders = await getReconciledResponseHeaders({
-      request,
-      resolution: activeHousehold,
-      sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
-    });
+    const { sessionContext } = sessionResolutionAccess;
+    responseHeaders = sessionResolutionAccess.responseHeaders;
 
     const payload = await parseJsonObjectBody(request);
     if (payload === null) {
@@ -134,7 +84,7 @@ export async function PATCH(request: Request) {
       });
     }
 
-    const user = await updateUserNameById({ userId: sessionAccess.sessionContext.userId, name });
+    const user = await updateUserNameById({ userId: sessionContext.userId, name });
     if (!user) {
       return jsonError({
         headers: responseHeaders,

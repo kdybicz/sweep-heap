@@ -1,84 +1,52 @@
 import { redirect } from "next/navigation";
 
-import { getSession } from "@/auth";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
 import { resolveActiveHousehold } from "@/lib/services";
+import {
+  getOptionalSessionContext,
+  getSessionContext,
+  type SessionContextOk,
+} from "@/lib/session-context";
 
-const redirectToAuth = () => {
+type PageSessionAccess = Omit<SessionContextOk, "ok">;
+
+const redirectToAuth = (): never => {
   redirect("/auth");
 };
 
-export const requirePageSessionUser = async () => {
-  const session = await getSession();
-  const user = session?.user;
-  const rawUserId = user?.id;
-  if (!rawUserId) {
+const redirectForActiveHousehold = (
+  activeHousehold: Awaited<ReturnType<typeof resolveActiveHousehold>>,
+): never => {
+  redirect(
+    activeHousehold.status === "selection-required" ? "/household/select" : "/household/setup",
+  );
+};
+
+export const requirePageSessionUser = async (): Promise<PageSessionAccess> => {
+  const sessionContext = await getSessionContext();
+  if (!sessionContext.ok) {
     redirectToAuth();
   }
 
-  const userId = Number(rawUserId);
-  if (!Number.isFinite(userId)) {
-    redirectToAuth();
-  }
-
-  const rawSessionActiveHouseholdId = session?.session?.activeOrganizationId;
-  const sessionActiveHouseholdId =
-    rawSessionActiveHouseholdId === undefined ||
-    rawSessionActiveHouseholdId === null ||
-    rawSessionActiveHouseholdId === ""
-      ? null
-      : Number(rawSessionActiveHouseholdId);
-
-  return {
-    sessionActiveHouseholdId:
-      typeof sessionActiveHouseholdId === "number" &&
-      Number.isInteger(sessionActiveHouseholdId) &&
-      sessionActiveHouseholdId > 0
-        ? sessionActiveHouseholdId
-        : null,
-    sessionUserId: String(rawUserId),
-    sessionUserName: typeof user?.name === "string" ? user.name : null,
-    sessionUserEmail: typeof user?.email === "string" ? user.email : null,
-    userId,
-  };
+  const { ok: _ok, ...access } = sessionContext as SessionContextOk;
+  return access;
 };
 
 export const redirectSignedInUserToApp = async () => {
-  const session = await getSession();
-  const rawUserId = session?.user?.id;
-  if (!rawUserId) {
+  const sessionContext = await getOptionalSessionContext();
+  if (!sessionContext) {
     return;
   }
-
-  const userId = Number(rawUserId);
-  if (!Number.isFinite(userId)) {
-    return;
-  }
-
-  const rawSessionActiveHouseholdId = session?.session?.activeOrganizationId;
-  const sessionActiveHouseholdId =
-    rawSessionActiveHouseholdId === undefined ||
-    rawSessionActiveHouseholdId === null ||
-    rawSessionActiveHouseholdId === ""
-      ? null
-      : Number(rawSessionActiveHouseholdId);
 
   const activeHousehold = await resolveActiveHousehold({
-    sessionActiveHouseholdId:
-      typeof sessionActiveHouseholdId === "number" &&
-      Number.isInteger(sessionActiveHouseholdId) &&
-      sessionActiveHouseholdId > 0
-        ? sessionActiveHouseholdId
-        : null,
-    userId,
+    sessionActiveHouseholdId: sessionContext.sessionActiveHouseholdId,
+    userId: sessionContext.userId,
   });
   if (activeHousehold.status === "resolved") {
     redirect("/household");
   }
 
-  redirect(
-    activeHousehold.status === "selection-required" ? "/household/select" : "/household/setup",
-  );
+  redirectForActiveHousehold(activeHousehold);
 };
 
 export const requirePageActiveHousehold = async () => {
@@ -88,14 +56,17 @@ export const requirePageActiveHousehold = async () => {
     userId: access.userId,
   });
   if (activeHousehold.status !== "resolved") {
-    redirect(
-      activeHousehold.status === "selection-required" ? "/household/select" : "/household/setup",
-    );
+    redirectForActiveHousehold(activeHousehold);
   }
+
+  const resolvedHousehold = activeHousehold as Extract<
+    typeof activeHousehold,
+    { status: "resolved" }
+  >;
 
   return {
     ...access,
-    household: activeHousehold.household,
+    household: resolvedHousehold.household,
   };
 };
 
@@ -119,7 +90,7 @@ export const requirePageWithoutHousehold = async () => {
   }
 
   if (activeHousehold.status === "selection-required") {
-    redirect("/household/select");
+    redirectForActiveHousehold(activeHousehold);
   }
 
   return access;
