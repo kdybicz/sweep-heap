@@ -115,4 +115,32 @@ describe("/api/households/active route", () => {
     });
     expect(setActiveOrganizationMock).not.toHaveBeenCalled();
   });
+
+  it("returns 500 when active household switch responds non-ok", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getSessionMock.mockResolvedValue({ user: { id: "4" } });
+      getHouseholdSummaryForUserMock.mockResolvedValue({
+        id: 12,
+        name: "Home",
+        timeZone: "UTC",
+        icon: "🏡",
+        role: "admin",
+      });
+      setActiveOrganizationMock.mockResolvedValue(new Response(null, { status: 500 }));
+
+      const response = await POST(requestWithBody({ householdId: 12 }));
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        ok: false,
+        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
+        error: "Failed to switch active household",
+      });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
 });

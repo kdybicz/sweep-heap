@@ -153,10 +153,11 @@ describe("/api/households/invites/accept route", () => {
       redirectUrl: "/household",
       householdId: 11,
       householdName: "Home",
+      activeHouseholdActivated: true,
     });
   });
 
-  it("returns conflict when signed-in user belongs to another household", async () => {
+  it("keeps invite acceptance successful for users who already belong to another household", async () => {
     getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
       id: 12,
       householdId: 11,
@@ -166,23 +167,26 @@ describe("/api/households/invites/accept route", () => {
       expiresAt: new Date("2026-01-02T00:00:00.000Z"),
     });
     getSessionMock.mockResolvedValue({ user: { id: "5", email: "jane@example.com" } });
-    acceptInvitationMock.mockRejectedValue({
-      body: {
-        code: "USER_IN_OTHER_HOUSEHOLD",
-        message: "You already belong to another household",
-      },
-    });
+    acceptInvitationMock.mockResolvedValue({});
 
     const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
     const body = await response.json();
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(200);
     expect(body).toEqual({
-      ok: false,
-      code: API_ERROR_CODE.USER_IN_OTHER_HOUSEHOLD,
-      error: "You already belong to another household",
+      ok: true,
+      redirectUrl: "/household",
+      householdId: 11,
+      householdName: "Home",
+      activeHouseholdActivated: true,
     });
-    expect(setActiveOrganizationMock).not.toHaveBeenCalled();
+    expect(setActiveOrganizationMock).toHaveBeenCalledWith({
+      asResponse: true,
+      body: {
+        organizationId: "11",
+      },
+      headers: expect.any(Headers),
+    });
   });
 
   it("starts auto sign-in flow when no session exists", async () => {
@@ -212,7 +216,7 @@ describe("/api/households/invites/accept route", () => {
     );
   });
 
-  it("starts auto sign-in flow when session email does not match invite", async () => {
+  it("starts switch-account flow when a different account is already signed in", async () => {
     getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
       id: 12,
       householdId: 11,
@@ -232,8 +236,41 @@ describe("/api/households/invites/accept route", () => {
     expect(body.ok).toBe(true);
     expect(typeof body.redirectUrl).toBe("string");
     const redirectUrl = new URL(body.redirectUrl, "http://localhost");
-    expect(redirectUrl.pathname).toBe("/auth");
-    expect(redirectUrl.searchParams.get("email")).toBe("invited@example.com");
+    expect(redirectUrl.pathname).toBe("/signout");
+    const redirectTo = redirectUrl.searchParams.get("redirectTo");
+    expect(typeof redirectTo).toBe("string");
+    const authRedirectUrl = new URL(redirectTo ?? "", "http://localhost");
+    expect(authRedirectUrl.pathname).toBe("/auth");
+    expect(authRedirectUrl.searchParams.get("email")).toBe("invited@example.com");
+    expect(authRedirectUrl.searchParams.get("callbackURL")).toBe(
+      "/api/households/invites/complete?invitationId=12&secret=invite-secret",
+    );
+  });
+
+  it("starts switch-account flow when accept detects a recipient mismatch", async () => {
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
+      householdId: 11,
+      householdName: "Home",
+      email: "invited@example.com",
+      role: "member",
+      expiresAt: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    getSessionMock.mockResolvedValue({ user: { id: "5", email: "invited@example.com" } });
+    acceptInvitationMock.mockRejectedValue({
+      body: {
+        code: "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION",
+        message: "You are not the recipient of the invitation",
+      },
+    });
+
+    const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.ok).toBe(true);
+    const redirectUrl = new URL(body.redirectUrl, "http://localhost");
+    expect(redirectUrl.pathname).toBe("/signout");
   });
 
   it("returns consistent 500 envelope on unexpected errors", async () => {
@@ -256,7 +293,7 @@ describe("/api/households/invites/accept route", () => {
     }
   });
 
-  it("returns consistent 500 envelope when active household switch fails", async () => {
+  it("returns recoverable selection redirect when active household switch fails", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
@@ -274,13 +311,53 @@ describe("/api/households/invites/accept route", () => {
       const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
       const body = await response.json();
 
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(200);
       expect(body).toEqual({
-        ok: false,
-        code: API_ERROR_CODE.INTERNAL_SERVER_ERROR,
-        error: "Failed to accept household invite",
+        ok: true,
+        redirectUrl: "/household/select",
+        householdId: 11,
+        householdName: "Home",
+        activeHouseholdActivated: false,
       });
-      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Accepted household invite but failed to activate household",
+        expect.any(Error),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("returns recoverable selection redirect when active household switch responds non-ok", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+        id: 12,
+        householdId: 11,
+        householdName: "Home",
+        email: "jane@example.com",
+        role: "member",
+        expiresAt: new Date("2026-01-02T00:00:00.000Z"),
+      });
+      getSessionMock.mockResolvedValue({ user: { id: "5", email: "jane@example.com" } });
+      acceptInvitationMock.mockResolvedValue({});
+      setActiveOrganizationMock.mockResolvedValue(new Response(null, { status: 500 }));
+
+      const response = await POST(requestWithBody({ invitationId: 12, secret: "invite-secret" }));
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toEqual({
+        ok: true,
+        redirectUrl: "/household/select",
+        householdId: 11,
+        householdName: "Home",
+        activeHouseholdActivated: false,
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Accepted household invite but failed to activate household",
+        expect.any(Error),
+      );
     } finally {
       consoleErrorSpy.mockRestore();
     }

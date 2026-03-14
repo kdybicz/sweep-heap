@@ -13,7 +13,7 @@ const redirectTo = ({
   request,
   secret,
 }: {
-  error: "invalid" | "other-household" | "sign-in" | "unexpected";
+  error: "invalid" | "sign-in" | "unexpected";
   invitationId: string;
   request: Request;
   secret: string;
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
   });
   if (acceptance.ok) {
     const headers = new Headers(acceptance.responseHeaders);
-    headers.set("location", new URL("/household", request.url).toString());
+    headers.set("location", new URL(acceptance.nextPath, request.url).toString());
     return new Response(null, { status: 302, headers });
   }
 
@@ -90,18 +90,6 @@ export async function GET(request: Request) {
     return Response.redirect(
       redirectTo({
         error: "invalid",
-        invitationId: String(numericInvitationId),
-        request,
-        secret,
-      }),
-      302,
-    );
-  }
-
-  if (acceptance.reason === "other-household") {
-    return Response.redirect(
-      redirectTo({
-        error: "other-household",
         invitationId: String(numericInvitationId),
         request,
         secret,

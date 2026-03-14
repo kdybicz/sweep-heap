@@ -19,7 +19,6 @@ import {
   isAlreadyMemberError,
   isLastOwnerError,
   isMemberNotFoundError,
-  isOtherHouseholdError,
   mapOrganizationInvitation,
   mapOrganizationMember,
   type OrganizationInvitationLike,
@@ -76,14 +75,6 @@ const mapInviteCreateError = ({
       code: API_ERROR_CODE.USER_ALREADY_INVITED,
       error: "Invite already pending for this email. Resend or revoke the existing invite.",
       existingInvite: existingInvite ? mapOrganizationInvitation(existingInvite) : undefined,
-    });
-  }
-
-  if (isOtherHouseholdError(authApiError)) {
-    return jsonError({
-      status: 409,
-      code: API_ERROR_CODE.USER_IN_OTHER_HOUSEHOLD,
-      error: "User already belongs to another household",
     });
   }
 

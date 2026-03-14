@@ -39,7 +39,9 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Invite create/resend is best-effort for SMTP delivery; check `inviteEmailSent` in success responses.
 - Signed-in acceptance requires session email to match invited email.
 - Accepting an invite can add a user to an additional household and switches active context to the accepted household.
+- If invite acceptance succeeds but active-household switching fails, recover through `/household/select` instead of sending the user back to the invite page.
 - If no matching session, API returns a sign-in redirect with callback to invite completion.
+- If the wrong account is signed in, the invite page should offer an explicit sign-out-and-continue path that preserves the invite callback.
 
 ### Chores
 - Series fields: `title`, `type`, `startDate`, `endDate`, `repeatRule`, optional `seriesEndDate`, `notes`.

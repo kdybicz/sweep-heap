@@ -4,22 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
+import { getSafeLocalPath } from "@/lib/safe-local-path";
 
-export const getSafeCallbackUrl = (value: string) => {
-  const candidates = [value];
-
-  try {
-    candidates.unshift(decodeURIComponent(value));
-  } catch {}
-
-  for (const candidate of candidates) {
-    if (candidate.startsWith("/") && !candidate.startsWith("//")) {
-      return candidate;
-    }
-  }
-
-  return "/auth";
-};
+export const getSafeCallbackUrl = (value: string) => getSafeLocalPath(value, "/auth");
 
 const getPrefilledEmail = (value: string | null) => {
   if (!value) {

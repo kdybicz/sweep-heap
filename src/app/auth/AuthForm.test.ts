@@ -16,5 +16,7 @@ describe("getSafeCallbackUrl", () => {
   it("rejects external callback urls", () => {
     expect(getSafeCallbackUrl("https://example.com/evil")).toBe("/auth");
     expect(getSafeCallbackUrl("//example.com/evil")).toBe("/auth");
+    expect(getSafeCallbackUrl("/%5Cevil.com")).toBe("/auth");
+    expect(getSafeCallbackUrl("/\\evil.com")).toBe("/auth");
   });
 });

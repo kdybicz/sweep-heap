@@ -116,8 +116,10 @@
 - Accepting invite with active session:
   - Succeeds only when signed-in email matches invite email.
   - Can add the user to another household and switch active context to the accepted household.
+  - If membership is created but active-household switching fails, recover through household selection instead of treating the invite as unused.
 - Accepting invite without valid matching session:
   - Redirects to magic-link sign-in with callback to `/api/households/invites/complete?invitationId=...&secret=...`.
+  - If another account is already signed in, the invite page should offer an explicit sign-out-and-continue path before the magic-link redirect.
 
 ## Chore Rules (Implemented)
 

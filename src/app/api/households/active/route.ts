@@ -7,6 +7,12 @@ import { getHouseholdSummaryForUser } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
+const assertOkResponse = (response: Response, message: string) => {
+  if (!response.ok) {
+    throw new Error(`${message} (status ${response.status})`);
+  }
+};
+
 export async function POST(request: Request) {
   try {
     const sessionAccess = await requireApiSession();
@@ -51,6 +57,7 @@ export async function POST(request: Request) {
       },
       headers: request.headers,
     });
+    assertOkResponse(setActiveResponse, "Switch active household failed");
     const responseHeaders = new Headers();
     for (const [key, value] of setActiveResponse.headers.entries()) {
       if (key.toLowerCase() === "set-cookie") {

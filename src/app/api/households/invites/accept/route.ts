@@ -4,8 +4,9 @@ import { parseJsonObjectBody } from "@/lib/http";
 import {
   acceptHouseholdInvite,
   buildHouseholdInviteSignInRedirectUrl,
+  buildHouseholdInviteSwitchAccountUrl,
+  getHouseholdInviteSessionEmail,
   getPendingHouseholdInvite,
-  hasMatchingHouseholdInviteSession,
 } from "@/lib/services/household-invite-service";
 
 export const dynamic = "force-dynamic";
@@ -41,11 +42,22 @@ export async function POST(request: Request) {
       });
     }
 
-    const hasMatchingSession = await hasMatchingHouseholdInviteSession(invite.email);
-    if (!hasMatchingSession) {
+    const sessionEmail = await getHouseholdInviteSessionEmail();
+    if (!sessionEmail) {
       return Response.json({
         ok: true,
         redirectUrl: buildHouseholdInviteSignInRedirectUrl({
+          email: invite.email,
+          invitationId,
+          secret,
+        }),
+      });
+    }
+
+    if (sessionEmail !== invite.email.trim().toLowerCase()) {
+      return Response.json({
+        ok: true,
+        redirectUrl: buildHouseholdInviteSwitchAccountUrl({
           email: invite.email,
           invitationId,
           secret,
@@ -67,18 +79,10 @@ export async function POST(request: Request) {
         });
       }
 
-      if (acceptance.reason === "other-household") {
-        return jsonError({
-          status: 409,
-          code: API_ERROR_CODE.USER_IN_OTHER_HOUSEHOLD,
-          error: "You already belong to another household",
-        });
-      }
-
       if (acceptance.reason === "recipient-mismatch") {
         return Response.json({
           ok: true,
-          redirectUrl: buildHouseholdInviteSignInRedirectUrl({
+          redirectUrl: buildHouseholdInviteSwitchAccountUrl({
             email: invite.email,
             invitationId,
             secret,
@@ -96,9 +100,10 @@ export async function POST(request: Request) {
     return Response.json(
       {
         ok: true,
-        redirectUrl: "/household",
+        redirectUrl: acceptance.nextPath,
         householdId: invite.householdId,
         householdName: invite.householdName,
+        activeHouseholdActivated: acceptance.activeHouseholdActivated,
       },
       { headers: acceptance.responseHeaders },
     );

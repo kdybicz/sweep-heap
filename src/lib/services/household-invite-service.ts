@@ -8,7 +8,6 @@ import { getAppOrigin } from "@/lib/http";
 import {
   isInvitationNotFoundError,
   isInviteRecipientMismatchError,
-  isOtherHouseholdError,
   type OrganizationInvitationLike,
   parsePositiveInt,
   toAuthApiError,
@@ -22,6 +21,24 @@ import { withHouseholdMutationLock } from "@/lib/services/ownership-guard-servic
 type HouseholdInviteRecord = NonNullable<
   Awaited<ReturnType<typeof getPendingHouseholdInviteByIdAndSecret>>
 >;
+
+const assertOkResponse = (response: Response, message: string) => {
+  if (!response.ok) {
+    throw new Error(`${message} (status ${response.status})`);
+  }
+};
+
+const copySetCookieHeaders = (response: Response) => {
+  const responseHeaders = new Headers();
+
+  for (const [key, value] of response.headers.entries()) {
+    if (key.toLowerCase() === "set-cookie") {
+      responseHeaders.append(key, value);
+    }
+  }
+
+  return responseHeaders;
+};
 
 export const toHouseholdInviteCompletePath = ({
   invitationId,
@@ -57,6 +74,27 @@ export const buildHouseholdInviteSignInRedirectUrl = ({
   return `${url.pathname}${url.search}`;
 };
 
+export const buildHouseholdInviteSwitchAccountUrl = ({
+  email,
+  invitationId,
+  secret,
+}: {
+  email: string;
+  invitationId: number;
+  secret: string;
+}) => {
+  const url = new URL("/signout", "http://localhost");
+  url.searchParams.set(
+    "redirectTo",
+    buildHouseholdInviteSignInRedirectUrl({
+      email,
+      invitationId,
+      secret,
+    }),
+  );
+  return `${url.pathname}${url.search}`;
+};
+
 export const getPendingHouseholdInvite = async ({
   invitationId,
   secret,
@@ -72,11 +110,6 @@ export const getPendingHouseholdInvite = async ({
 export const getHouseholdInviteSessionEmail = async () =>
   (await getSession())?.user?.email?.trim().toLowerCase() ?? "";
 
-export const hasMatchingHouseholdInviteSession = async (inviteEmail: string) => {
-  const sessionEmail = await getHouseholdInviteSessionEmail();
-  return !!sessionEmail && sessionEmail === inviteEmail.trim().toLowerCase();
-};
-
 export const acceptHouseholdInvite = async ({
   householdId,
   invitationId,
@@ -87,7 +120,7 @@ export const acceptHouseholdInvite = async ({
   requestHeaders: Headers;
 }) => {
   try {
-    const responseHeaders = await withHouseholdMutationLock({
+    const outcome = await withHouseholdMutationLock({
       householdId,
       task: async () => {
         await auth.api.acceptInvitation({
@@ -97,27 +130,38 @@ export const acceptHouseholdInvite = async ({
           headers: requestHeaders,
         });
 
-        const setActiveResponse = await auth.api.setActiveOrganization({
-          asResponse: true,
-          body: {
-            organizationId: String(householdId),
-          },
-          headers: requestHeaders,
-        });
-        const responseHeaders = new Headers();
-        for (const [key, value] of setActiveResponse.headers.entries()) {
-          if (key.toLowerCase() === "set-cookie") {
-            responseHeaders.append(key, value);
-          }
-        }
+        let responseHeaders = new Headers();
+        try {
+          const setActiveResponse = await auth.api.setActiveOrganization({
+            asResponse: true,
+            body: {
+              organizationId: String(householdId),
+            },
+            headers: requestHeaders,
+          });
+          responseHeaders = copySetCookieHeaders(setActiveResponse);
+          assertOkResponse(setActiveResponse, "Activate household after invite accept failed");
 
-        return responseHeaders;
+          return {
+            activeHouseholdActivated: true as const,
+            nextPath: "/household" as const,
+            responseHeaders,
+          };
+        } catch (error) {
+          console.error("Accepted household invite but failed to activate household", error);
+
+          return {
+            activeHouseholdActivated: false as const,
+            nextPath: "/household/select" as const,
+            responseHeaders,
+          };
+        }
       },
     });
 
     return {
       ok: true as const,
-      responseHeaders,
+      ...outcome,
     };
   } catch (error) {
     const authApiError = toAuthApiError(error);
@@ -125,13 +169,6 @@ export const acceptHouseholdInvite = async ({
       return {
         ok: false as const,
         reason: "invalid" as const,
-      };
-    }
-
-    if (isOtherHouseholdError(authApiError)) {
-      return {
-        ok: false as const,
-        reason: "other-household" as const,
       };
     }
 

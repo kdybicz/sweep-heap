@@ -50,7 +50,6 @@ const LAST_OWNER_CODES = new Set([
   "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER",
   "YOU_CANNOT_LEAVE_THE_ORGANIZATION_WITHOUT_AN_OWNER",
 ]);
-const OTHER_HOUSEHOLD_CODES = new Set(["USER_IN_OTHER_HOUSEHOLD"]);
 
 const isAuthApiError = (error: unknown): error is AuthApiErrorLike =>
   typeof error === "object" &&
@@ -148,9 +147,6 @@ export const toAuthApiError = (error: unknown): AuthApiError | null => {
 
 export const isInvitationNotFoundError = (error: AuthApiError | null) =>
   hasAuthApiCode(error, INVITATION_NOT_FOUND_CODES) || error?.statusCode === 404;
-
-export const isOtherHouseholdError = (error: AuthApiError | null) =>
-  hasAuthApiCode(error, OTHER_HOUSEHOLD_CODES);
 
 export const isInviteRecipientMismatchError = (error: AuthApiError | null) =>
   hasAuthApiCode(error, INVITE_RECIPIENT_MISMATCH_CODES);

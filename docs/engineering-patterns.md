@@ -136,7 +136,17 @@ For household invite creation:
 - Keep email normalization (`trim().toLowerCase()`) before persistence.
 - Enforce one pending invite per `(household, email)` with a partial unique DB index and handle race conflicts by returning the already-pending invite response.
 
-## 11) Build vs Buy Recommendation Standard
+## 11) Invite Acceptance Handoff
+
+For household invite acceptance:
+
+- Treat household membership as multi-household capable; invite acceptance should not reject users solely because they already belong to another household.
+- Keep the session-email check strict: only the invited email can accept the invite.
+- When the wrong account is signed in, prefer an explicit sign-out-and-continue handoff that preserves the invite callback instead of weakening the default signed-in redirect behavior on `/auth`.
+- If membership is created but post-accept active-household switching fails, recover to a household selection/setup path instead of bouncing back to an already-consumed invite.
+- For local redirect targets, use `src/lib/safe-local-path.ts` instead of ad-hoc checks. Decode once when validating user-entered callback params (for example `/auth`), but keep nested redirect targets encoded when validating values already parsed from `URLSearchParams` (for example `/signout?redirectTo=...`) so inner callback query strings are not truncated. Reject network-path variants using both `/` and `\` prefixes; backslash forms like `/\\evil.com` are not safe local paths.
+
+## 12) Build vs Buy Recommendation Standard
 
 When proposing implementation approaches (in issues, plans, or PR summaries):
 
@@ -146,7 +156,7 @@ When proposing implementation approaches (in issues, plans, or PR summaries):
   - In-house solution: pros and cons (control, customization, delivery time, maintenance burden, long-term risk).
 - End with a clear recommendation and rationale; choose in-house only when constraints require it (for example domain-specific requirements, licensing/compliance limits, or lack of a mature ecosystem fit).
 
-## 12) PoC Database Compatibility Policy
+## 13) PoC Database Compatibility Policy
 
 Current project posture:
 
