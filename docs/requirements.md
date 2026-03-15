@@ -86,7 +86,7 @@
 - When `active_household_id` is missing or stale and the user has exactly one active household, the app may bootstrap from that sole membership.
 - When multiple active households exist and no valid `active_household_id` is available, the user must choose a household before household-scoped actions continue.
 - Household time zone is editable by owners/admins (not immutable in current implementation).
-- Household create/update rejects invalid time zones with `400` (`Invalid time zone`) instead of silently coercing to `UTC`.
+- Household create/update requires a valid `timeZone`; missing, blank, or invalid values return `400` (`Invalid time zone`) instead of silently coercing to `UTC`.
 - When an authenticated user has no active household, household-gated APIs return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
 - Client fetch flows that lose household context mid-request should branch on `code` and recover to `/household/setup` for `HOUSEHOLD_REQUIRED`, or `/household/select` for `HOUSEHOLD_SELECTION_REQUIRED` and `HOUSEHOLD_NOT_FOUND`.
 - Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household, unless they need `/household/select` to choose among multiple existing memberships.

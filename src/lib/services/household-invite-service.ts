@@ -1,4 +1,5 @@
 import { auth, getSession } from "@/auth";
+import { assertOkResponse, copySetCookieHeaders } from "@/lib/auth-response";
 import { sendHouseholdInviteEmail } from "@/lib/household-invite-email";
 import {
   generateHouseholdInviteSecret,
@@ -21,24 +22,6 @@ import { withHouseholdMutationLock } from "@/lib/services/ownership-guard-servic
 type HouseholdInviteRecord = NonNullable<
   Awaited<ReturnType<typeof getPendingHouseholdInviteByIdAndSecret>>
 >;
-
-const assertOkResponse = (response: Response, message: string) => {
-  if (!response.ok) {
-    throw new Error(`${message} (status ${response.status})`);
-  }
-};
-
-const copySetCookieHeaders = (response: Response) => {
-  const responseHeaders = new Headers();
-
-  for (const [key, value] of response.headers.entries()) {
-    if (key.toLowerCase() === "set-cookie") {
-      responseHeaders.append(key, value);
-    }
-  }
-
-  return responseHeaders;
-};
 
 export const getPendingHouseholdInvite = async ({
   invitationId,
@@ -84,7 +67,7 @@ export const acceptHouseholdInvite = async ({
             },
             headers: requestHeaders,
           });
-          responseHeaders = copySetCookieHeaders(setActiveResponse);
+          responseHeaders = copySetCookieHeaders(setActiveResponse.headers);
           assertOkResponse(setActiveResponse, "Activate household after invite accept failed");
 
           return {

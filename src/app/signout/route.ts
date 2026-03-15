@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { assertOkResponse } from "@/lib/auth-response";
 import { getSafeLocalPath } from "@/lib/safe-local-path";
 
 const parseSignOutForm = async (request: Request) => {
@@ -10,12 +11,6 @@ const parseSignOutForm = async (request: Request) => {
       decode: false,
     }),
   };
-};
-
-const assertOkResponse = (response: Response, message: string) => {
-  if (!response.ok) {
-    throw new Error(`${message} (status ${response.status})`);
-  }
 };
 
 const isSameOriginPost = (request: Request) => {

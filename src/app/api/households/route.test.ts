@@ -704,6 +704,25 @@ describe("/api/households route", () => {
     expect(createHouseholdWithOwnerMock).not.toHaveBeenCalled();
   });
 
+  it("POST requires a time zone", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
+
+    const response = await POST(
+      requestWithBody("POST", {
+        name: "The Heap",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_TIME_ZONE,
+      error: "Invalid time zone",
+    });
+    expect(createHouseholdWithOwnerMock).not.toHaveBeenCalled();
+  });
+
   it("POST rejects non-object json payloads", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "21" } });
 
@@ -842,6 +861,37 @@ describe("/api/households route", () => {
       requestWithBody("PATCH", {
         name: "Flat 2",
         timeZone: "invalid/zone",
+        icon: "🏠",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.INVALID_TIME_ZONE,
+      error: "Invalid time zone",
+    });
+    expect(updateHouseholdByIdMock).not.toHaveBeenCalled();
+  });
+
+  it("PATCH requires a time zone", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "9" }, session: { activeOrganizationId: "3" } });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: {
+        id: 3,
+        name: "Flat",
+        timeZone: "UTC",
+        icon: "🏠",
+        role: "owner",
+      },
+    });
+
+    const response = await PATCH(
+      requestWithBody("PATCH", {
+        name: "Flat 2",
         icon: "🏠",
       }),
     );

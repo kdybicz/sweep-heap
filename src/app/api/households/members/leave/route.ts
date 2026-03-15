@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { requireApiHousehold } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
+import { appendSetCookieHeaders, assertOkResponse } from "@/lib/auth-response";
 import { isLastOwnerError, toAuthApiError } from "@/lib/organization-api";
 import {
   reconcileActiveHouseholdAfterMembershipMutation,
@@ -8,20 +9,6 @@ import {
 } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
-
-const appendSetCookieHeaders = (target: Headers, source: Headers) => {
-  for (const [key, value] of source.entries()) {
-    if (key.toLowerCase() === "set-cookie") {
-      target.append(key, value);
-    }
-  }
-};
-
-const assertOkResponse = (response: Response, message: string) => {
-  if (!response.ok) {
-    throw new Error(`${message} (status ${response.status})`);
-  }
-};
 
 const handleUnexpectedError = (responseHeaders: Headers, error: unknown) => {
   console.error("Failed to leave household", error);

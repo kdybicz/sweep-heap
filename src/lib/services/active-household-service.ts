@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { assertOkResponse, copySetCookieHeaders, hasSetCookieHeaders } from "@/lib/auth-response";
 import { getHouseholdSummaryForUser, listActiveHouseholdsForUser } from "@/lib/repositories";
 
 type ActiveHouseholdSummary = NonNullable<Awaited<ReturnType<typeof getHouseholdSummaryForUser>>>;
@@ -28,16 +29,6 @@ type ActiveHouseholdReconciliationError = Error & {
   responseHeaders?: Headers;
 };
 
-const hasSetCookieHeaders = (headers: Headers) => {
-  for (const [key] of headers.entries()) {
-    if (key.toLowerCase() === "set-cookie") {
-      return true;
-    }
-  }
-
-  return false;
-};
-
 const nextPathForResolution = (resolution: ActiveHouseholdResolution) => {
   if (resolution.status === "resolved") {
     return "/household" as const;
@@ -48,12 +39,6 @@ const nextPathForResolution = (resolution: ActiveHouseholdResolution) => {
   }
 
   return "/household/setup" as const;
-};
-
-const assertOkResponse = (response: Response, message: string) => {
-  if (!response.ok) {
-    throw new Error(`${message} (status ${response.status})`);
-  }
 };
 
 const withResponseHeaders = (error: unknown, responseHeaders: Headers) => {
@@ -116,7 +101,7 @@ export const reconcileActiveHouseholdSession = async ({
   resolution: ActiveHouseholdResolution;
   sessionActiveHouseholdId: number | null;
 }) => {
-  const responseHeaders = new Headers();
+  let responseHeaders = new Headers();
 
   if (resolution.status === "resolved" && resolution.source === "session") {
     return responseHeaders;
@@ -132,11 +117,7 @@ export const reconcileActiveHouseholdSession = async ({
         headers: requestHeaders,
       });
 
-      for (const [key, value] of setActiveResponse.headers.entries()) {
-        if (key.toLowerCase() === "set-cookie") {
-          responseHeaders.append(key, value);
-        }
-      }
+      responseHeaders = copySetCookieHeaders(setActiveResponse.headers);
 
       assertOkResponse(setActiveResponse, "Activate fallback household failed");
     } catch (error) {
@@ -159,11 +140,7 @@ export const reconcileActiveHouseholdSession = async ({
       headers: requestHeaders,
     });
 
-    for (const [key, value] of clearActiveResponse.headers.entries()) {
-      if (key.toLowerCase() === "set-cookie") {
-        responseHeaders.append(key, value);
-      }
-    }
+    responseHeaders = copySetCookieHeaders(clearActiveResponse.headers);
 
     assertOkResponse(clearActiveResponse, "Clear stale active household failed");
   } catch (error) {

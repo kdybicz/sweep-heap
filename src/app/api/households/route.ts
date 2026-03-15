@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { auth } from "@/auth";
 import { requireApiHousehold, requireApiHouseholdAdmin, requireApiSession } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
+import { appendSetCookieHeaders, assertOkResponse } from "@/lib/auth-response";
 import { parseJsonObjectBody } from "@/lib/http";
 import { createHouseholdWithOwner, updateHouseholdById } from "@/lib/repositories";
 import {
@@ -14,14 +15,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const parseTimeZone = (value: unknown) => {
-  if (value === undefined || value === null) {
-    return {
-      ok: true as const,
-      timeZone: "UTC",
-    };
-  }
-
+const parseRequiredTimeZone = (value: unknown) => {
   if (typeof value !== "string") {
     return {
       ok: false as const,
@@ -72,20 +66,6 @@ const toSlugBase = (value: string) => {
 
 const buildHouseholdSlug = (name: string) =>
   `${toSlugBase(name)}-${randomBytes(4).toString("hex")}`;
-
-const assertOkResponse = (response: Response, message: string) => {
-  if (!response.ok) {
-    throw new Error(`${message} (status ${response.status})`);
-  }
-};
-
-const appendSetCookieHeaders = (target: Headers, source: Headers) => {
-  for (const [key, value] of source.entries()) {
-    if (key.toLowerCase() === "set-cookie") {
-      target.append(key, value);
-    }
-  }
-};
 
 const handleUnexpectedError = (
   action: "load" | "create" | "update" | "delete",
@@ -153,7 +133,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const parsedTimeZone = parseTimeZone(payload?.timeZone);
+    const parsedTimeZone = parseRequiredTimeZone(payload?.timeZone);
     if (!parsedTimeZone.ok) {
       return jsonError({
         status: 400,
@@ -270,7 +250,7 @@ export async function PATCH(request: Request) {
       });
     }
 
-    const parsedTimeZone = parseTimeZone(payload?.timeZone);
+    const parsedTimeZone = parseRequiredTimeZone(payload?.timeZone);
     if (!parsedTimeZone.ok) {
       return jsonError({
         headers: adminAccess.responseHeaders,

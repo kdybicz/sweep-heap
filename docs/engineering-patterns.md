@@ -61,6 +61,7 @@ Body parsing rule:
 - For authenticated API routes that require numeric user ids, use `getSessionContext()` from `src/lib/session-context.ts` to keep auth/status handling consistent.
 - Prefer Zod schema validation for parsed request payloads to avoid ad-hoc `typeof` checks and keep error messaging centralized in shared validators.
 - Route handlers using `requireApiSessionHouseholdResolution()`, `requireApiHousehold()`, or `requireApiHouseholdAdmin()` should pass `request.headers` so active-household reconciliation can emit `Set-Cookie` headers when healing stale session state.
+- When forwarding Better Auth `asResponse: true` cookies between services and route handlers, use `src/lib/auth-response.ts` helpers so `Set-Cookie` propagation stays consistent.
 
 Important contract:
 

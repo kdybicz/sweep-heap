@@ -1,17 +1,12 @@
 import { auth } from "@/auth";
 import { requireApiSession } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
+import { assertOkResponse, copySetCookieHeaders } from "@/lib/auth-response";
 import { parseJsonObjectBody } from "@/lib/http";
 import { parsePositiveInt } from "@/lib/organization-api";
 import { getHouseholdSummaryForUser } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
-
-const assertOkResponse = (response: Response, message: string) => {
-  if (!response.ok) {
-    throw new Error(`${message} (status ${response.status})`);
-  }
-};
 
 export async function POST(request: Request) {
   try {
@@ -58,12 +53,7 @@ export async function POST(request: Request) {
       headers: request.headers,
     });
     assertOkResponse(setActiveResponse, "Switch active household failed");
-    const responseHeaders = new Headers();
-    for (const [key, value] of setActiveResponse.headers.entries()) {
-      if (key.toLowerCase() === "set-cookie") {
-        responseHeaders.append(key, value);
-      }
-    }
+    const responseHeaders = copySetCookieHeaders(setActiveResponse.headers);
 
     return Response.json(
       {

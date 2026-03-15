@@ -17,7 +17,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Owner/admin-only: edit household, revoke invites, change roles, remove members.
 - Owner-only: delete household, transfer ownership, and manage owner-role memberships/invites.
 - Non-owner members can leave the active household; owners transfer first, then leave as non-owners.
-- Household create/edit validates time zone; invalid values return `400` (`Invalid time zone`).
+- Household create/edit requires a valid `timeZone`; missing, blank, or invalid values return `400` (`Invalid time zone`).
 - Household time zone is required in storage and household lookups should fail loudly rather than silently defaulting when a household record is missing.
 - `POST /api/households` rolls back the new household if session activation fails and restores the prior active household when one existed; if rollback cannot be completed, it returns `500` with `Failed to activate new household and roll back create`.
 - API failures include `{ ok: false, code, error }`; control flow should branch on `code`.
