@@ -6,7 +6,7 @@ import { useHouseholdActionsMenu } from "@/app/household/members/useHouseholdAct
 import { useHouseholdMembersActions } from "@/app/household/members/useHouseholdMembersActions";
 
 export default function HouseholdMembersView({
-  canAdministerMembers,
+  hasElevatedHouseholdRole,
   initialMembers,
   initialPendingInvites,
   viewerUserId,
@@ -19,7 +19,6 @@ export default function HouseholdMembersView({
     toggleActionsMenu,
   } = useHouseholdActionsMenu();
   const {
-    canManageOwnerRole,
     error,
     filteredRows,
     handleInvite,
@@ -43,6 +42,7 @@ export default function HouseholdMembersView({
     setQuery,
     toggleInviteOpen,
     transferringOwnerUserId,
+    viewerIsOwner,
   } = useHouseholdMembersActions({
     closeActionsMenu,
     initialMembers,
@@ -116,16 +116,16 @@ export default function HouseholdMembersView({
         </div>
       ) : null}
 
-      {!canAdministerMembers ? (
+      {!hasElevatedHouseholdRole ? (
         <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold text-[var(--muted)]">
-          You can invite new members and leave your own membership. Role changes and removals are
-          limited to admins and owners.
+          You can invite new members, resend pending invites, and leave your own membership. Role
+          changes, removals, and invite revokes are limited to admins and owners.
         </div>
       ) : null}
 
       <HouseholdMembersTable
-        canAdministerMembers={canAdministerMembers}
-        canManageOwnerRole={canManageOwnerRole}
+        hasElevatedHouseholdRole={hasElevatedHouseholdRole}
+        viewerIsOwner={viewerIsOwner}
         filteredRows={filteredRows}
         leavingHousehold={leavingHousehold}
         openActionsMenuId={openActionsMenuId}

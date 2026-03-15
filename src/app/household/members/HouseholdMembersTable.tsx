@@ -23,8 +23,8 @@ type ActionsMenuTriggerProps = {
 };
 
 type HouseholdInviteRowProps = {
-  canAdministerMembers: boolean;
-  canManageOwnerRole: boolean;
+  hasElevatedHouseholdRole: boolean;
+  viewerIsOwner: boolean;
   invite: HouseholdPendingInvite;
   openActionsMenuId: string | null;
   renderActionsMenu: RenderActionsMenu;
@@ -37,8 +37,8 @@ type HouseholdInviteRowProps = {
 };
 
 type HouseholdMemberRowProps = {
-  canAdministerMembers: boolean;
-  canManageOwnerRole: boolean;
+  hasElevatedHouseholdRole: boolean;
+  viewerIsOwner: boolean;
   leavingHousehold: boolean;
   member: HouseholdMember;
   openActionsMenuId: string | null;
@@ -56,8 +56,8 @@ type HouseholdMemberRowProps = {
 };
 
 type HouseholdMembersTableProps = {
-  canAdministerMembers: boolean;
-  canManageOwnerRole: boolean;
+  hasElevatedHouseholdRole: boolean;
+  viewerIsOwner: boolean;
   filteredRows: HouseholdRow[];
   leavingHousehold: boolean;
   openActionsMenuId: string | null;
@@ -105,8 +105,8 @@ const ActionsMenuTrigger = ({
 );
 
 const HouseholdInviteRow = ({
-  canAdministerMembers,
-  canManageOwnerRole,
+  hasElevatedHouseholdRole,
+  viewerIsOwner,
   invite,
   onResendInvite,
   onRevokeInvite,
@@ -119,10 +119,10 @@ const HouseholdInviteRow = ({
 }: HouseholdInviteRowProps) => {
   const isResending = resendingInviteId === invite.id;
   const isRevoking = revokingInviteId === invite.id;
-  const canManageOwnerInviteRole = canManageOwnerRole || invite.role !== "owner";
+  const canManageOwnerInviteRole = viewerIsOwner || invite.role !== "owner";
   const disableResend = isResending || isRevoking || !canManageOwnerInviteRole;
   const disableRevoke =
-    !canAdministerMembers || isResending || isRevoking || !canManageOwnerInviteRole;
+    !hasElevatedHouseholdRole || isResending || isRevoking || !canManageOwnerInviteRole;
   const actionsMenuId = `invite-${invite.id}`;
   const disableActionsMenu = disableResend && disableRevoke;
 
@@ -185,8 +185,8 @@ const HouseholdInviteRow = ({
 };
 
 const HouseholdMemberRow = ({
-  canAdministerMembers,
-  canManageOwnerRole,
+  hasElevatedHouseholdRole,
+  viewerIsOwner,
   leavingHousehold,
   member,
   onLeaveHousehold,
@@ -208,8 +208,8 @@ const HouseholdMemberRow = ({
   const isRemoving = removingUserId === member.userId;
   const canLeaveHousehold = isViewer && member.role !== "owner";
   const isLeavingHousehold = isViewer && leavingHousehold;
-  const canEditOwnerMembers = canManageOwnerRole || member.role !== "owner";
-  const canEditMemberRole = canAdministerMembers && canEditOwnerMembers;
+  const canEditOwnerMembers = viewerIsOwner || member.role !== "owner";
+  const canEditMemberRole = hasElevatedHouseholdRole && canEditOwnerMembers;
   const disableRoleChange =
     !canEditMemberRole ||
     isViewer ||
@@ -224,7 +224,7 @@ const HouseholdMemberRow = ({
     isRemoving ||
     isTransferringOwner ||
     isLeavingHousehold;
-  const showTransferOwnership = canManageOwnerRole && !isViewer && member.role !== "owner";
+  const showTransferOwnership = viewerIsOwner && !isViewer && member.role !== "owner";
   const disableTransferOwnership =
     roleIsUpdating || isRemoving || isTransferringOwner || !showTransferOwnership;
   const disableLeaveHousehold =
@@ -258,7 +258,7 @@ const HouseholdMemberRow = ({
           >
             <option value="member">Member</option>
             <option value="admin">Admin</option>
-            {canManageOwnerRole ? <option value="owner">Owner</option> : null}
+            {viewerIsOwner ? <option value="owner">Owner</option> : null}
           </select>
         ) : (
           <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
@@ -324,8 +324,8 @@ const HouseholdMemberRow = ({
 };
 
 export default function HouseholdMembersTable({
-  canAdministerMembers,
-  canManageOwnerRole,
+  hasElevatedHouseholdRole,
+  viewerIsOwner,
   filteredRows,
   leavingHousehold,
   openActionsMenuId,
@@ -363,8 +363,8 @@ export default function HouseholdMembersTable({
             filteredRows.map((row) =>
               row.kind === "invite" ? (
                 <HouseholdInviteRow
-                  canAdministerMembers={canAdministerMembers}
-                  canManageOwnerRole={canManageOwnerRole}
+                  hasElevatedHouseholdRole={hasElevatedHouseholdRole}
+                  viewerIsOwner={viewerIsOwner}
                   invite={row.invite}
                   key={`invite-${row.invite.id}`}
                   onResendInvite={onResendInvite}
@@ -378,8 +378,8 @@ export default function HouseholdMembersTable({
                 />
               ) : (
                 <HouseholdMemberRow
-                  canAdministerMembers={canAdministerMembers}
-                  canManageOwnerRole={canManageOwnerRole}
+                  hasElevatedHouseholdRole={hasElevatedHouseholdRole}
+                  viewerIsOwner={viewerIsOwner}
                   key={`member-${row.member.userId}`}
                   leavingHousehold={leavingHousehold}
                   member={row.member}

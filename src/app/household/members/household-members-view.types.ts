@@ -4,7 +4,7 @@ import type {
 } from "@/app/household/members/members-view-utils";
 
 export type HouseholdMembersViewProps = {
-  canAdministerMembers: boolean;
+  hasElevatedHouseholdRole: boolean;
   initialMembers: HouseholdMember[];
   initialPendingInvites: HouseholdPendingInvite[];
   viewerUserId: number;

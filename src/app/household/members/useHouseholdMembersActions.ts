@@ -52,7 +52,7 @@ export const useHouseholdMembersActions = ({
   const [message, setMessage] = useState<string | null>(null);
 
   const viewerRole = members.find((member) => member.userId === viewerUserId)?.role ?? "member";
-  const canManageOwnerRole = viewerRole === "owner";
+  const viewerIsOwner = viewerRole === "owner";
 
   const filteredRows = useMemo(() => {
     const rows: HouseholdRow[] = [
@@ -322,7 +322,7 @@ export const useHouseholdMembersActions = ({
   };
 
   return {
-    canManageOwnerRole,
+    viewerIsOwner,
     error,
     filteredRows,
     handleInvite,

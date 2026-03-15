@@ -13,7 +13,7 @@ describe("HouseholdMembersView", () => {
   it("renders a visible actions menu trigger for members rows", () => {
     const markup = renderToStaticMarkup(
       <HouseholdMembersView
-        canAdministerMembers={true}
+        hasElevatedHouseholdRole={true}
         initialMembers={[
           {
             userId: 7,
@@ -41,7 +41,7 @@ describe("HouseholdMembersView", () => {
   it("keeps the actions menu available for a non-owner viewer who can leave", () => {
     const markup = renderToStaticMarkup(
       <HouseholdMembersView
-        canAdministerMembers={false}
+        hasElevatedHouseholdRole={false}
         initialMembers={[
           {
             userId: 7,
@@ -64,7 +64,7 @@ describe("HouseholdMembersView", () => {
   it("does not show Leave household on other members' rows", () => {
     const markup = renderToStaticMarkup(
       <HouseholdMembersView
-        canAdministerMembers={true}
+        hasElevatedHouseholdRole={true}
         initialMembers={[
           {
             userId: 7,
@@ -92,7 +92,7 @@ describe("HouseholdMembersView", () => {
   it("renders a disabled actions menu trigger when the viewer is still the owner", () => {
     const markup = renderToStaticMarkup(
       <HouseholdMembersView
-        canAdministerMembers={true}
+        hasElevatedHouseholdRole={true}
         initialMembers={[
           {
             userId: 7,
