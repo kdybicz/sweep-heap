@@ -52,14 +52,6 @@ export const getUserMemberships = async (userId: number) => {
   return result.rows;
 };
 
-export const getActiveHouseholdId = async (userId: number) => {
-  const result = await pool.query<MembershipSummary>(
-    "select household_id as \"householdId\", role, status from household_memberships where user_id = $1 and status = 'active' order by joined_at desc limit 1",
-    [userId],
-  );
-  return result.rows[0]?.householdId ?? null;
-};
-
 export const listActiveHouseholdsForUser = async (userId: number) => {
   const result = await pool.query<ActiveHouseholdSummary>(
     "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.status = 'active' order by hm.joined_at desc, h.id desc",
@@ -116,14 +108,6 @@ export const getHouseholdTimeZoneById = async (householdId: number) => {
     throw new HouseholdNotFoundError(householdId);
   }
   return timeZone;
-};
-
-export const getActiveHouseholdSummary = async (userId: number) => {
-  const result = await pool.query<ActiveHouseholdSummary>(
-    "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.status = 'active' order by hm.joined_at desc limit 1",
-    [userId],
-  );
-  return result.rows[0] ?? null;
 };
 
 export const getHouseholdSummaryForUser = async ({

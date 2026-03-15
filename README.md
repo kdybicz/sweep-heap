@@ -95,6 +95,8 @@ make dev
 ## Useful Commands
 
 - Prefer `make` targets first (especially in agent/container environments); use direct `yarn` only when an equivalent `make` target is missing.
+- `make dev-check` - runs format check, lint, tests, and typecheck
+- `make dev-fix` - auto-writes format/lint fixes, then runs tests and typecheck
 - `make db-generate` - generates migration files from `src/lib/drizzle/schema.ts`
 - `make db-migrate` - applies migrations, with automatic agent overrides when `AGENT` is set
 - `make db-reset` - resets DB, with automatic agent overrides when `AGENT` is set

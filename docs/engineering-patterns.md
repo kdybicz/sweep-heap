@@ -53,13 +53,14 @@ Use status codes consistently:
 - `400`: malformed request or invalid user/session payload.
 - `403`: authenticated but not allowed (including `Household required` and role-based `Forbidden`).
 - `404`: requested resource is missing (for example member/invite/chore not found).
-- `409`: valid request conflicts with business rules (for example owner-protection constraints or occurrence state conflicts).
+- `409`: valid request conflicts with business rules or required context selection (for example `HOUSEHOLD_SELECTION_REQUIRED`, owner-protection constraints, or occurrence state conflicts).
 
 Body parsing rule:
 
 - `parseJsonObjectBody()` should return `null` for parse failures and valid non-object JSON (arrays/primitives), so routes can consistently return `400` with `Invalid JSON body` for non-object payloads.
 - For authenticated API routes that require numeric user ids, use `getSessionContext()` from `src/lib/session-context.ts` to keep auth/status handling consistent.
 - Prefer Zod schema validation for parsed request payloads to avoid ad-hoc `typeof` checks and keep error messaging centralized in shared validators.
+- Route handlers using `requireApiSessionHouseholdResolution()`, `requireApiHousehold()`, or `requireApiHouseholdAdmin()` should pass `request.headers` so active-household reconciliation can emit `Set-Cookie` headers when healing stale session state.
 
 Important contract:
 
@@ -98,6 +99,7 @@ When you change behavior in these areas, update tests in the same PR:
 - API contract/status behavior (route handler tests).
 - Recurrence and date edge cases (`src/lib/occurrences.test.ts`, date-utils tests).
 - Shared config helpers (`src/lib/smtp.test.ts`).
+- Vitest runs in `environment: "node"` for both `*.test.ts` and `*.test.tsx`; do not assume browser DOM APIs unless a test sets them up explicitly.
 
 Prefer adding regression tests for bugs that were fixed.
 
