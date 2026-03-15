@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionMock, resolveActiveHouseholdMock, redirectMock } = vi.hoisted(() => ({
+const {
+  getSessionMock,
+  listActiveHouseholdsForUserMock,
+  resolveActiveHouseholdMock,
+  redirectMock,
+} = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
+  listActiveHouseholdsForUserMock: vi.fn(),
   resolveActiveHouseholdMock: vi.fn(),
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
@@ -20,11 +26,20 @@ vi.mock("@/lib/services", () => ({
   resolveActiveHousehold: resolveActiveHouseholdMock,
 }));
 
-import { redirectSignedInUserToApp, requirePageActiveHousehold } from "@/lib/page-access";
+vi.mock("@/lib/repositories", () => ({
+  listActiveHouseholdsForUser: listActiveHouseholdsForUserMock,
+}));
+
+import {
+  redirectSignedInUserToApp,
+  requirePageActiveHousehold,
+  requirePageHouseholdSelection,
+} from "@/lib/page-access";
 
 describe("requirePageActiveHousehold", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
+    listActiveHouseholdsForUserMock.mockReset();
     resolveActiveHouseholdMock.mockReset();
     redirectMock.mockClear();
   });
@@ -89,6 +104,7 @@ describe("requirePageActiveHousehold", () => {
 describe("redirectSignedInUserToApp", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
+    listActiveHouseholdsForUserMock.mockReset();
     resolveActiveHouseholdMock.mockReset();
     redirectMock.mockClear();
   });
@@ -144,5 +160,111 @@ describe("redirectSignedInUserToApp", () => {
     await expect(redirectSignedInUserToApp()).resolves.toBeUndefined();
     expect(resolveActiveHouseholdMock).not.toHaveBeenCalled();
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("requirePageHouseholdSelection", () => {
+  beforeEach(() => {
+    getSessionMock.mockReset();
+    listActiveHouseholdsForUserMock.mockReset();
+    resolveActiveHouseholdMock.mockReset();
+    redirectMock.mockClear();
+  });
+
+  it("redirects to setup when the user has no households", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "12", email: "alex@example.com", name: "Alex" },
+      session: { activeOrganizationId: null },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({ status: "none" });
+
+    await expect(requirePageHouseholdSelection()).rejects.toThrow("REDIRECT:/household/setup");
+    expect(redirectMock).toHaveBeenCalledWith("/household/setup");
+  });
+
+  it("returns selection households when a choice is required", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "12", email: "alex@example.com", name: "Alex" },
+      session: { activeOrganizationId: null },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "selection-required",
+      households: [
+        { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+        { id: 8, name: "Cabin", role: "member", timeZone: "UTC" },
+      ],
+    });
+
+    await expect(requirePageHouseholdSelection()).resolves.toEqual({
+      sessionActiveHouseholdId: null,
+      sessionUserId: "12",
+      sessionUserName: "Alex",
+      sessionUserEmail: "alex@example.com",
+      userId: 12,
+      householdResolution: {
+        status: "selection-required",
+        households: [
+          { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+          { id: 8, name: "Cabin", role: "member", timeZone: "UTC" },
+        ],
+      },
+      households: [
+        { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+        { id: 8, name: "Cabin", role: "member", timeZone: "UTC" },
+      ],
+    });
+    expect(listActiveHouseholdsForUserMock).not.toHaveBeenCalled();
+  });
+
+  it("loads switcher households for users who already have an active selection", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "12", email: "alex@example.com", name: "Alex" },
+      session: { activeOrganizationId: "7" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+    });
+    listActiveHouseholdsForUserMock.mockResolvedValue([
+      { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+      { id: 8, name: "Cabin", role: "member", timeZone: "UTC" },
+    ]);
+
+    await expect(requirePageHouseholdSelection()).resolves.toEqual({
+      sessionActiveHouseholdId: 7,
+      sessionUserId: "12",
+      sessionUserName: "Alex",
+      sessionUserEmail: "alex@example.com",
+      userId: 12,
+      householdResolution: {
+        status: "resolved",
+        source: "session",
+        household: { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+      },
+      households: [
+        { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+        { id: 8, name: "Cabin", role: "member", timeZone: "UTC" },
+      ],
+    });
+    expect(listActiveHouseholdsForUserMock).toHaveBeenCalledWith(12);
+  });
+
+  it("redirects back to the board when only one household remains selectable", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "12", email: "alex@example.com", name: "Alex" },
+      session: { activeOrganizationId: "7" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+    });
+    listActiveHouseholdsForUserMock.mockResolvedValue([
+      { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+    ]);
+
+    await expect(requirePageHouseholdSelection()).rejects.toThrow("REDIRECT:/household");
+    expect(redirectMock).toHaveBeenCalledWith("/household");
   });
 });

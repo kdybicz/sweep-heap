@@ -28,7 +28,7 @@ type ApiSessionAccess =
 type ApiSessionHouseholdResolutionAccess =
   | {
       ok: true;
-      activeHousehold: ActiveHouseholdResolution;
+      householdResolution: ActiveHouseholdResolution;
       responseHeaders: Headers;
       sessionContext: SessionContextOk;
     }
@@ -115,7 +115,7 @@ export const requireApiSessionHouseholdResolution = async (
     return sessionAccess;
   }
 
-  const activeHousehold = await resolveActiveHousehold({
+  const householdResolution = await resolveActiveHousehold({
     sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
     userId: sessionAccess.sessionContext.userId,
   });
@@ -124,7 +124,7 @@ export const requireApiSessionHouseholdResolution = async (
         try {
           return await reconcileActiveHouseholdSession({
             requestHeaders,
-            resolution: activeHousehold,
+            resolution: householdResolution,
             sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
           });
         } catch (error) {
@@ -136,7 +136,7 @@ export const requireApiSessionHouseholdResolution = async (
 
   return {
     ok: true,
-    activeHousehold,
+    householdResolution,
     responseHeaders,
     sessionContext: sessionAccess.sessionContext,
   };
@@ -150,16 +150,16 @@ export const requireApiHousehold = async (
     return sessionResolutionAccess;
   }
 
-  const { activeHousehold, responseHeaders, sessionContext } = sessionResolutionAccess;
+  const { householdResolution, responseHeaders, sessionContext } = sessionResolutionAccess;
 
-  if (activeHousehold.status === "none") {
+  if (householdResolution.status === "none") {
     return {
       ok: false,
       response: withResponseHeaders(householdRequiredResponse(), responseHeaders),
     };
   }
 
-  if (activeHousehold.status === "selection-required") {
+  if (householdResolution.status === "selection-required") {
     return {
       ok: false,
       response: withResponseHeaders(householdSelectionRequiredResponse(), responseHeaders),
@@ -170,7 +170,7 @@ export const requireApiHousehold = async (
     ok: true,
     responseHeaders,
     sessionContext,
-    household: activeHousehold.household,
+    household: householdResolution.household,
   };
 };
 

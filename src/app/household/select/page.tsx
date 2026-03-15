@@ -1,28 +1,8 @@
-import { redirect } from "next/navigation";
 import HouseholdSelectionList from "@/app/household/select/HouseholdSelectionList";
-import { requirePageSessionUser } from "@/lib/page-access";
-import { listActiveHouseholdsForUser } from "@/lib/repositories";
-import { resolveActiveHousehold } from "@/lib/services";
+import { requirePageHouseholdSelection } from "@/lib/page-access";
 
 export default async function HouseholdSelectPage() {
-  const access = await requirePageSessionUser();
-  const activeHousehold = await resolveActiveHousehold({
-    sessionActiveHouseholdId: access.sessionActiveHouseholdId,
-    userId: access.userId,
-  });
-
-  if (activeHousehold.status === "none") {
-    redirect("/household/setup");
-  }
-
-  const households =
-    activeHousehold.status === "selection-required"
-      ? activeHousehold.households
-      : await listActiveHouseholdsForUser(access.userId);
-
-  if (households.length < 2) {
-    redirect(households.length === 0 ? "/household/setup" : "/household");
-  }
+  const { households } = await requirePageHouseholdSelection();
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">

@@ -28,12 +28,12 @@ export async function GET(request?: Request) {
       return sessionResolutionAccess.response;
     }
 
-    const { activeHousehold, sessionContext } = sessionResolutionAccess;
+    const { householdResolution, sessionContext } = sessionResolutionAccess;
     responseHeaders = sessionResolutionAccess.responseHeaders;
 
     const memberships = await getUserMemberships(sessionContext.userId);
     const activeHouseholdId =
-      activeHousehold.status === "resolved" ? activeHousehold.household.id : null;
+      householdResolution.status === "resolved" ? householdResolution.household.id : null;
 
     return Response.json(
       {
