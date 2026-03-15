@@ -14,11 +14,11 @@ const redirectToAuth = (): never => {
   redirect("/auth");
 };
 
-const redirectForActiveHousehold = (
-  activeHousehold: Awaited<ReturnType<typeof resolveActiveHousehold>>,
+const redirectForHouseholdResolution = (
+  householdResolution: Awaited<ReturnType<typeof resolveActiveHousehold>>,
 ): never => {
   redirect(
-    activeHousehold.status === "selection-required" ? "/household/select" : "/household/setup",
+    householdResolution.status === "selection-required" ? "/household/select" : "/household/setup",
   );
 };
 
@@ -38,29 +38,29 @@ export const redirectSignedInUserToApp = async () => {
     return;
   }
 
-  const activeHousehold = await resolveActiveHousehold({
+  const householdResolution = await resolveActiveHousehold({
     sessionActiveHouseholdId: sessionContext.sessionActiveHouseholdId,
     userId: sessionContext.userId,
   });
-  if (activeHousehold.status === "resolved") {
+  if (householdResolution.status === "resolved") {
     redirect("/household");
   }
 
-  redirectForActiveHousehold(activeHousehold);
+  redirectForHouseholdResolution(householdResolution);
 };
 
 export const requirePageActiveHousehold = async () => {
   const access = await requirePageSessionUser();
-  const activeHousehold = await resolveActiveHousehold({
+  const householdResolution = await resolveActiveHousehold({
     sessionActiveHouseholdId: access.sessionActiveHouseholdId,
     userId: access.userId,
   });
-  if (activeHousehold.status !== "resolved") {
-    redirectForActiveHousehold(activeHousehold);
+  if (householdResolution.status !== "resolved") {
+    redirectForHouseholdResolution(householdResolution);
   }
 
-  const resolvedHousehold = activeHousehold as Extract<
-    typeof activeHousehold,
+  const resolvedHousehold = householdResolution as Extract<
+    typeof householdResolution,
     { status: "resolved" }
   >;
 
@@ -74,23 +74,6 @@ export const requirePageHouseholdAdmin = async () => {
   const access = await requirePageActiveHousehold();
   if (!isHouseholdElevatedRole(access.household.role)) {
     redirect("/household");
-  }
-
-  return access;
-};
-
-export const requirePageWithoutHousehold = async () => {
-  const access = await requirePageSessionUser();
-  const activeHousehold = await resolveActiveHousehold({
-    sessionActiveHouseholdId: access.sessionActiveHouseholdId,
-    userId: access.userId,
-  });
-  if (activeHousehold.status === "resolved") {
-    redirect("/household");
-  }
-
-  if (activeHousehold.status === "selection-required") {
-    redirectForActiveHousehold(activeHousehold);
   }
 
   return access;

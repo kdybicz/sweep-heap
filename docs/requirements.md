@@ -267,9 +267,9 @@
 - Multi-household support treats `active_household_id` as the acting context; membership list and ownership checks are evaluated against the targeted household, not inferred by latest membership.
 
 ## Code Organization Conventions
-- Prefer route handlers to stay transport-focused (auth, parsing, response mapping), but note that some current household member/invite routes still contain role-policy branching and Better Auth orchestration inline.
+- Keep route handlers transport-focused (auth, parsing, response mapping).
 - Keep SQL/data access in `src/lib/repositories/*-repository.ts`.
-- Keep reusable domain logic in `src/lib/services/*-service.ts`; when behavior remains route-local today, treat the route file and its colocated tests as the current contract until that logic is intentionally extracted.
+- Keep reusable domain logic in `src/lib/services/*-service.ts`; household member/invite orchestration now lives primarily in `src/lib/services/household-members-service.ts` and chore mutation rules live in `src/lib/services/chore-service.ts`.
 - Use barrel exports from `src/lib/repositories/index.ts` and `src/lib/services/index.ts`.
 
 ## Testing and Quality Gates

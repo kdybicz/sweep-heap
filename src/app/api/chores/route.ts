@@ -11,6 +11,24 @@ export const revalidate = 0;
 const weekOffsetPattern = /^-?\d+$/;
 const maxWeekOffset = 520;
 
+const statusForChoreMutationCode = (code: string) => {
+  switch (code) {
+    case API_ERROR_CODE.ACTION_INVALID:
+    case API_ERROR_CODE.STATUS_INVALID:
+    case API_ERROR_CODE.VALIDATION_FAILED:
+    case API_ERROR_CODE.MISSING_CHORE_OCCURRENCE:
+      return 400;
+    case API_ERROR_CODE.CHORE_NOT_FOUND:
+      return 404;
+    case API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE:
+    case API_ERROR_CODE.OCCURRENCE_CANCELED:
+    case API_ERROR_CODE.CANCEL_SCOPE_INVALID:
+      return 409;
+    default:
+      return 500;
+  }
+};
+
 const parseWeekOffset = (value: string | null) => {
   if (!value || !weekOffsetPattern.test(value)) {
     return 0;
@@ -96,7 +114,7 @@ export async function PATCH(request: Request) {
       return jsonError({
         headers: householdAccess.responseHeaders,
         status: 400,
-        code: API_ERROR_CODE.VALIDATION_FAILED,
+        code: payloadValidation.code,
         error: payloadValidation.error,
       });
     }
@@ -106,13 +124,18 @@ export async function PATCH(request: Request) {
       payload: payloadValidation.data,
     });
     if (!result.ok) {
-      return Response.json(result.body, {
-        status: result.status,
+      const { ok: _ok, ...errorPayload } = result;
+      return jsonError({
         headers: householdAccess.responseHeaders,
+        status: statusForChoreMutationCode(result.code),
+        ...errorPayload,
       });
     }
 
-    return Response.json(result.body, { headers: householdAccess.responseHeaders });
+    return Response.json(
+      { ok: true, ...result.data },
+      { headers: householdAccess.responseHeaders },
+    );
   } catch (error) {
     if (error instanceof HouseholdNotFoundError) {
       return jsonError({

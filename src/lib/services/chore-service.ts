@@ -1,8 +1,9 @@
 import { DateTime } from "luxon";
-import { API_ERROR_CODE, apiErrorBody } from "@/lib/api-error";
+import { API_ERROR_CODE, type ApiErrorCode } from "@/lib/api-error";
+import { type ChorePatchPayload, validateChorePatchIntent } from "@/lib/api-payload-validation";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import type { RepeatRule } from "@/lib/occurrences";
-import { generateOccurrenceInstances } from "@/lib/occurrences";
+import { generateOccurrenceDayEntries } from "@/lib/occurrences";
 import {
   deleteChoreOccurrenceException,
   getChoreInHousehold,
@@ -18,6 +19,33 @@ import {
 } from "@/lib/repositories";
 
 type ChoreMutationScope = "single" | "following" | "all";
+
+type ChoreMutationFailure = {
+  ok: false;
+  code: ApiErrorCode;
+  error: string;
+  fieldErrors?: Record<string, string>;
+};
+
+type ChoreMutationSuccess = {
+  ok: true;
+  data: Record<string, unknown>;
+};
+
+const choreMutationFailure = ({
+  code,
+  error,
+  fieldErrors,
+}: {
+  code: ApiErrorCode;
+  error: string;
+  fieldErrors?: Record<string, string>;
+}): ChoreMutationFailure => ({
+  ok: false,
+  code,
+  error,
+  ...(fieldErrors ? { fieldErrors } : {}),
+});
 
 const toDateString = (value: string | null, timeZone: string) => {
   if (!value) {
@@ -87,7 +115,7 @@ const isOccurrenceStartInSeries = ({
   startDate: string;
   endDate: string;
 }) =>
-  generateOccurrenceInstances({
+  generateOccurrenceDayEntries({
     startDate,
     endDate,
     rangeStart: occurrenceStartDate,
@@ -95,7 +123,7 @@ const isOccurrenceStartInSeries = ({
     repeatRule: normalizeRepeatRule(repeatRule) as RepeatRule,
     seriesEndDate,
     timeZone: "UTC",
-  }).some((instance) => instance.occurrenceStartDate === occurrenceStartDate);
+  }).some((dayEntry) => dayEntry.occurrenceStartDate === occurrenceStartDate);
 
 export const listChores = async ({
   householdId,
@@ -141,14 +169,14 @@ export const listChores = async ({
   }
 
   const chores = seriesRows.flatMap((row) => {
-    const seriesStart = normalizeDate(row.start_date, timeZone);
-    const occurrenceEnd = normalizeDate(row.end_date, timeZone);
-    if (!seriesStart || !occurrenceEnd) {
+    const rowStartDate = normalizeDate(row.start_date, timeZone);
+    const rowEndDate = normalizeDate(row.end_date, timeZone);
+    if (!rowStartDate || !rowEndDate) {
       return [];
     }
-    const occurrences = generateOccurrenceInstances({
-      startDate: seriesStart,
-      endDate: occurrenceEnd,
+    const occurrenceDayEntries = generateOccurrenceDayEntries({
+      startDate: rowStartDate,
+      endDate: rowEndDate,
       rangeStart,
       rangeEnd,
       repeatRule: normalizeRepeatRule(row.repeat_rule) as RepeatRule,
@@ -156,13 +184,13 @@ export const listChores = async ({
       timeZone,
     });
 
-    return occurrences
-      .filter((occurrence) => {
-        const exception = exceptions.get(`${row.id}:${occurrence.occurrenceStartDate}`);
+    return occurrenceDayEntries
+      .filter((occurrenceDayEntry) => {
+        const exception = exceptions.get(`${row.id}:${occurrenceDayEntry.occurrenceStartDate}`);
         return exception?.kind !== "canceled";
       })
-      .map((occurrence) => {
-        const exceptionKey = `${row.id}:${occurrence.occurrenceStartDate}`;
+      .map((occurrenceDayEntry) => {
+        const exceptionKey = `${row.id}:${occurrenceDayEntry.occurrenceStartDate}`;
         const exception = exceptions.get(exceptionKey);
 
         return {
@@ -170,15 +198,15 @@ export const listChores = async ({
           title: row.title,
           type: row.type,
           is_repeating: normalizeRepeatRule(row.repeat_rule) !== "none",
-          series_start_date: seriesStart,
+          series_start_date: rowStartDate,
           repeat_rule: normalizeRepeatRule(row.repeat_rule),
           series_end_date: normalizeDate(row.series_end_date, timeZone),
-          duration_days: spanDaysBetween(seriesStart, occurrenceEnd),
+          duration_days: spanDaysBetween(rowStartDate, rowEndDate),
           notes: row.notes ?? null,
           status: exception?.kind === "state" ? (exception.status ?? "open") : "open",
           closed_reason: exception?.kind === "state" ? (exception.closed_reason ?? null) : null,
-          occurrence_date: occurrence.occurrenceDay,
-          occurrence_start_date: occurrence.occurrenceStartDate,
+          occurrence_date: occurrenceDayEntry.occurrenceDay,
+          occurrence_start_date: occurrenceDayEntry.occurrenceStartDate,
         };
       });
   });
@@ -191,73 +219,30 @@ export const listChores = async ({
   };
 };
 
-type ChoreMutationFailure = {
-  ok: false;
-  status: number;
-  body: Record<string, unknown>;
-};
-
-type ChoreMutationSuccess = {
-  ok: true;
-  body: Record<string, unknown>;
-};
-
 export const mutateChore = async ({
   householdId,
   payload,
 }: {
   householdId: number;
-  payload: unknown;
+  payload: ChorePatchPayload;
 }): Promise<ChoreMutationSuccess | ChoreMutationFailure> => {
-  const input = (payload ?? {}) as Record<string, unknown>;
-  const rawAction = typeof input.action === "string" ? input.action.trim().toLowerCase() : null;
-  const action = rawAction ?? "set";
-
-  if (action !== "create" && action !== "set" && action !== "cancel" && action !== "edit") {
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        ...apiErrorBody({
-          code: API_ERROR_CODE.ACTION_INVALID,
-          error: "Action must be create, set, cancel, or edit",
-        }),
-      },
-    };
+  const input = payload;
+  const intentValidationError = validateChorePatchIntent(input);
+  if (intentValidationError) {
+    return choreMutationFailure({
+      code:
+        intentValidationError.path === "action"
+          ? API_ERROR_CODE.ACTION_INVALID
+          : intentValidationError.path === "status"
+            ? API_ERROR_CODE.STATUS_INVALID
+            : API_ERROR_CODE.CANCEL_SCOPE_INVALID,
+      error: intentValidationError.message,
+    });
   }
 
-  const rawStatus = typeof input.status === "string" ? input.status.trim().toLowerCase() : null;
-  const rawScope = typeof input.scope === "string" ? input.scope.trim().toLowerCase() : null;
-  if (action === "set" && rawStatus !== "open" && rawStatus !== "closed") {
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        ...apiErrorBody({
-          code: API_ERROR_CODE.STATUS_INVALID,
-          error: "Status must be open or closed",
-        }),
-      },
-    };
-  }
-
-  if (
-    (action === "cancel" || action === "edit") &&
-    rawScope !== "single" &&
-    rawScope !== "following" &&
-    rawScope !== "all"
-  ) {
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        ...apiErrorBody({
-          code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-          error: "scope must be single, following, or all",
-        }),
-      },
-    };
-  }
+  const action = input.action ?? "set";
+  const rawStatus = input.status ?? null;
+  const rawScope = input.scope ?? null;
 
   const choreId = Number(input.choreId);
   const occurrenceStartDate = normalizeDate(input.occurrenceStartDate, "UTC");
@@ -292,15 +277,11 @@ export const mutateChore = async ({
     });
 
     if (Object.keys(fieldErrors).length) {
-      return {
-        ok: false,
-        status: 400,
-        body: apiErrorBody({
-          code: API_ERROR_CODE.VALIDATION_FAILED,
-          error: "Validation failed",
-          fieldErrors,
-        }),
-      };
+      return choreMutationFailure({
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: "Validation failed",
+        fieldErrors,
+      });
     }
 
     const type = inputType === "stay_open" ? "stay_open" : "close_on_done";
@@ -318,8 +299,7 @@ export const mutateChore = async ({
 
     return {
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: choreIdCreated,
         title,
         startDate,
@@ -333,30 +313,18 @@ export const mutateChore = async ({
   }
 
   if (!choreId || !occurrenceStartDate) {
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        ...apiErrorBody({
-          code: API_ERROR_CODE.MISSING_CHORE_OCCURRENCE,
-          error: "Missing choreId or occurrenceStartDate",
-        }),
-      },
-    };
+    return choreMutationFailure({
+      code: API_ERROR_CODE.MISSING_CHORE_OCCURRENCE,
+      error: "Missing choreId or occurrenceStartDate",
+    });
   }
 
   const chore = await getChoreInHousehold({ choreId, householdId });
   if (!chore) {
-    return {
-      ok: false,
-      status: 404,
-      body: {
-        ...apiErrorBody({
-          code: API_ERROR_CODE.CHORE_NOT_FOUND,
-          error: "Chore not found",
-        }),
-      },
-    };
+    return choreMutationFailure({
+      code: API_ERROR_CODE.CHORE_NOT_FOUND,
+      error: "Chore not found",
+    });
   }
 
   const occurrenceInSeries = isOccurrenceStartInSeries({
@@ -368,16 +336,10 @@ export const mutateChore = async ({
   });
 
   if (!occurrenceInSeries) {
-    return {
-      ok: false,
-      status: 409,
-      body: {
-        ...apiErrorBody({
-          code: API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE,
-          error: "Occurrence start date is outside chore schedule",
-        }),
-      },
-    };
+    return choreMutationFailure({
+      code: API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE,
+      error: "Occurrence start date is outside chore schedule",
+    });
   }
 
   const exception = await getChoreOccurrenceException({
@@ -393,16 +355,10 @@ export const mutateChore = async ({
       : null;
 
   if (action !== "cancel" && exception?.kind === "canceled") {
-    return {
-      ok: false,
-      status: 409,
-      body: {
-        ...apiErrorBody({
-          code: API_ERROR_CODE.OCCURRENCE_CANCELED,
-          error: "Occurrence is canceled",
-        }),
-      },
-    };
+    return choreMutationFailure({
+      code: API_ERROR_CODE.OCCURRENCE_CANCELED,
+      error: "Occurrence is canceled",
+    });
   }
 
   const choreType = chore.type === "stay_open" ? "stay_open" : "close_on_done";
@@ -451,28 +407,18 @@ export const mutateChore = async ({
     });
 
     if (Object.keys(fieldErrors).length) {
-      return {
-        ok: false,
-        status: 400,
-        body: apiErrorBody({
-          code: API_ERROR_CODE.VALIDATION_FAILED,
-          error: "Validation failed",
-          fieldErrors,
-        }),
-      };
+      return choreMutationFailure({
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: "Validation failed",
+        fieldErrors,
+      });
     }
 
     if (editScope === "following" && choreRepeatRule === "none") {
-      return {
-        ok: false,
-        status: 409,
-        body: {
-          ...apiErrorBody({
-            code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-            error: "scope following requires a repeating chore",
-          }),
-        },
-      };
+      return choreMutationFailure({
+        code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
+        error: "scope following requires a repeating chore",
+      });
     }
 
     if (editScope === "all" || treatFollowingAsAll) {
@@ -507,8 +453,7 @@ export const mutateChore = async ({
 
       return {
         ok: true,
-        body: {
-          ok: true,
+        data: {
           choreId,
           occurrenceStartDate,
           action,
@@ -558,8 +503,7 @@ export const mutateChore = async ({
 
     return {
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId,
         createdChoreId,
         occurrenceStartDate,
@@ -573,16 +517,10 @@ export const mutateChore = async ({
     const cancelScope = scope as ChoreMutationScope;
 
     if (cancelScope === "following" && choreRepeatRule === "none") {
-      return {
-        ok: false,
-        status: 409,
-        body: {
-          ...apiErrorBody({
-            code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-            error: "scope following requires a repeating chore",
-          }),
-        },
-      };
+      return choreMutationFailure({
+        code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
+        error: "scope following requires a repeating chore",
+      });
     }
 
     const treatFollowingAsAll =
@@ -613,8 +551,7 @@ export const mutateChore = async ({
 
     return {
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId,
         occurrenceStartDate,
         scope: cancelScope,
@@ -644,8 +581,7 @@ export const mutateChore = async ({
 
   return {
     ok: true,
-    body: {
-      ok: true,
+    data: {
       choreId,
       occurrenceStartDate,
       type: choreType,

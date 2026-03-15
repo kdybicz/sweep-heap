@@ -71,7 +71,7 @@ Keep page-level access rules aligned with API permissions:
 
 - Server-rendered pages for privileged actions must enforce the same role checks as the API they submit to.
 - Household-scoped product pages (board, profile, settings, household management) should require an active household before rendering.
-- The signed-in pre-active-household surface includes auth redirects, invite acceptance, household setup, and household selection when multiple memberships exist without a valid active selection.
+- The signed-in pre-active-household surface includes auth redirects, invite acceptance, and household selection when multiple memberships exist without a valid active selection; household setup is also a signed-in create-household entry point for existing members.
 - Public entry points such as `/` and `/auth` should redirect signed-in users to `/household`, `/household/select`, or `/household/setup` rather than leaving them on public pages.
 - For household owner/admin flows (for example `/household/edit` with `PATCH /api/households`), redirect non-privileged members before rendering the edit form.
 
@@ -83,6 +83,7 @@ In `src/lib/occurrences.ts`:
 - Treat API/storage `endDate` as exclusive for span math; convert from the inclusive create/edit form input at the UI boundary.
 - Recurrence cursor loops must guard against non-advancing values (`nextCursor.equals(cursor)`) to avoid hangs.
 - Keep date math timezone-aware and day-based (`Luxon`, `startOf("day")`, ISO date keys).
+- `generateOccurrenceDayKeys()` returns the visible day keys in range, while `generateOccurrenceDayEntries()` returns one row per visible day in a span tied back to its occurrence start date.
 - Keep `src/lib/occurrences.ts` overlap behavior aligned with the SQL prefilters in `src/lib/repositories/chore-repository.ts`; changing only one side can silently drop or over-include chores.
 
 ## 6) Testing Standards for Contracts
@@ -108,7 +109,7 @@ Documentation and implementation should stay in sync:
 - Make non-obvious assumptions and edge cases explicit in code or docs where future maintainers are likely to look.
 - When inconsistencies are found, fix small safe issues promptly; if a larger issue cannot be resolved in the current change, document the affected files, the risk, and the recommended follow-up.
 
-## 8) Maintenance Rule
+## 8) Keeping Standards Current
 
 If a recurring surprise gets fixed and becomes a standard:
 

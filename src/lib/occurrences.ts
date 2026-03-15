@@ -12,7 +12,7 @@ export type OccurrenceInput = {
   timeZone: string;
 };
 
-export type OccurrenceInstance = {
+export type OccurrenceDayEntry = {
   occurrenceDay: string;
   occurrenceStartDate: string;
 };
@@ -42,7 +42,7 @@ const advance = (value: DateTime, repeatRule: RepeatRule) => {
   return value;
 };
 
-export const generateOccurrences = ({
+export const generateOccurrenceDayKeys = ({
   startDate,
   endDate,
   rangeStart,
@@ -51,7 +51,7 @@ export const generateOccurrences = ({
   seriesEndDate,
   timeZone,
 }: OccurrenceInput) => {
-  const instances = generateOccurrenceInstances({
+  const dayEntries = generateOccurrenceDayEntries({
     startDate,
     endDate,
     rangeStart,
@@ -62,14 +62,14 @@ export const generateOccurrences = ({
   });
 
   const uniqueDays = new Set<string>();
-  for (const instance of instances) {
-    uniqueDays.add(instance.occurrenceDay);
+  for (const dayEntry of dayEntries) {
+    uniqueDays.add(dayEntry.occurrenceDay);
   }
 
   return Array.from(uniqueDays).sort();
 };
 
-export const generateOccurrenceInstances = ({
+export const generateOccurrenceDayEntries = ({
   startDate,
   endDate,
   rangeStart,
@@ -77,9 +77,9 @@ export const generateOccurrenceInstances = ({
   repeatRule,
   seriesEndDate,
   timeZone,
-}: OccurrenceInput): OccurrenceInstance[] => {
+}: OccurrenceInput): OccurrenceDayEntry[] => {
   const occurrenceSet = new Set<string>();
-  const instances: OccurrenceInstance[] = [];
+  const dayEntries: OccurrenceDayEntry[] = [];
   const start = toDate(startDate, timeZone);
   const end = toDate(endDate, timeZone);
   const from = toDate(rangeStart, timeZone);
@@ -87,14 +87,14 @@ export const generateOccurrenceInstances = ({
   const seriesEnd = seriesEndDate ? toDate(seriesEndDate, timeZone) : to;
 
   if (!start.isValid || !end.isValid || !from.isValid || !to.isValid || !seriesEnd.isValid) {
-    return instances;
+    return dayEntries;
   }
 
   const spanDays = spanDaysFromDates(start, end);
   const latestOverlappingDay = seriesEnd.plus({ days: spanDays - 1 });
 
   if (latestOverlappingDay < from || start > to) {
-    return instances;
+    return dayEntries;
   }
 
   const clampStart = start > from ? start : from;
@@ -118,7 +118,7 @@ export const generateOccurrenceInstances = ({
           continue;
         }
         occurrenceSet.add(key);
-        instances.push({
+        dayEntries.push({
           occurrenceDay: iso,
           occurrenceStartDate: occurrenceStartIso,
         });
@@ -131,7 +131,7 @@ export const generateOccurrenceInstances = ({
     if (singleOccurrenceEnds >= clampStart && start <= clampEnd) {
       addOccurrenceSpan(start);
     }
-    return instances.sort((a, b) =>
+    return dayEntries.sort((a, b) =>
       a.occurrenceDay === b.occurrenceDay
         ? a.occurrenceStartDate.localeCompare(b.occurrenceStartDate)
         : a.occurrenceDay.localeCompare(b.occurrenceDay),
@@ -166,7 +166,7 @@ export const generateOccurrenceInstances = ({
     cursor = nextCursor;
   }
 
-  return instances.sort((a, b) =>
+  return dayEntries.sort((a, b) =>
     a.occurrenceDay === b.occurrenceDay
       ? a.occurrenceStartDate.localeCompare(b.occurrenceStartDate)
       : a.occurrenceDay.localeCompare(b.occurrenceDay),

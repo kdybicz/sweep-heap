@@ -16,6 +16,16 @@ export {
   sendHouseholdInvite,
 } from "@/lib/services/household-invite-service";
 export {
+  createHouseholdInvite as createHouseholdMemberInvite,
+  isPendingInviteNotFoundError as isHouseholdMemberInviteNotFoundError,
+  mapInvitationNotFoundFailure as mapHouseholdMemberInviteNotFoundFailure,
+  removeHouseholdMember,
+  resendHouseholdInvite,
+  revokeHouseholdInvite,
+  transferHouseholdOwnership,
+  updateHouseholdMemberRole,
+} from "@/lib/services/household-members-service";
+export {
   householdHasOtherActiveMembers,
   listAccountDeletionBlockingHouseholds,
   withHouseholdMutationLock,

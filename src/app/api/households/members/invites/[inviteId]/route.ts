@@ -1,56 +1,27 @@
-import { auth } from "@/auth";
+import { requireApiHousehold, requireApiHouseholdAdmin } from "@/lib/api-access";
+import { API_ERROR_CODE, type ApiErrorCode, jsonError } from "@/lib/api-error";
+import { parsePositiveInt } from "@/lib/organization-api";
 import {
-  requireApiHousehold,
-  requireApiHouseholdAdmin,
-  withResponseHeaders,
-} from "@/lib/api-access";
-import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
-import { isHouseholdElevatedRole } from "@/lib/household-roles";
-import {
-  isInvitationNotFoundError,
-  mapOrganizationInvitation,
-  type OrganizationInvitationLike,
-  parsePositiveInt,
-  toAuthApiError,
-} from "@/lib/organization-api";
-import { sendHouseholdInvite } from "@/lib/services/household-invite-service";
-import { withHouseholdMutationLock } from "@/lib/services/ownership-guard-service";
+  isHouseholdMemberInviteNotFoundError,
+  mapHouseholdMemberInviteNotFoundFailure,
+  resendHouseholdInvite,
+  revokeHouseholdInvite,
+} from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
-const listOrganizationInvites = async ({
-  householdId,
-  request,
+const jsonServiceFailure = ({
+  headers,
+  result,
 }: {
-  householdId: number;
-  request: Request;
+  headers: Headers;
+  result: { ok: false; status: number; code: ApiErrorCode; error: string } & Record<
+    string,
+    unknown
+  >;
 }) => {
-  const invitations = (await auth.api.listInvitations({
-    query: {
-      organizationId: String(householdId),
-    },
-    headers: request.headers,
-  })) as OrganizationInvitationLike[];
-
-  return Array.isArray(invitations) ? invitations : [];
-};
-
-const mapOwnerRoleProtectionError = ({
-  actorRole,
-  inviteRole,
-}: {
-  actorRole: string;
-  inviteRole: string;
-}) => {
-  if (inviteRole === "owner" && actorRole !== "owner") {
-    return jsonError({
-      status: 403,
-      code: API_ERROR_CODE.OWNER_ROLE_MANAGEMENT_FORBIDDEN,
-      error: "Only owners can manage owner roles",
-    });
-  }
-
-  return null;
+  const { ok: _ok, status, ...payload } = result;
+  return jsonError({ headers, status, ...payload });
 };
 
 export async function POST(
@@ -78,77 +49,31 @@ export async function POST(
       });
     }
 
-    return await withHouseholdMutationLock({
+    const inviterName =
+      sessionContext.sessionUserName?.trim() ||
+      sessionContext.sessionUserEmail?.trim() ||
+      "A household member";
+
+    const result = await resendHouseholdInvite({
+      actorRole: household.role,
       householdId: household.id,
-      task: async () => {
-        const pendingInvites = await listOrganizationInvites({
-          householdId: household.id,
-          request,
-        });
-        const invite = pendingInvites.find(
-          (pendingInvite) => Number(pendingInvite.id) === inviteId,
-        );
-        if (!invite || invite.status !== "pending") {
-          return jsonError({
-            headers: householdAccess.responseHeaders,
-            status: 404,
-            code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
-            error: "Pending invite not found",
-          });
-        }
-
-        const ownerRoleProtectionError = mapOwnerRoleProtectionError({
-          actorRole: household.role,
-          inviteRole: invite.role,
-        });
-        if (ownerRoleProtectionError) {
-          return withResponseHeaders(ownerRoleProtectionError, householdAccess.responseHeaders);
-        }
-
-        const inviteRole = isHouseholdElevatedRole(invite.role) ? invite.role : "member";
-
-        const resentInvite = (await auth.api.createInvitation({
-          body: {
-            organizationId: String(household.id),
-            email: invite.email,
-            role: inviteRole,
-            resend: true,
-          },
-          headers: request.headers,
-        })) as OrganizationInvitationLike;
-
-        const inviterName =
-          sessionContext.sessionUserName?.trim() ||
-          sessionContext.sessionUserEmail?.trim() ||
-          "A household member";
-
-        const { inviteEmailSent } = await sendHouseholdInvite({
-          householdId: household.id,
-          householdName: household.name,
-          invite: resentInvite,
-          inviterName,
-          request,
-        });
-
-        return Response.json(
-          {
-            ok: true,
-            invite: mapOrganizationInvitation(resentInvite),
-            inviteEmailSent,
-          },
-          { headers: householdAccess.responseHeaders },
-        );
-      },
+      householdName: household.name,
+      inviteId,
+      inviterName,
+      request,
     });
+    if (!result.ok) {
+      return jsonServiceFailure({ headers: householdAccess.responseHeaders, result });
+    }
+
+    return Response.json(
+      { ok: true, ...result.data },
+      { headers: householdAccess.responseHeaders },
+    );
   } catch (error) {
-    const authApiError = toAuthApiError(error);
-    if (isInvitationNotFoundError(authApiError)) {
-      return jsonError({
-        headers: responseHeaders,
-        status: 404,
-        code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
-        error: "Pending invite not found",
-      });
+    if (isHouseholdMemberInviteNotFoundError(error)) {
+      const result = mapHouseholdMemberInviteNotFoundFailure();
+      return jsonServiceFailure({ headers: responseHeaders, result });
     }
 
     console.error("Failed to resend household invite", error);
@@ -184,58 +109,21 @@ export async function DELETE(
       });
     }
 
-    return await withHouseholdMutationLock({
+    const result = await revokeHouseholdInvite({
+      actorRole: adminAccess.household.role,
       householdId: adminAccess.household.id,
-      task: async () => {
-        const pendingInvites = await listOrganizationInvites({
-          householdId: adminAccess.household.id,
-          request,
-        });
-        const invite = pendingInvites.find(
-          (pendingInvite) => Number(pendingInvite.id) === inviteId,
-        );
-        if (!invite || invite.status !== "pending") {
-          return jsonError({
-            headers: adminAccess.responseHeaders,
-            status: 404,
-            code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
-            error: "Pending invite not found",
-          });
-        }
-
-        const ownerRoleProtectionError = mapOwnerRoleProtectionError({
-          actorRole: adminAccess.household.role,
-          inviteRole: invite.role,
-        });
-        if (ownerRoleProtectionError) {
-          return withResponseHeaders(ownerRoleProtectionError, adminAccess.responseHeaders);
-        }
-
-        await auth.api.cancelInvitation({
-          body: {
-            invitationId: String(inviteId),
-          },
-          headers: request.headers,
-        });
-
-        return Response.json(
-          {
-            ok: true,
-            revokedInviteId: inviteId,
-          },
-          { headers: adminAccess.responseHeaders },
-        );
-      },
+      inviteId,
+      requestHeaders: request.headers,
     });
+    if (!result.ok) {
+      return jsonServiceFailure({ headers: adminAccess.responseHeaders, result });
+    }
+
+    return Response.json({ ok: true, ...result.data }, { headers: adminAccess.responseHeaders });
   } catch (error) {
-    const authApiError = toAuthApiError(error);
-    if (isInvitationNotFoundError(authApiError)) {
-      return jsonError({
-        headers: responseHeaders,
-        status: 404,
-        code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
-        error: "Pending invite not found",
-      });
+    if (isHouseholdMemberInviteNotFoundError(error)) {
+      const result = mapHouseholdMemberInviteNotFoundFailure();
+      return jsonServiceFailure({ headers: responseHeaders, result });
     }
 
     console.error("Failed to revoke household invite", error);

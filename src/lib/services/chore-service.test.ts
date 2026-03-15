@@ -113,13 +113,9 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 400,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.VALIDATION_FAILED,
-        error: "Validation failed",
-        fieldErrors: { title: "Title is required" },
-      },
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Validation failed",
+      fieldErrors: { title: "Title is required" },
     });
     expect(insertChoreMock).not.toHaveBeenCalled();
   });
@@ -210,12 +206,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 400,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.MISSING_CHORE_OCCURRENCE,
-        error: "Missing choreId or occurrenceStartDate",
-      },
+      code: API_ERROR_CODE.MISSING_CHORE_OCCURRENCE,
+      error: "Missing choreId or occurrenceStartDate",
     });
   });
 
@@ -234,12 +226,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 404,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.CHORE_NOT_FOUND,
-        error: "Chore not found",
-      },
+      code: API_ERROR_CODE.CHORE_NOT_FOUND,
+      error: "Chore not found",
     });
   });
 
@@ -253,12 +241,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 400,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.ACTION_INVALID,
-        error: "Action must be create, set, cancel, or edit",
-      },
+      code: API_ERROR_CODE.ACTION_INVALID,
+      error: "Action must be create, set, cancel, or edit",
     });
   });
 
@@ -274,12 +258,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 400,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.STATUS_INVALID,
-        error: "Status must be open or closed",
-      },
+      code: API_ERROR_CODE.STATUS_INVALID,
+      error: "Status must be open or closed",
     });
   });
 
@@ -333,8 +313,7 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         occurrenceStartDate: "2026-01-01",
         action: "edit",
@@ -380,8 +359,7 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         occurrenceStartDate: "2025-12-15",
         action: "edit",
@@ -448,12 +426,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 409,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE,
-        error: "Occurrence start date is outside chore schedule",
-      },
+      code: API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE,
+      error: "Occurrence start date is outside chore schedule",
     });
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
   });
@@ -550,12 +524,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 400,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-        error: "scope must be single, following, or all",
-      },
+      code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
+      error: "scope must be single, following, or all",
     });
     expect(getChoreInHouseholdMock).not.toHaveBeenCalled();
   });
@@ -573,12 +543,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 400,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-        error: "scope must be single, following, or all",
-      },
+      code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
+      error: "scope must be single, following, or all",
     });
     expect(getChoreInHouseholdMock).not.toHaveBeenCalled();
   });
@@ -605,8 +571,7 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
         scope: "single",
@@ -649,8 +614,7 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         createdChoreId: 44,
         occurrenceStartDate: "2026-01-05",
@@ -753,8 +717,7 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         createdChoreId: 45,
         occurrenceStartDate: "2026-01-05",
@@ -841,12 +804,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 409,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-        error: "scope following requires a repeating chore",
-      },
+      code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
+      error: "scope following requires a repeating chore",
     });
     expect(insertChoreMock).not.toHaveBeenCalled();
   });
@@ -879,8 +838,7 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
         action: "edit",
@@ -1032,8 +990,7 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
         scope: "following",
@@ -1066,12 +1023,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 409,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
-        error: "scope following requires a repeating chore",
-      },
+      code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
+      error: "scope following requires a repeating chore",
     });
     expect(updateChoreSeriesEndDateMock).not.toHaveBeenCalled();
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
@@ -1099,8 +1052,7 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
         scope: "all",
@@ -1136,8 +1088,7 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         occurrenceStartDate: "2026-01-01",
         scope: "following",
@@ -1176,12 +1127,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 409,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.OCCURRENCE_CANCELED,
-        error: "Occurrence is canceled",
-      },
+      code: API_ERROR_CODE.OCCURRENCE_CANCELED,
+      error: "Occurrence is canceled",
     });
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
   });
@@ -1205,12 +1152,8 @@ describe("mutateChore", () => {
 
     expect(result).toEqual({
       ok: false,
-      status: 409,
-      body: {
-        ok: false,
-        code: API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE,
-        error: "Occurrence start date is outside chore schedule",
-      },
+      code: API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE,
+      error: "Occurrence start date is outside chore schedule",
     });
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
   });

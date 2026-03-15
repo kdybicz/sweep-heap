@@ -111,9 +111,9 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`.
 
 ## Change Checklist
-- Prefer route handlers to stay thin and transport-focused, but treat current route-local member/invite policy checks as real contract until they are deliberately extracted.
+- Keep route handlers thin and transport-focused.
 - Keep SQL in repositories; keep domain rules in services.
-- When changing household member/invite flows, review the route handlers and colocated route tests first; much of the current branching and Better Auth orchestration still lives there.
+- When changing household member/invite flows, review `src/lib/services/household-members-service.ts` first, then the route handlers and colocated route tests.
 - When changing recurrence overlap behavior, update both `src/lib/occurrences.ts` and `src/lib/repositories/chore-repository.ts`.
 - Add or update focused tests when behavior changes.
 - If behavior intentionally changes, update both requirements docs.

@@ -178,8 +178,7 @@ describe("PATCH /api/chores", () => {
     });
     mutateChoreMock.mockResolvedValue({
       ok: true,
-      body: {
-        ok: true,
+      data: {
         choreId: 3,
         occurrenceStartDate: "2026-01-03",
         type: "stay_open",
@@ -245,7 +244,7 @@ describe("PATCH /api/chores", () => {
     expect(response.status).toBe(400);
     expect(body).toEqual({
       ok: false,
-      code: API_ERROR_CODE.VALIDATION_FAILED,
+      code: API_ERROR_CODE.ACTION_INVALID,
       error: "Action must be create, set, cancel, or edit",
     });
     expect(mutateChoreMock).not.toHaveBeenCalled();
@@ -270,7 +269,7 @@ describe("PATCH /api/chores", () => {
     };
     mutateChoreMock.mockResolvedValue({
       ok: true,
-      body: { ok: true, choreId: 3, createdChoreId: 9, occurrenceStartDate: "2026-01-03" },
+      data: { choreId: 3, createdChoreId: 9, occurrenceStartDate: "2026-01-03" },
     });
 
     const response = await PATCH(
@@ -304,7 +303,7 @@ describe("PATCH /api/chores", () => {
     };
     mutateChoreMock.mockResolvedValue({
       ok: true,
-      body: { ok: true, choreId: 3, occurrenceStartDate: "2026-01-03" },
+      data: { choreId: 3, occurrenceStartDate: "2026-01-03" },
     });
 
     const response = await PATCH(
@@ -342,7 +341,7 @@ describe("PATCH /api/chores", () => {
     expect(response.status).toBe(400);
     expect(body).toEqual({
       ok: false,
-      code: API_ERROR_CODE.VALIDATION_FAILED,
+      code: API_ERROR_CODE.STATUS_INVALID,
       error: "Status must be open or closed",
     });
     expect(mutateChoreMock).not.toHaveBeenCalled();

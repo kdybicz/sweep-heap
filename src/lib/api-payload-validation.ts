@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { API_ERROR_CODE, type ApiErrorCode } from "@/lib/api-error";
 import { type HouseholdRole, isHouseholdRole } from "@/lib/household-roles";
 
 export type PayloadValidationResult<T> =
@@ -11,6 +12,29 @@ export type PayloadValidationResult<T> =
       ok: false;
       error: string;
     };
+
+export type ChorePatchAction = "create" | "set" | "cancel" | "edit";
+export type ChorePatchScope = "single" | "following" | "all";
+export type ChorePatchPayload = Record<string, unknown> & {
+  action?: string | null;
+  status?: string | null;
+  scope?: string | null;
+};
+export type ChorePatchValidationResult =
+  | {
+      ok: true;
+      data: ChorePatchPayload;
+    }
+  | {
+      ok: false;
+      error: string;
+      code: ApiErrorCode;
+    };
+
+type ChorePatchIntentValidationError = {
+  path: "action" | "status" | "scope";
+  message: string;
+};
 
 const toValidationResult = <T>(
   result:
@@ -98,12 +122,40 @@ const householdInviteAcceptPayloadSchema = z.object({
 const allowedActions = new Set(["create", "set", "cancel", "edit"]);
 const allowedScopes = new Set(["single", "following", "all"]);
 
+export const validateChorePatchIntent = (
+  payload: Pick<ChorePatchPayload, "action" | "status" | "scope">,
+): ChorePatchIntentValidationError | null => {
+  const action = payload.action ?? null;
+  const status = payload.status ?? null;
+  const scope = payload.scope ?? null;
+
+  if (action !== null && !allowedActions.has(action)) {
+    return {
+      path: "action",
+      message: "Action must be create, set, cancel, or edit",
+    };
+  }
+
+  if ((action ?? "set") === "set" && status !== "open" && status !== "closed") {
+    return {
+      path: "status",
+      message: "Status must be open or closed",
+    };
+  }
+
+  if ((action === "cancel" || action === "edit") && !allowedScopes.has(scope ?? "")) {
+    return {
+      path: "scope",
+      message: "scope must be single, following, or all",
+    };
+  }
+
+  return null;
+};
+
 const choreActionSchema = z
   .unknown()
-  .transform((value) => (typeof value === "string" ? value.trim().toLowerCase() : null))
-  .refine((value) => value === null || allowedActions.has(value), {
-    message: "Action must be create, set, cancel, or edit",
-  });
+  .transform((value) => (typeof value === "string" ? value.trim().toLowerCase() : null));
 
 const choreStatusSchema = z
   .unknown()
@@ -120,30 +172,16 @@ const chorePatchPayloadSchema = z
   })
   .catchall(z.unknown())
   .superRefine((payload, ctx) => {
-    const action = payload.action ?? null;
-    const status = payload.status ?? null;
-    const scope = payload.scope ?? null;
-
-    if ((action ?? "set") === "set" && status !== "open" && status !== "closed") {
+    const validationError = validateChorePatchIntent(payload);
+    if (validationError) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Status must be open or closed",
-        path: ["status"],
-      });
-    }
-
-    if (
-      (action === "cancel" || action === "edit") &&
-      (typeof scope !== "string" || !allowedScopes.has(scope))
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "scope must be single, following, or all",
-        path: ["scope"],
+        message: validationError.message,
+        path: [validationError.path],
       });
     }
   })
-  .transform((payload) => payload as Record<string, unknown>);
+  .transform((payload) => payload as ChorePatchPayload);
 
 export const validateHouseholdInvitePayload = (
   payload: Record<string, unknown>,
@@ -172,5 +210,29 @@ export const validateHouseholdInviteAcceptPayload = (
 
 export const validateChorePatchPayload = (
   payload: Record<string, unknown>,
-): PayloadValidationResult<Record<string, unknown>> =>
-  toValidationResult(chorePatchPayloadSchema.safeParse(payload));
+): ChorePatchValidationResult => {
+  const result = chorePatchPayloadSchema.safeParse(payload);
+  if (result.success) {
+    return {
+      ok: true,
+      data: result.data,
+    };
+  }
+
+  const firstIssue = result.error.issues[0];
+  const issuePath = firstIssue?.path[0];
+  const code =
+    issuePath === "action"
+      ? API_ERROR_CODE.ACTION_INVALID
+      : issuePath === "status"
+        ? API_ERROR_CODE.STATUS_INVALID
+        : issuePath === "scope"
+          ? API_ERROR_CODE.CANCEL_SCOPE_INVALID
+          : API_ERROR_CODE.VALIDATION_FAILED;
+
+  return {
+    ok: false,
+    code,
+    error: firstIssue?.message ?? "Invalid request body",
+  };
+};
