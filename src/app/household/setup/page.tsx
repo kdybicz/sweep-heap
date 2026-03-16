@@ -1,8 +1,21 @@
+import Link from "next/link";
+
 import HouseholdSetupForm from "@/app/household/setup/HouseholdSetupForm";
 import { requirePageSessionUser } from "@/lib/page-access";
+import { resolveActiveHousehold } from "@/lib/services";
 
 export default async function HouseholdSetupPage() {
-  await requirePageSessionUser();
+  const access = await requirePageSessionUser();
+  const householdResolution = await resolveActiveHousehold({
+    sessionActiveHouseholdId: access.sessionActiveHouseholdId,
+    userId: access.userId,
+  });
+  const exitAction =
+    householdResolution.status === "resolved"
+      ? { href: "/household", label: "Back to board" }
+      : householdResolution.status === "selection-required"
+        ? { href: "/household/select", label: "Back to household selection" }
+        : null;
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -18,6 +31,17 @@ export default async function HouseholdSetupPage() {
         <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">
           <HouseholdSetupForm />
         </div>
+
+        {exitAction ? (
+          <div>
+            <Link
+              className="inline-flex rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+              href={exitAction.href}
+            >
+              {exitAction.label}
+            </Link>
+          </div>
+        ) : null}
       </div>
     </main>
   );

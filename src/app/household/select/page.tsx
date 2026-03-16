@@ -1,8 +1,11 @@
+import Link from "next/link";
+
 import HouseholdSelectionList from "@/app/household/select/HouseholdSelectionList";
 import { requirePageHouseholdSelection } from "@/lib/page-access";
 
 export default async function HouseholdSelectPage() {
-  const { households } = await requirePageHouseholdSelection();
+  const { households, householdResolution } = await requirePageHouseholdSelection();
+  const showBackLink = householdResolution.status === "resolved";
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -19,6 +22,17 @@ export default async function HouseholdSelectPage() {
         <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-6 shadow-[var(--shadow)] sm:p-8">
           <HouseholdSelectionList households={households} />
         </div>
+
+        {showBackLink ? (
+          <div>
+            <Link
+              className="inline-flex rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+              href="/household"
+            >
+              Back to board
+            </Link>
+          </div>
+        ) : null}
       </div>
     </main>
   );

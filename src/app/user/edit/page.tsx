@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import DeleteAccountForm from "@/app/user/edit/DeleteAccountForm";
 import UserDetailsEditForm from "@/app/user/edit/UserDetailsEditForm";
 import { requirePageActiveHousehold } from "@/lib/page-access";
@@ -26,6 +28,15 @@ export default async function UserEditPage() {
         </div>
         <div className="rounded-3xl border border-[var(--danger-stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">
           <DeleteAccountForm />
+        </div>
+
+        <div>
+          <Link
+            className="inline-flex rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+            href="/household"
+          >
+            Back to board
+          </Link>
         </div>
       </div>
     </main>

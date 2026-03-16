@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+
 import HouseholdInviteAcceptanceForm from "@/app/household/invite/HouseholdInviteAcceptanceForm";
 import { getSession } from "@/auth";
 import {
@@ -8,6 +9,8 @@ import {
 } from "@/lib/household-invite-paths";
 import { hashHouseholdInviteSecret } from "@/lib/household-invite-secret";
 import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
+import { resolveActiveHousehold } from "@/lib/services";
+import { parseSessionContext } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +70,22 @@ export default async function HouseholdInvitePage({
     );
   }
 
-  const sessionEmail = (await getSession())?.user?.email?.trim().toLowerCase() ?? "";
+  const session = await getSession();
+  const sessionEmail = session?.user?.email?.trim().toLowerCase() ?? "";
+  const sessionContext = parseSessionContext(session);
+  const householdResolution = sessionContext.ok
+    ? await resolveActiveHousehold({
+        sessionActiveHouseholdId: sessionContext.sessionActiveHouseholdId,
+        userId: sessionContext.userId,
+      })
+    : null;
+  const exitAction = sessionContext.ok
+    ? householdResolution?.status === "resolved"
+      ? { href: "/household", label: "Back to board" }
+      : householdResolution?.status === "selection-required"
+        ? { href: "/household/select", label: "Back to household selection" }
+        : { href: "/household/setup", label: "Back to household setup" }
+    : { href: "/auth", label: "Back to sign in" };
   const inviteEmail = invite.email.trim().toLowerCase();
   const needsAccountSwitch = !!sessionEmail && sessionEmail !== inviteEmail;
   const canRecoverBySwitchingAccount =
@@ -146,6 +164,15 @@ export default async function HouseholdInvitePage({
               initialError={initialError}
             />
           )}
+        </div>
+
+        <div>
+          <Link
+            className="inline-flex rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+            href={exitAction.href}
+          >
+            {exitAction.label}
+          </Link>
         </div>
       </div>
     </main>

@@ -1,10 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionMock, getPendingHouseholdInviteByIdAndSecretMock } = vi.hoisted(() => ({
-  getSessionMock: vi.fn(),
-  getPendingHouseholdInviteByIdAndSecretMock: vi.fn(),
-}));
+const { getSessionMock, getPendingHouseholdInviteByIdAndSecretMock, resolveActiveHouseholdMock } =
+  vi.hoisted(() => ({
+    getSessionMock: vi.fn(),
+    getPendingHouseholdInviteByIdAndSecretMock: vi.fn(),
+    resolveActiveHouseholdMock: vi.fn(),
+  }));
 
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -28,6 +30,10 @@ vi.mock("@/lib/repositories", () => ({
   getPendingHouseholdInviteByIdAndSecret: getPendingHouseholdInviteByIdAndSecretMock,
 }));
 
+vi.mock("@/lib/services", () => ({
+  resolveActiveHousehold: resolveActiveHouseholdMock,
+}));
+
 vi.mock("@/app/household/invite/HouseholdInviteAcceptanceForm", () => ({
   default: ({ householdName }: { householdName: string }) => (
     <div data-testid="accept-form">Accept {householdName}</div>
@@ -46,9 +52,23 @@ describe("HouseholdInvitePage", () => {
     expiresAt: new Date("2026-01-02T00:00:00.000Z"),
   };
 
+  beforeEach(() => {
+    getPendingHouseholdInviteByIdAndSecretMock.mockReset();
+    getSessionMock.mockReset();
+    resolveActiveHouseholdMock.mockReset();
+  });
+
   it("renders switch-account form when a different account is signed in", async () => {
     getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(invite);
-    getSessionMock.mockResolvedValue({ user: { email: "other@example.com" } });
+    getSessionMock.mockResolvedValue({
+      user: { id: "42", email: "other@example.com" },
+      session: { activeOrganizationId: "7" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+    });
 
     const markup = renderToStaticMarkup(
       await HouseholdInvitePage({
@@ -61,12 +81,24 @@ describe("HouseholdInvitePage", () => {
     expect(markup).toContain('action="/signout"');
     expect(markup).toContain('name="redirectTo"');
     expect(markup).toContain("invited@example.com");
+    expect(markup).toContain('href="/household"');
+    expect(markup).toContain("Back to board");
     expect(markup).not.toContain('data-testid="accept-form"');
   });
 
   it("keeps switch-account recovery available for sign-in callback errors", async () => {
     getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(invite);
-    getSessionMock.mockResolvedValue({ user: { email: "invited@example.com" } });
+    getSessionMock.mockResolvedValue({
+      user: { id: "42", email: "invited@example.com" },
+      session: { activeOrganizationId: null },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "selection-required",
+      households: [
+        { id: 7, name: "Home", role: "owner", timeZone: "UTC" },
+        { id: 8, name: "Cabin", role: "member", timeZone: "UTC" },
+      ],
+    });
 
     const markup = renderToStaticMarkup(
       await HouseholdInvitePage({
@@ -81,12 +113,20 @@ describe("HouseholdInvitePage", () => {
     expect(markup).toContain("Sign-out recovery is available if this session is no longer valid");
     expect(markup).toContain("Sign in with the invited email address to continue.");
     expect(markup).toContain('name="failureRedirectTo"');
+    expect(markup).toContain('href="/household/select"');
+    expect(markup).toContain("Back to household selection");
     expect(markup).not.toContain('data-testid="accept-form"');
   });
 
   it("renders the acceptance form for a matching session without recovery errors", async () => {
     getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(invite);
-    getSessionMock.mockResolvedValue({ user: { email: "invited@example.com" } });
+    getSessionMock.mockResolvedValue({
+      user: { id: "42", email: "invited@example.com" },
+      session: { activeOrganizationId: null },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "none",
+    });
 
     const markup = renderToStaticMarkup(
       await HouseholdInvitePage({
@@ -95,6 +135,23 @@ describe("HouseholdInvitePage", () => {
     );
 
     expect(markup).toContain('data-testid="accept-form"');
+    expect(markup).toContain('href="/household/setup"');
+    expect(markup).toContain("Back to household setup");
     expect(markup).not.toContain("Sign out and continue");
+  });
+
+  it("keeps sign-in as the escape path when no session is active", async () => {
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(invite);
+    getSessionMock.mockResolvedValue(null);
+
+    const markup = renderToStaticMarkup(
+      await HouseholdInvitePage({
+        searchParams: Promise.resolve({ invitationId: "12", secret: "invite-secret" }),
+      }),
+    );
+
+    expect(resolveActiveHouseholdMock).not.toHaveBeenCalled();
+    expect(markup).toContain('href="/auth"');
+    expect(markup).toContain("Back to sign in");
   });
 });
