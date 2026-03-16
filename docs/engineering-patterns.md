@@ -104,7 +104,17 @@ When you change behavior in these areas, update tests in the same PR:
 
 Prefer adding regression tests for bugs that were fixed.
 
-## 7) Maintenance Rule
+## 7) Dropdown Menu Pattern
+
+For lightweight header/action menus built with native `<details>` / `<summary>`:
+
+- Reuse `src/app/household/board/components/useDetailsDropdown.ts` instead of wiring bespoke outside-click handlers per menu.
+- Put related menus in the same `data-details-dropdown-group` so opening one closes its peers.
+- Preserve keyboard dismissal (`Escape`) and focus restoration to the trigger when the menu closes.
+- Close menus when focus leaves the open `<details>` tree to avoid overlapping open panels for keyboard users.
+- Keep an actual heading in the surrounding layout when a dropdown trigger visually replaces prior heading text.
+
+## 8) Maintenance Rule
 
 Documentation and implementation should stay in sync:
 
@@ -112,14 +122,14 @@ Documentation and implementation should stay in sync:
 - Make non-obvious assumptions and edge cases explicit in code or docs where future maintainers are likely to look.
 - When inconsistencies are found, fix small safe issues promptly; if a larger issue cannot be resolved in the current change, document the affected files, the risk, and the recommended follow-up.
 
-## 8) Keeping Standards Current
+## 9) Keeping Standards Current
 
 If a recurring surprise gets fixed and becomes a standard:
 
 1. Document the standard here.
 2. Remove or shorten the matching note in `AGENTS.md`.
 
-## 9) Members API Consistency
+## 10) Members API Consistency
 
 For household member/invite role-management routes:
 
@@ -128,7 +138,7 @@ For household member/invite role-management routes:
 - Enforce owner-role protections at the API boundary (`403`): non-owners cannot manage owner memberships or owner-role invites.
 - Translate Better Auth business-rule conflicts (for example last-owner) to consistent `409` responses.
 
-## 10) Chore Mutation Contract
+## 11) Chore Mutation Contract
 
 For `PATCH /api/chores`:
 
@@ -142,14 +152,14 @@ For `PATCH /api/chores`:
 - For `scope: "all"`, cancel marks the source series row canceled and edit updates the current series row in place using the submitted fields/defaults.
 - Keep `UndoToastStack` and related undo UI pieces isolated so they can be reconnected later without shaping the active mutation contract.
 
-## 11) Invite Deduplication Contract
+## 12) Invite Deduplication Contract
 
 For household invite creation:
 
 - Keep email normalization (`trim().toLowerCase()`) before persistence.
 - Enforce one pending invite per `(household, email)` with a partial unique DB index and handle race conflicts by returning the already-pending invite response.
 
-## 12) Invite Acceptance Handoff
+## 13) Invite Acceptance Handoff
 
 For household invite acceptance:
 
@@ -159,7 +169,7 @@ For household invite acceptance:
 - If membership is created but post-accept active-household switching fails, recover to a household selection/setup path instead of bouncing back to an already-consumed invite.
 - For local redirect targets, use `src/lib/safe-local-path.ts` instead of ad-hoc checks. Decode once when validating user-entered callback params (for example `/auth`), but keep nested redirect targets encoded when validating values already parsed from `URLSearchParams` (for example `/signout?redirectTo=...`) so inner callback query strings are not truncated. Reject network-path variants using both `/` and `\` prefixes; backslash forms like `/\\evil.com` are not safe local paths.
 
-## 13) Build vs Buy Recommendation Standard
+## 14) Build vs Buy Recommendation Standard
 
 When proposing implementation approaches (in issues, plans, or PR summaries):
 
@@ -169,7 +179,7 @@ When proposing implementation approaches (in issues, plans, or PR summaries):
   - In-house solution: pros and cons (control, customization, delivery time, maintenance burden, long-term risk).
 - End with a clear recommendation and rationale; choose in-house only when constraints require it (for example domain-specific requirements, licensing/compliance limits, or lack of a mature ecosystem fit).
 
-## 14) PoC Database Compatibility Policy
+## 15) PoC Database Compatibility Policy
 
 Current project posture:
 

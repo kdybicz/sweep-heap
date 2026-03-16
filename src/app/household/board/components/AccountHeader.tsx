@@ -1,4 +1,8 @@
 import AccountDropdown from "@/app/household/board/components/AccountDropdown";
+import HouseholdDropdown from "@/app/household/board/components/HouseholdDropdown";
+
+const householdHeadingId = "household-board-current-household-heading";
+const headerDropdownGroupName = "household-board-header";
 
 type AccountHeaderProps = {
   canEditHousehold: boolean;
@@ -20,24 +24,21 @@ export default function AccountHeader({
 
   return (
     <header className="py-1">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex items-center gap-2">
-          {icon ? (
-            <span className="text-base leading-none" aria-hidden>
-              {icon}
-            </span>
-          ) : null}
-          <h2 className="truncate text-sm font-semibold tracking-tight sm:text-base">{title}</h2>
-          <span className="hidden rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-1.5 py-0.5 text-[0.52rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] md:inline-flex">
-            {canEditHousehold ? "Admin" : "Member"}
-          </span>
-        </div>
-        <div className="shrink-0">
-          <AccountDropdown
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="sr-only" id={householdHeadingId}>
+            Current household: {title}
+          </h2>
+          <HouseholdDropdown
             canEditHousehold={canEditHousehold}
             canSwitchHouseholds={canSwitchHouseholds}
-            userName={userName}
+            dropdownGroupName={headerDropdownGroupName}
+            householdIcon={icon}
+            householdName={title}
           />
+        </div>
+        <div className="shrink-0">
+          <AccountDropdown dropdownGroupName={headerDropdownGroupName} userName={userName} />
         </div>
       </div>
     </header>
