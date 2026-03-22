@@ -45,6 +45,9 @@ describe("ChorePreviewPopover", () => {
     expect(markup).toContain("Repeats weekly");
     expect(markup).toContain("Every week");
     expect(markup).toContain("On date");
+    expect(markup).toContain('aria-label="Chore type"');
+    expect(markup).toContain("Close when done");
+    expect(markup).toContain("Stay open");
     expect(markup).toContain("Delete chore");
     expect(markup).not.toContain("Save changes");
   });

@@ -704,6 +704,7 @@ export default function ChorePreviewPopover({
 
       if (result.error) {
         setSaveError(result.error);
+        setIsEditingTitle(true);
         pendingTitleBlurBehaviorRef.current = null;
         suppressNextFooterActionRef.current = null;
         return;
@@ -1172,6 +1173,7 @@ export default function ChorePreviewPopover({
   }
 
   const repeatLabel = getChorePreviewRepeatLabelFromValue(repeat);
+  const trimmedTitleDraft = titleDraft.trim();
   const trimmedNotesDraft = notesDraft.trim();
   const isInteractionLocked = isSaving || scopePopupMode !== null;
   const isDateInteractionLocked =
@@ -1654,9 +1656,59 @@ export default function ChorePreviewPopover({
           style={{ left: notchLeft }}
         />
         <div className="border-b border-[var(--stroke-soft)] px-4 pb-3 pt-3">
-          <h3 className="text-base font-semibold leading-tight text-[var(--ink)]">
-            {isExpanded ? titleDraft || chore.title : chore.title}
-          </h3>
+          <div ref={titleEditorRef}>
+            {isEditingTitle ? (
+              <input
+                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-base font-semibold leading-tight text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:shadow-[0_0_0_1px_var(--accent)]"
+                disabled={isInteractionLocked}
+                onBlur={(event) => {
+                  if (discardOnBlurRef.current) {
+                    discardOnBlurRef.current = false;
+                    return;
+                  }
+
+                  const nextBehavior =
+                    pendingTitleBlurBehaviorRef.current ??
+                    getSaveBehaviorForTarget(event.relatedTarget);
+
+                  pendingTitleBlurBehaviorRef.current = null;
+                  void commitTitleChanges(nextBehavior);
+                }}
+                onChange={(event) => setTitleDraft(event.target.value)}
+                onFocus={() => setIsEditingTitle(true)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  pendingTitleBlurBehaviorRef.current = {
+                    closeAfter: false,
+                    collapseAfter: false,
+                    postAction: "none",
+                  };
+                  event.currentTarget.blur();
+                }}
+                placeholder="Chore title"
+                ref={titleInputRef}
+                value={titleDraft}
+              />
+            ) : (
+              <button
+                className={`block w-full rounded-md px-2 py-1 text-left text-base font-semibold leading-tight transition hover:bg-[var(--surface-strong)]/30 ${
+                  trimmedTitleDraft ? "text-[var(--ink)]" : "italic text-[var(--muted)]/70"
+                }`}
+                disabled={isInteractionLocked}
+                onClick={() => {
+                  setIsEditingTitle(true);
+                  setSaveError(null);
+                }}
+                type="button"
+              >
+                <span className="block truncate">{trimmedTitleDraft || "Add title"}</span>
+              </button>
+            )}
+          </div>
         </div>
         <div
           className={`overflow-hidden transition-all duration-200 ease-out ${
@@ -1695,59 +1747,20 @@ export default function ChorePreviewPopover({
         >
           <div className="space-y-3 bg-[var(--surface-strong)]/35 px-4 py-3">
             <div className="space-y-1.5 text-sm leading-tight text-[var(--ink)]">
-              <div className="grid grid-cols-[76px_1fr] items-center gap-x-3" ref={titleEditorRef}>
-                <span className="text-right text-[var(--muted)]">title:</span>
-                <input
-                  className="rounded-md border border-transparent bg-transparent px-2 py-1 text-[0.92rem] font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:shadow-[0_0_0_1px_var(--accent)]"
-                  disabled={isInteractionLocked}
-                  onBlur={(event) => {
-                    if (discardOnBlurRef.current) {
-                      discardOnBlurRef.current = false;
-                      return;
-                    }
-
-                    const nextBehavior =
-                      pendingTitleBlurBehaviorRef.current ??
-                      getSaveBehaviorForTarget(event.relatedTarget);
-
-                    pendingTitleBlurBehaviorRef.current = null;
-                    void commitTitleChanges(nextBehavior);
-                  }}
-                  onChange={(event) => setTitleDraft(event.target.value)}
-                  onFocus={() => setIsEditingTitle(true)}
-                  placeholder="Chore title"
-                  ref={titleInputRef}
-                  value={titleDraft}
-                />
-              </div>
               <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
                 <span className="text-right text-[var(--muted)]">type:</span>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className={`rounded-full border px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.14em] transition ${
-                      type === "close_on_done"
-                        ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--ink)]"
-                        : "border-[var(--stroke)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-strong)]"
-                    }`}
+                <InlineSelectField disabled={isInteractionLocked}>
+                  <select
+                    aria-label="Chore type"
+                    className="bg-transparent px-2 py-0.5 text-[0.88rem] font-medium text-[var(--ink)] outline-none"
                     disabled={isInteractionLocked}
-                    onClick={() => handleTypeChange("close_on_done")}
-                    type="button"
+                    onChange={(event) => handleTypeChange(event.target.value as ChoreType)}
+                    value={type}
                   >
-                    Close on done
-                  </button>
-                  <button
-                    className={`rounded-full border px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.14em] transition ${
-                      type === "stay_open"
-                        ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--ink)]"
-                        : "border-[var(--stroke)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-strong)]"
-                    }`}
-                    disabled={isInteractionLocked}
-                    onClick={() => handleTypeChange("stay_open")}
-                    type="button"
-                  >
-                    Stays open
-                  </button>
-                </div>
+                    <option value="close_on_done">Close when done</option>
+                    <option value="stay_open">Stay open</option>
+                  </select>
+                </InlineSelectField>
               </div>
               <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
                 <span className="text-right text-[var(--muted)]">starts:</span>
@@ -1825,13 +1838,15 @@ export default function ChorePreviewPopover({
                 ) : null}
               </div>
             </div>
-            {saveError ? (
-              <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-semibold text-[var(--danger-ink)]">
-                {saveError}
-              </div>
-            ) : null}
           </div>
         </div>
+        {saveError ? (
+          <div className="border-t border-[var(--stroke-soft)] px-4 py-3">
+            <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-semibold text-[var(--danger-ink)]">
+              {saveError}
+            </div>
+          </div>
+        ) : null}
         <div className="border-t border-[var(--stroke-soft)] px-4 py-3" ref={notesEditorRef}>
           {isEditingNotes ? (
             <textarea
