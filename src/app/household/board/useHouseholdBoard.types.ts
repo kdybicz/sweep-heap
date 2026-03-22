@@ -4,8 +4,14 @@ import type { FormEvent } from "react";
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
   CancelChoreScope,
+  ChorePreviewMutationTarget,
+  DeleteChoreParams,
   EditChoreScope,
   RepeatEndMode,
+  SaveChoreDateChangesParams,
+  SaveChoreDetailsChangesParams,
+  SaveChoreNotesChangesParams,
+  SaveChoreRepeatChangesParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
@@ -72,9 +78,22 @@ export type ChoreDetailsModalModel = {
   onEditAction: (chore: ChoreItem, scope: EditChoreScope) => void;
 };
 
+export type ChorePreviewPopoverModel = {
+  onDeleteChore: (params: DeleteChoreParams) => Promise<string | null>;
+  onSaveDateChanges: (params: SaveChoreDateChangesParams) => Promise<ChorePreviewMutationTarget>;
+  onSaveDetailsChanges: (
+    params: SaveChoreDetailsChangesParams,
+  ) => Promise<ChorePreviewMutationTarget>;
+  onSaveRepeatChanges: (
+    params: SaveChoreRepeatChangesParams,
+  ) => Promise<ChorePreviewMutationTarget>;
+  onSaveNotesChanges: (params: SaveChoreNotesChangesParams) => Promise<ChorePreviewMutationTarget>;
+};
+
 export type UseHouseholdBoardModel = {
   sidebar: SidebarModel;
   week: WeekModel;
   addChoreModal: AddChoreModalModel;
   choreDetailsModal: ChoreDetailsModalModel;
+  chorePreviewPopover: ChorePreviewPopoverModel;
 };

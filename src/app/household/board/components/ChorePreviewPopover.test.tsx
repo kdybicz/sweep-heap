@@ -29,13 +29,24 @@ describe("ChorePreviewPopover", () => {
         anchorElement={anchorElement}
         chore={createChore({ repeat_rule: "week", notes: null })}
         onClose={noop}
+        onRebindPreviewTarget={noop}
+        onDeleteChore={async () => null}
         onOpenDetails={noop}
+        onSaveDateChanges={async () => ({ error: null })}
+        onSaveDetailsChanges={async () => ({ error: null })}
+        onSaveNotesChanges={async () => ({ error: null })}
+        onSaveRepeatChanges={async () => ({ error: null })}
+        selectionKey="1:2026-03-11:0"
       />,
     );
 
     expect(markup).toContain("Open details");
     expect(markup).toContain("Add Notes");
     expect(markup).toContain("Repeats weekly");
+    expect(markup).toContain("Every week");
+    expect(markup).toContain("On date");
+    expect(markup).toContain("Delete chore");
+    expect(markup).not.toContain("Save changes");
   });
 
   it("uses a clamped inline width style for narrow viewports", () => {
@@ -44,7 +55,14 @@ describe("ChorePreviewPopover", () => {
         anchorElement={anchorElement}
         chore={createChore()}
         onClose={noop}
+        onRebindPreviewTarget={noop}
+        onDeleteChore={async () => null}
         onOpenDetails={noop}
+        onSaveDateChanges={async () => ({ error: null })}
+        onSaveDetailsChanges={async () => ({ error: null })}
+        onSaveNotesChanges={async () => ({ error: null })}
+        onSaveRepeatChanges={async () => ({ error: null })}
+        selectionKey="1:single:0"
       />,
     );
 

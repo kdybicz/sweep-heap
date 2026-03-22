@@ -2,7 +2,13 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
-
+import {
+  findPreviewChoreForTarget,
+  getChorePreviewDayOffset,
+  getChorePreviewSelectionKey,
+  getOpenDetailsPreviewChore,
+  getPreviewPopoverChore,
+} from "@/app/household/board/chore-preview";
 import AccountHeader from "@/app/household/board/components/AccountHeader";
 import AddChoreModal from "@/app/household/board/components/AddChoreModal";
 import ChoreDetailsModal from "@/app/household/board/components/ChoreDetailsModal";
@@ -12,6 +18,12 @@ import WeekGrid from "@/app/household/board/components/WeekGrid";
 import { useHouseholdViewer } from "@/app/household/board/HouseholdViewerContext";
 import type { ChoreItem } from "@/app/household/board/types";
 import useHouseholdBoard from "@/app/household/board/useHouseholdBoard";
+
+type PendingPreviewTarget = {
+  choreId: number;
+  occurrenceStartDate: string;
+  requestedFromChores: ChoreItem[];
+};
 
 export default function HouseholdBoard() {
   const [queryClient] = useState(
@@ -37,12 +49,20 @@ function HouseholdBoardContent() {
   const board = useHouseholdBoard();
   const [previewChore, setPreviewChore] = useState<ChoreItem | null>(null);
   const [previewAnchorElement, setPreviewAnchorElement] = useState<HTMLElement | null>(null);
+  const [pendingPreviewTarget, setPendingPreviewTarget] = useState<PendingPreviewTarget | null>(
+    null,
+  );
+  const [pendingDetailsTarget, setPendingDetailsTarget] = useState<PendingPreviewTarget | null>(
+    null,
+  );
   const { canSwitchHouseholds, householdIcon, householdName, isHouseholdAdmin, userName } =
     useHouseholdViewer();
 
   const closePreview = useCallback(() => {
     setPreviewChore(null);
     setPreviewAnchorElement(null);
+    setPendingPreviewTarget(null);
+    setPendingDetailsTarget(null);
   }, []);
 
   useEffect(() => {
@@ -51,16 +71,161 @@ function HouseholdBoardContent() {
     }
   }, [board.choreDetailsModal.chore, closePreview]);
 
-  const visiblePreviewChore =
-    previewChore &&
-    board.week.chores.some(
+  useEffect(() => {
+    if (!pendingPreviewTarget) {
+      return;
+    }
+
+    if (pendingPreviewTarget.requestedFromChores === board.week.chores) {
+      return;
+    }
+
+    const previewOffset = previewChore ? getChorePreviewDayOffset(previewChore) : 0;
+    const nextPreviewChore = findPreviewChoreForTarget({
+      chores: board.week.chores,
+      target: pendingPreviewTarget,
+      preferredOffset: previewOffset,
+    });
+    if (!nextPreviewChore) {
+      setPendingPreviewTarget(null);
+      setPreviewChore(null);
+      return;
+    }
+
+    setPreviewChore(nextPreviewChore);
+    setPendingPreviewTarget(null);
+  }, [board.week.chores, pendingPreviewTarget, previewChore]);
+
+  useEffect(() => {
+    if (!pendingDetailsTarget) {
+      return;
+    }
+
+    if (pendingDetailsTarget.requestedFromChores === board.week.chores) {
+      return;
+    }
+
+    const previewOffset = previewChore ? getChorePreviewDayOffset(previewChore) : 0;
+    const nextPreviewChore = findPreviewChoreForTarget({
+      chores: board.week.chores,
+      target: pendingDetailsTarget,
+      preferredOffset: previewOffset,
+    });
+
+    if (!nextPreviewChore) {
+      if (!board.week.loading) {
+        setPendingDetailsTarget(null);
+      }
+
+      return;
+    }
+
+    setPreviewChore(nextPreviewChore);
+    setPendingPreviewTarget((current) =>
+      current?.choreId === pendingDetailsTarget.choreId &&
+      current.occurrenceStartDate === pendingDetailsTarget.occurrenceStartDate
+        ? null
+        : current,
+    );
+    setPendingDetailsTarget(null);
+    board.week.onSelectChore(nextPreviewChore);
+  }, [board.week, pendingDetailsTarget, previewChore]);
+
+  const visiblePreviewChore = (() => {
+    if (!previewChore) {
+      return null;
+    }
+
+    const exactMatch = board.week.chores.find(
       (chore) =>
         chore.id === previewChore.id &&
         chore.occurrence_start_date === previewChore.occurrence_start_date &&
         chore.occurrence_date === previewChore.occurrence_date,
-    )
-      ? previewChore
-      : null;
+    );
+
+    if (exactMatch) {
+      return exactMatch;
+    }
+
+    if (previewChore.is_repeating) {
+      return null;
+    }
+
+    const previewOffset = getChorePreviewDayOffset(previewChore);
+
+    return (
+      board.week.chores.find(
+        (chore) =>
+          chore.id === previewChore.id && getChorePreviewDayOffset(chore) === previewOffset,
+      ) ?? null
+    );
+  })();
+  const previewPopoverChore = getPreviewPopoverChore({
+    previewChore,
+    visiblePreviewChore,
+    pendingPreviewTarget,
+    pendingDetailsTarget,
+  });
+  const activePreviewChore = previewPopoverChore ?? previewChore;
+
+  useEffect(() => {
+    if (!visiblePreviewChore || visiblePreviewChore === previewChore) {
+      return;
+    }
+
+    setPreviewChore(visiblePreviewChore);
+  }, [previewChore, visiblePreviewChore]);
+
+  const previewSelectionKey = previewPopoverChore
+    ? getChorePreviewSelectionKey(previewPopoverChore)
+    : null;
+  const openPreviewDetails = useCallback(
+    (target?: { choreId: number; occurrenceStartDate: string }) => {
+      const latestPreviewChore = getOpenDetailsPreviewChore({
+        chores: board.week.chores,
+        activePreviewChore,
+        target,
+      });
+      if (!latestPreviewChore) {
+        if (target) {
+          setPendingPreviewTarget({
+            ...target,
+            requestedFromChores: board.week.chores,
+          });
+          setPendingDetailsTarget({
+            ...target,
+            requestedFromChores: board.week.chores,
+          });
+        }
+
+        return;
+      }
+
+      setPendingDetailsTarget(null);
+      board.week.onSelectChore(latestPreviewChore);
+    },
+    [activePreviewChore, board.week],
+  );
+  const rebindPreviewTarget = useCallback(
+    (target: { choreId: number; occurrenceStartDate: string }) => {
+      const previewOffset = activePreviewChore ? getChorePreviewDayOffset(activePreviewChore) : 0;
+      const nextPreviewChore = findPreviewChoreForTarget({
+        chores: board.week.chores,
+        target,
+        preferredOffset: previewOffset,
+      });
+      if (nextPreviewChore) {
+        setPreviewChore(nextPreviewChore);
+        return;
+      }
+
+      setPendingPreviewTarget({
+        ...target,
+        requestedFromChores: board.week.chores,
+      });
+    },
+    [activePreviewChore, board.week.chores],
+  );
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -144,9 +309,16 @@ function HouseholdBoardContent() {
       />
       <ChorePreviewPopover
         anchorElement={previewAnchorElement}
-        chore={visiblePreviewChore}
+        chore={previewPopoverChore}
         onClose={closePreview}
-        onOpenDetails={board.week.onSelectChore}
+        onRebindPreviewTarget={rebindPreviewTarget}
+        onDeleteChore={board.chorePreviewPopover.onDeleteChore}
+        onOpenDetails={openPreviewDetails}
+        onSaveDateChanges={board.chorePreviewPopover.onSaveDateChanges}
+        onSaveDetailsChanges={board.chorePreviewPopover.onSaveDetailsChanges}
+        onSaveNotesChanges={board.chorePreviewPopover.onSaveNotesChanges}
+        onSaveRepeatChanges={board.chorePreviewPopover.onSaveRepeatChanges}
+        selectionKey={previewSelectionKey}
       />
     </div>
   );

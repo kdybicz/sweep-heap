@@ -55,6 +55,9 @@ export default function BoardChoreButton({
   return (
     <button
       className={`flex min-w-0 items-center justify-between gap-2 border px-2.5 py-2 text-left text-[0.7rem] font-semibold transition ${shapeClassName ?? "rounded-lg"} ${getChoreClasses(chore)} ${className ?? ""}`}
+      data-chore-preview-date={chore.occurrence_date}
+      data-chore-preview-id={chore.id}
+      data-chore-preview-start={chore.occurrence_start_date}
       onClick={(event) => {
         if (event.detail === 0) {
           onOpenChoreDetails(chore);

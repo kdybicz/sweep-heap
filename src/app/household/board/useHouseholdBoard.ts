@@ -92,5 +92,12 @@ export default function useHouseholdBoard(): UseHouseholdBoardModel {
       onCancelAction: actions.cancelSelectedChore,
       onEditAction: actions.editSelectedChore,
     },
+    chorePreviewPopover: {
+      onDeleteChore: actions.deleteChore,
+      onSaveDateChanges: actions.saveChoreDateChanges,
+      onSaveDetailsChanges: actions.saveChoreDetailsChanges,
+      onSaveNotesChanges: actions.saveChoreNotesChanges,
+      onSaveRepeatChanges: actions.saveChoreRepeatChanges,
+    },
   };
 }

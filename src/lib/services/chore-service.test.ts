@@ -608,6 +608,8 @@ describe("mutateChore", () => {
         choreId: 3,
         occurrenceStartDate: "2026-01-05",
         title: "Kitchen deep clean",
+        repeatRule: "week",
+        seriesEndDate: "2026-02-28",
         notes: "Use stronger spray",
       },
     });
@@ -806,6 +808,52 @@ describe("mutateChore", () => {
       ok: false,
       code: API_ERROR_CODE.CANCEL_SCOPE_INVALID,
       error: "scope following requires a repeating chore",
+    });
+    expect(insertChoreMock).not.toHaveBeenCalled();
+  });
+
+  it("updates a non-repeating chore in place for edit scope=all", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Kitchen",
+      type: "close_on_done",
+      start_date: "2026-01-03",
+      end_date: "2026-01-04",
+      series_end_date: null,
+      repeat_rule: "none",
+      notes: "Original notes",
+    });
+
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "all",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-03",
+        startDate: "2026-01-05",
+        endDate: "2026-01-07",
+      },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        choreId: 3,
+        occurrenceStartDate: "2026-01-03",
+        action: "edit",
+        scope: "all",
+      },
+    });
+    expect(updateChoreSeriesMock).toHaveBeenCalledWith({
+      choreId: 3,
+      title: "Kitchen",
+      type: "close_on_done",
+      startDate: "2026-01-05",
+      endDate: "2026-01-07",
+      seriesEndDate: null,
+      repeatRule: "none",
+      notes: "Original notes",
     });
     expect(insertChoreMock).not.toHaveBeenCalled();
   });

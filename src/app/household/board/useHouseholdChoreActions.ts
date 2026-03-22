@@ -13,12 +13,18 @@ import {
   getSeriesEndDateForSubmit,
   isChoreEditDirty,
 } from "@/app/household/board/chore-form";
+import { getChorePreviewDateMutationTarget } from "@/app/household/board/chore-preview";
 import { addDaysToDateKey, getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
   CancelChoreScope,
+  DeleteChoreParams,
   EditChoreScope,
   RepeatEndMode,
+  SaveChoreDateChangesParams,
+  SaveChoreDetailsChangesParams,
+  SaveChoreNotesChangesParams,
+  SaveChoreRepeatChangesParams,
   UseHouseholdChoreActionsModel,
   UseHouseholdChoreActionsParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
@@ -38,9 +44,37 @@ type ChoreMutationResponse = {
   error?: string;
   code?: string;
   fieldErrors?: Record<string, string>;
+  data?: {
+    choreId?: number;
+    createdChoreId?: number;
+    occurrenceStartDate?: string;
+    scope?: string;
+  };
   status?: string;
   closed_reason?: string;
 };
+
+type SaveChoreEditPayload = {
+  choreId: number;
+  occurrenceStartDate: string;
+  scope: EditChoreScope;
+  title?: string;
+  type?: ChoreType;
+  startDate?: string;
+  endDate?: string;
+  repeatRule?: string;
+  seriesEndDate?: string | null;
+  notes?: string;
+};
+
+type SaveChoreEditResult =
+  | { ok: true; data?: ChoreMutationResponse["data"] }
+  | {
+      ok: false;
+      error: string;
+      fieldErrors?: Record<string, string>;
+      recovered?: boolean;
+    };
 
 export default function useHouseholdChoreActions({
   chores,
@@ -153,6 +187,224 @@ export default function useHouseholdChoreActions({
     [onOpenAddChoreModal],
   );
 
+  const refreshChoreCollections = useCallback(async () => {
+    await loadChores({ force: true });
+    await loadTodayChores();
+  }, [loadChores, loadTodayChores]);
+
+  const saveChoreEdit = useCallback(
+    async (payload: SaveChoreEditPayload): Promise<SaveChoreEditResult> => {
+      try {
+        const response = await fetch("/api/chores", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "edit",
+            ...payload,
+          }),
+        });
+        const data = await readApiJsonResponse<ChoreMutationResponse>(response);
+
+        if (recoverFromHouseholdContextError(data)) {
+          return {
+            ok: false,
+            error: "Household context changed",
+            recovered: true,
+          };
+        }
+
+        if (!data?.ok) {
+          return {
+            ok: false,
+            error: data?.error ?? "Failed to save chore",
+            fieldErrors: data?.fieldErrors,
+          };
+        }
+
+        await refreshChoreCollections();
+        return { ok: true, data: data?.data };
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "Failed to save chore",
+        };
+      }
+    },
+    [refreshChoreCollections],
+  );
+
+  const saveChoreDateChanges = useCallback(
+    async ({ chore, scope, startDate, endDate }: SaveChoreDateChangesParams) => {
+      const result = await saveChoreEdit({
+        choreId: chore.id,
+        occurrenceStartDate: chore.occurrence_start_date,
+        scope,
+        startDate,
+        endDate: addDaysToDateKey(endDate, 1),
+      });
+
+      if (result.ok) {
+        const target = getChorePreviewDateMutationTarget({
+          chore,
+          scope,
+          startDate,
+          targetChoreId: result.data?.createdChoreId ?? chore.id,
+          targetOccurrenceStartDate: result.data?.occurrenceStartDate,
+        });
+
+        return {
+          error: null,
+          targetChoreId: target?.choreId,
+          targetOccurrenceStartDate: target?.occurrenceStartDate,
+        };
+      }
+
+      if (result.fieldErrors?.startDate) {
+        return { error: result.fieldErrors.startDate };
+      }
+
+      if (result.fieldErrors?.endDate) {
+        return { error: result.fieldErrors.endDate };
+      }
+
+      if (result.recovered) {
+        return { error: "Unable to save chore right now" };
+      }
+
+      return { error: result.error };
+    },
+    [saveChoreEdit],
+  );
+
+  const saveChoreDetailsChanges = useCallback(
+    async ({ chore, scope, title, type }: SaveChoreDetailsChangesParams) => {
+      const result = await saveChoreEdit({
+        choreId: chore.id,
+        occurrenceStartDate: chore.occurrence_start_date,
+        scope,
+        title,
+        type,
+      });
+
+      if (result.ok) {
+        return {
+          error: null,
+          targetChoreId: result.data?.createdChoreId ?? chore.id,
+          targetOccurrenceStartDate:
+            result.data?.occurrenceStartDate ?? chore.occurrence_start_date,
+        };
+      }
+
+      if (result.fieldErrors?.title) {
+        return { error: result.fieldErrors.title };
+      }
+
+      if (result.fieldErrors?.type) {
+        return { error: result.fieldErrors.type };
+      }
+
+      if (result.recovered) {
+        return { error: "Unable to save chore right now" };
+      }
+
+      return { error: result.error };
+    },
+    [saveChoreEdit],
+  );
+
+  const saveChoreRepeatChanges = useCallback(
+    async ({ chore, scope, repeatRule, seriesEndDate }: SaveChoreRepeatChangesParams) => {
+      const result = await saveChoreEdit({
+        choreId: chore.id,
+        occurrenceStartDate: chore.occurrence_start_date,
+        scope,
+        repeatRule,
+        seriesEndDate,
+      });
+
+      if (result.ok) {
+        return {
+          error: null,
+          targetChoreId: result.data?.createdChoreId ?? chore.id,
+          targetOccurrenceStartDate:
+            result.data?.occurrenceStartDate ?? chore.occurrence_start_date,
+        };
+      }
+
+      if (result.fieldErrors?.repeatRule) {
+        return { error: result.fieldErrors.repeatRule };
+      }
+
+      if (result.fieldErrors?.repeatEnd) {
+        return { error: result.fieldErrors.repeatEnd };
+      }
+
+      if (result.recovered) {
+        return { error: "Unable to save chore right now" };
+      }
+
+      return { error: result.error };
+    },
+    [saveChoreEdit],
+  );
+
+  const saveChoreNotesChanges = useCallback(
+    async ({ chore, scope, notes }: SaveChoreNotesChangesParams) => {
+      const result = await saveChoreEdit({
+        choreId: chore.id,
+        occurrenceStartDate: chore.occurrence_start_date,
+        scope,
+        notes,
+      });
+
+      if (result.ok) {
+        return {
+          error: null,
+          targetChoreId: result.data?.createdChoreId ?? chore.id,
+          targetOccurrenceStartDate:
+            result.data?.occurrenceStartDate ?? chore.occurrence_start_date,
+        };
+      }
+
+      if (result.recovered) {
+        return { error: "Unable to save chore right now" };
+      }
+
+      return { error: result.error };
+    },
+    [saveChoreEdit],
+  );
+
+  const cancelChore = useCallback(
+    async ({ choreId, occurrenceStartDate, scope }: DeleteChoreParams): Promise<string | null> => {
+      try {
+        const response = await fetch("/api/chores", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "cancel",
+            scope,
+            choreId,
+            occurrenceStartDate,
+          }),
+        });
+        const data = await readApiJsonResponse<ChoreMutationResponse>(response);
+        if (recoverFromHouseholdContextError(data)) {
+          return "Unable to delete chore right now";
+        }
+        if (!data?.ok) {
+          return data?.error ?? "Failed to delete chore";
+        }
+
+        await refreshChoreCollections();
+        return null;
+      } catch (error) {
+        return error instanceof Error ? error.message : "Failed to delete chore";
+      }
+    },
+    [refreshChoreCollections],
+  );
+
   const submitAddChore = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -162,36 +414,65 @@ export default function useHouseholdChoreActions({
       setSubmitError(null);
       setFieldErrors({});
       setSubmitting(true);
-      const payload = {
-        action: editingChore ? "edit" : "create",
-        scope:
-          editingChore && formMode === "edit_single"
-            ? "single"
-            : editingChore && formMode === "edit_following"
-              ? "following"
-              : editingChore
-                ? "all"
-                : undefined,
-        choreId: editingChore?.id,
-        occurrenceStartDate: editingChore?.occurrence_start_date,
-        title: newTitle,
-        type: newType,
-        startDate: newDate,
-        endDate: addDaysToDateKey(newEndDate, 1),
-        repeatRule: newRepeat,
-        seriesEndDate: getSeriesEndDateForSubmit({
-          repeat: newRepeat,
-          repeatEndMode: newRepeatEndMode,
-          repeatEnd: newRepeatEnd,
-        }),
-        notes: newNotes,
-      };
+      const scope =
+        formMode === "edit_single" ? "single" : formMode === "edit_following" ? "following" : "all";
 
       try {
+        if (editingChore) {
+          const result = await saveChoreEdit({
+            choreId: editingChore.id,
+            occurrenceStartDate: editingChore.occurrence_start_date,
+            scope,
+            title: newTitle,
+            type: newType,
+            startDate: newDate,
+            endDate: addDaysToDateKey(newEndDate, 1),
+            repeatRule: newRepeat,
+            seriesEndDate: getSeriesEndDateForSubmit({
+              repeat: newRepeat,
+              repeatEndMode: newRepeatEndMode,
+              repeatEnd: newRepeatEnd,
+            }),
+            notes: newNotes,
+          });
+
+          if (!result.ok) {
+            if (result.recovered) {
+              setSubmitting(false);
+              return;
+            }
+
+            setFieldErrors(result.fieldErrors ?? {});
+            setSubmitError(result.error);
+            setSubmitting(false);
+            return;
+          }
+
+          resetAddChore();
+          setSelectedChoreError(null);
+          setSelectedChoreSubmitting(false);
+          setSelectedChore(null);
+          setSubmitting(false);
+          return;
+        }
+
         const response = await fetch("/api/chores", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            action: "create",
+            title: newTitle,
+            type: newType,
+            startDate: newDate,
+            endDate: addDaysToDateKey(newEndDate, 1),
+            repeatRule: newRepeat,
+            seriesEndDate: getSeriesEndDateForSubmit({
+              repeat: newRepeat,
+              repeatEndMode: newRepeatEndMode,
+              repeatEnd: newRepeatEnd,
+            }),
+            notes: newNotes,
+          }),
         });
         const data = await readApiJsonResponse<ChoreMutationResponse>(response);
         if (recoverFromHouseholdContextError(data)) {
@@ -211,8 +492,7 @@ export default function useHouseholdChoreActions({
         setSelectedChoreError(null);
         setSelectedChoreSubmitting(false);
         setSelectedChore(null);
-        await loadChores({ force: true });
-        await loadTodayChores();
+        await refreshChoreCollections();
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to save chore";
         setSubmitError(message);
@@ -220,8 +500,6 @@ export default function useHouseholdChoreActions({
       setSubmitting(false);
     },
     [
-      loadChores,
-      loadTodayChores,
       newDate,
       newEndDate,
       editingChore,
@@ -234,6 +512,8 @@ export default function useHouseholdChoreActions({
       newType,
       resetAddChore,
       addModalSubmitDisabled,
+      refreshChoreCollections,
+      saveChoreEdit,
     ],
   );
 
@@ -300,37 +580,20 @@ export default function useHouseholdChoreActions({
       setSelectedChoreError(null);
       setSelectedChoreSubmitting(true);
 
-      try {
-        const response = await fetch("/api/chores", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "cancel",
-            scope,
-            choreId: chore.id,
-            occurrenceStartDate: chore.occurrence_start_date,
-          }),
-        });
-        const data = await readApiJsonResponse<ChoreMutationResponse>(response);
-        if (recoverFromHouseholdContextError(data)) {
-          setSelectedChoreSubmitting(false);
-          return;
-        }
-        if (!data?.ok) {
-          throw new Error(data?.error ?? "Failed to cancel chore occurrence");
-        }
-
+      const error = await cancelChore({
+        choreId: chore.id,
+        occurrenceStartDate: chore.occurrence_start_date,
+        scope,
+      });
+      if (!error) {
         closeSelectedChore();
-        await loadChores({ force: true });
-        await loadTodayChores();
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Failed to cancel chore occurrence";
-        setSelectedChoreError(message);
-        setSelectedChoreSubmitting(false);
+        return;
       }
+
+      setSelectedChoreError(error);
+      setSelectedChoreSubmitting(false);
     },
-    [closeSelectedChore, loadChores, loadTodayChores],
+    [cancelChore, closeSelectedChore],
   );
 
   const editSelectedChore = useCallback(
@@ -401,6 +664,11 @@ export default function useHouseholdChoreActions({
     primarySelectedChoreAction,
     cancelSelectedChore,
     editSelectedChore,
+    saveChoreDateChanges,
+    saveChoreDetailsChanges,
+    deleteChore: cancelChore,
+    saveChoreNotesChanges,
+    saveChoreRepeatChanges,
     onSelectChore: selectChore,
     onAddChoreForDate,
     onOpenAddChoreModal,
