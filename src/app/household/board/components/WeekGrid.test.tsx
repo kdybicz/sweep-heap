@@ -55,7 +55,6 @@ describe("WeekGrid", () => {
         loading={false}
         onAddChoreForDate={noop}
         onNextWeek={noop}
-        onOpenChoreDetails={noop}
         onPreviousWeek={noop}
         onPreviewChore={noop}
         onResetWeek={noop}

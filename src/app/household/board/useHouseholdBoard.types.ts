@@ -3,15 +3,13 @@ import type { FormEvent } from "react";
 
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
-  CancelChoreScope,
   ChorePreviewMutationTarget,
   DeleteChoreParams,
-  EditChoreScope,
   RepeatEndMode,
   SaveChoreDateChangesParams,
-  SaveChoreDetailsChangesParams,
   SaveChoreNotesChangesParams,
   SaveChoreRepeatChangesParams,
+  SaveChoreTitleTypeChangesParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
@@ -33,7 +31,6 @@ export type WeekModel = {
   days: DateTime[];
   chores: ChoreItem[];
   loading: boolean;
-  onSelectChore: (chore: ChoreItem) => void;
   onAddChoreForDate: (dayKey: string | null) => void;
 };
 
@@ -67,22 +64,13 @@ export type AddChoreModalModel = {
   onNotesChange: (value: string) => void;
 };
 
-export type ChoreDetailsModalModel = {
-  chore: ChoreItem | null;
-  todayKey: string;
-  error: string | null;
-  submitting: boolean;
-  onClose: () => void;
-  onPrimaryAction: (chore: ChoreItem) => void;
-  onCancelAction: (chore: ChoreItem, scope: CancelChoreScope) => Promise<void>;
-  onEditAction: (chore: ChoreItem, scope: EditChoreScope) => void;
-};
-
 export type ChorePreviewPopoverModel = {
+  todayKey: string;
+  onPrimaryAction: (chore: ChoreItem) => void;
   onDeleteChore: (params: DeleteChoreParams) => Promise<string | null>;
   onSaveDateChanges: (params: SaveChoreDateChangesParams) => Promise<ChorePreviewMutationTarget>;
-  onSaveDetailsChanges: (
-    params: SaveChoreDetailsChangesParams,
+  onSaveTitleTypeChanges: (
+    params: SaveChoreTitleTypeChangesParams,
   ) => Promise<ChorePreviewMutationTarget>;
   onSaveRepeatChanges: (
     params: SaveChoreRepeatChangesParams,
@@ -94,6 +82,5 @@ export type UseHouseholdBoardModel = {
   sidebar: SidebarModel;
   week: WeekModel;
   addChoreModal: AddChoreModalModel;
-  choreDetailsModal: ChoreDetailsModalModel;
   chorePreviewPopover: ChorePreviewPopoverModel;
 };

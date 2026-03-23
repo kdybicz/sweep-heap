@@ -69,7 +69,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores clipped by the current week use a clipped edge treatment at the left and/or right edge (no outer corner radius and no outer vertical border).
 - The sidebar Today list collapses multi-day chores to one entry per occurrence.
-- Single click opens a compact chore preview popover; clicking the metadata block expands local inline editing UI in the popover, and double click opens the full chore details modal.
+- Single click or keyboard activation opens a compact chore preview popover; the popover shows status, primary completion/log actions, delete, notes, and inline editing for title/date/repeat fields when expanded, including whole-series edit scopes where applicable.
 
 ## API Snapshot
 - `GET /api/health`
@@ -104,7 +104,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - No append-only chore event log yet (only latest exception state).
 - Concurrency conflicts are not exposed as explicit retryable responses.
 - Month/year recurrence edge cases can drift from strict start-date anchoring.
-- Board UI exposes cancel actions from the chore details modal for single-occurrence, this-and-following, and whole-series cancellation.
+- Board UI exposes cancel actions from the chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
 
 ## Backlog Links
 - Active execution backlog: `docs/todo.md`.

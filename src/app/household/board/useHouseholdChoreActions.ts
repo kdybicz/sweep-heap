@@ -8,7 +8,6 @@ import {
 import type { ChoreFormMode } from "@/app/household/board/chore-form";
 import {
   getChoreFormModalCopy,
-  getChoreFormModeFromScope,
   getChoreFormValuesFromChore,
   getSeriesEndDateForSubmit,
   isChoreEditDirty,
@@ -17,14 +16,13 @@ import { getChorePreviewDateMutationTarget } from "@/app/household/board/chore-p
 import { addDaysToDateKey, getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
-  CancelChoreScope,
   DeleteChoreParams,
   EditChoreScope,
   RepeatEndMode,
   SaveChoreDateChangesParams,
-  SaveChoreDetailsChangesParams,
   SaveChoreNotesChangesParams,
   SaveChoreRepeatChangesParams,
+  SaveChoreTitleTypeChangesParams,
   UseHouseholdChoreActionsModel,
   UseHouseholdChoreActionsParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
@@ -97,9 +95,6 @@ export default function useHouseholdChoreActions({
   const [newRepeatEnd, setNewRepeatEnd] = useState(() => getHouseholdTodayKey(timeZone));
   const [newRepeatEndMode, setNewRepeatEndMode] = useState<RepeatEndMode>("never");
   const [newNotes, setNewNotes] = useState("");
-  const [selectedChore, setSelectedChore] = useState<ChoreItem | null>(null);
-  const [selectedChoreError, setSelectedChoreError] = useState<string | null>(null);
-  const [selectedChoreSubmitting, setSelectedChoreSubmitting] = useState(false);
 
   useEffect(() => {
     if (!newRepeatEnd) {
@@ -113,18 +108,6 @@ export default function useHouseholdChoreActions({
     }
     setNewEndDate(newDate);
   }, [newDate, newEndDate]);
-
-  const populateFormFromChore = useCallback((chore: ChoreItem, scope: EditChoreScope) => {
-    const values = getChoreFormValuesFromChore(chore, scope);
-    setNewTitle(values.title);
-    setNewType(values.type);
-    setNewDate(values.date);
-    setNewEndDate(values.endDate);
-    setNewRepeat(values.repeat);
-    setNewRepeatEndMode(values.repeatEndMode);
-    setNewRepeatEnd(values.repeatEnd);
-    setNewNotes(values.notes);
-  }, []);
 
   const modalCopy = getChoreFormModalCopy(formMode);
   const addModalTitle = modalCopy.title;
@@ -276,8 +259,8 @@ export default function useHouseholdChoreActions({
     [saveChoreEdit],
   );
 
-  const saveChoreDetailsChanges = useCallback(
-    async ({ chore, scope, title, type }: SaveChoreDetailsChangesParams) => {
+  const saveChoreTitleTypeChanges = useCallback(
+    async ({ chore, scope, title, type }: SaveChoreTitleTypeChangesParams) => {
       const result = await saveChoreEdit({
         choreId: chore.id,
         occurrenceStartDate: chore.occurrence_start_date,
@@ -449,9 +432,6 @@ export default function useHouseholdChoreActions({
           }
 
           resetAddChore();
-          setSelectedChoreError(null);
-          setSelectedChoreSubmitting(false);
-          setSelectedChore(null);
           setSubmitting(false);
           return;
         }
@@ -489,9 +469,6 @@ export default function useHouseholdChoreActions({
           throw new Error(data?.error ?? "Failed to save chore");
         }
         resetAddChore();
-        setSelectedChoreError(null);
-        setSelectedChoreSubmitting(false);
-        setSelectedChore(null);
         await refreshChoreCollections();
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to save chore";
@@ -569,52 +546,9 @@ export default function useHouseholdChoreActions({
     [chores, loadTodayChores, setChores],
   );
 
-  const closeSelectedChore = useCallback(() => {
-    setSelectedChoreError(null);
-    setSelectedChoreSubmitting(false);
-    setSelectedChore(null);
-  }, []);
-
-  const cancelSelectedChore = useCallback(
-    async (chore: ChoreItem, scope: CancelChoreScope) => {
-      setSelectedChoreError(null);
-      setSelectedChoreSubmitting(true);
-
-      const error = await cancelChore({
-        choreId: chore.id,
-        occurrenceStartDate: chore.occurrence_start_date,
-        scope,
-      });
-      if (!error) {
-        closeSelectedChore();
-        return;
-      }
-
-      setSelectedChoreError(error);
-      setSelectedChoreSubmitting(false);
-    },
-    [cancelChore, closeSelectedChore],
-  );
-
-  const editSelectedChore = useCallback(
-    (chore: ChoreItem, scope: EditChoreScope) => {
-      setSelectedChoreError(null);
-      setFieldErrors({});
-      setSubmitError(null);
-      setEditingChore(chore);
-      setFormMode(getChoreFormModeFromScope(scope));
-      populateFormFromChore(chore, scope);
-      setShowAddModal(true);
-      setSelectedChore(null);
-    },
-    [populateFormFromChore],
-  );
-
-  const primarySelectedChoreAction = useCallback(
+  const primaryChoreAction = useCallback(
     (chore: ChoreItem) => {
-      setSelectedChoreError(null);
       void markChoreDone(chore);
-      setSelectedChore(null);
     },
     [markChoreDone],
   );
@@ -622,12 +556,6 @@ export default function useHouseholdChoreActions({
   const closeAddChoreModal = useCallback(() => {
     resetAddChore();
   }, [resetAddChore]);
-
-  const selectChore = useCallback((chore: ChoreItem) => {
-    setSelectedChoreError(null);
-    setSelectedChoreSubmitting(false);
-    setSelectedChore(chore);
-  }, []);
 
   return {
     showAddModal,
@@ -657,19 +585,12 @@ export default function useHouseholdChoreActions({
     setNewRepeatEndMode,
     setNewRepeatEnd,
     setNewNotes,
-    selectedChore,
-    selectedChoreError,
-    selectedChoreSubmitting,
-    closeSelectedChore,
-    primarySelectedChoreAction,
-    cancelSelectedChore,
-    editSelectedChore,
+    primaryChoreAction,
     saveChoreDateChanges,
-    saveChoreDetailsChanges,
+    saveChoreTitleTypeChanges,
     deleteChore: cancelChore,
     saveChoreNotesChanges,
     saveChoreRepeatChanges,
-    onSelectChore: selectChore,
     onAddChoreForDate,
     onOpenAddChoreModal,
   };

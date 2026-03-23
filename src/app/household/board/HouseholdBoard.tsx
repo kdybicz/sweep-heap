@@ -6,12 +6,10 @@ import {
   findPreviewChoreForTarget,
   getChorePreviewDayOffset,
   getChorePreviewSelectionKey,
-  getOpenDetailsPreviewChore,
   getPreviewPopoverChore,
 } from "@/app/household/board/chore-preview";
 import AccountHeader from "@/app/household/board/components/AccountHeader";
 import AddChoreModal from "@/app/household/board/components/AddChoreModal";
-import ChoreDetailsModal from "@/app/household/board/components/ChoreDetailsModal";
 import ChorePreviewPopover from "@/app/household/board/components/ChorePreviewPopover";
 import HouseholdSidebar from "@/app/household/board/components/HouseholdSidebar";
 import WeekGrid from "@/app/household/board/components/WeekGrid";
@@ -52,9 +50,6 @@ function HouseholdBoardContent() {
   const [pendingPreviewTarget, setPendingPreviewTarget] = useState<PendingPreviewTarget | null>(
     null,
   );
-  const [pendingDetailsTarget, setPendingDetailsTarget] = useState<PendingPreviewTarget | null>(
-    null,
-  );
   const { canSwitchHouseholds, householdIcon, householdName, isHouseholdAdmin, userName } =
     useHouseholdViewer();
 
@@ -62,14 +57,16 @@ function HouseholdBoardContent() {
     setPreviewChore(null);
     setPreviewAnchorElement(null);
     setPendingPreviewTarget(null);
-    setPendingDetailsTarget(null);
   }, []);
 
-  useEffect(() => {
-    if (board.choreDetailsModal.chore) {
-      closePreview();
-    }
-  }, [board.choreDetailsModal.chore, closePreview]);
+  const getPreviewAnchorElement = useCallback(
+    (target: Pick<ChoreItem, "id" | "occurrence_start_date">) => {
+      return document.querySelector<HTMLElement>(
+        `[data-chore-preview-id="${target.id}"][data-chore-preview-start="${target.occurrence_start_date}"]`,
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!pendingPreviewTarget) {
@@ -93,43 +90,9 @@ function HouseholdBoardContent() {
     }
 
     setPreviewChore(nextPreviewChore);
+    setPreviewAnchorElement(getPreviewAnchorElement(nextPreviewChore));
     setPendingPreviewTarget(null);
-  }, [board.week.chores, pendingPreviewTarget, previewChore]);
-
-  useEffect(() => {
-    if (!pendingDetailsTarget) {
-      return;
-    }
-
-    if (pendingDetailsTarget.requestedFromChores === board.week.chores) {
-      return;
-    }
-
-    const previewOffset = previewChore ? getChorePreviewDayOffset(previewChore) : 0;
-    const nextPreviewChore = findPreviewChoreForTarget({
-      chores: board.week.chores,
-      target: pendingDetailsTarget,
-      preferredOffset: previewOffset,
-    });
-
-    if (!nextPreviewChore) {
-      if (!board.week.loading) {
-        setPendingDetailsTarget(null);
-      }
-
-      return;
-    }
-
-    setPreviewChore(nextPreviewChore);
-    setPendingPreviewTarget((current) =>
-      current?.choreId === pendingDetailsTarget.choreId &&
-      current.occurrenceStartDate === pendingDetailsTarget.occurrenceStartDate
-        ? null
-        : current,
-    );
-    setPendingDetailsTarget(null);
-    board.week.onSelectChore(nextPreviewChore);
-  }, [board.week, pendingDetailsTarget, previewChore]);
+  }, [board.week.chores, getPreviewAnchorElement, pendingPreviewTarget, previewChore]);
 
   const visiblePreviewChore = (() => {
     if (!previewChore) {
@@ -164,7 +127,6 @@ function HouseholdBoardContent() {
     previewChore,
     visiblePreviewChore,
     pendingPreviewTarget,
-    pendingDetailsTarget,
   });
   const activePreviewChore = previewPopoverChore ?? previewChore;
 
@@ -179,33 +141,6 @@ function HouseholdBoardContent() {
   const previewSelectionKey = previewPopoverChore
     ? getChorePreviewSelectionKey(previewPopoverChore)
     : null;
-  const openPreviewDetails = useCallback(
-    (target?: { choreId: number; occurrenceStartDate: string }) => {
-      const latestPreviewChore = getOpenDetailsPreviewChore({
-        chores: board.week.chores,
-        activePreviewChore,
-        target,
-      });
-      if (!latestPreviewChore) {
-        if (target) {
-          setPendingPreviewTarget({
-            ...target,
-            requestedFromChores: board.week.chores,
-          });
-          setPendingDetailsTarget({
-            ...target,
-            requestedFromChores: board.week.chores,
-          });
-        }
-
-        return;
-      }
-
-      setPendingDetailsTarget(null);
-      board.week.onSelectChore(latestPreviewChore);
-    },
-    [activePreviewChore, board.week],
-  );
   const rebindPreviewTarget = useCallback(
     (target: { choreId: number; occurrenceStartDate: string }) => {
       const previewOffset = activePreviewChore ? getChorePreviewDayOffset(activePreviewChore) : 0;
@@ -216,6 +151,7 @@ function HouseholdBoardContent() {
       });
       if (nextPreviewChore) {
         setPreviewChore(nextPreviewChore);
+        setPreviewAnchorElement(getPreviewAnchorElement(nextPreviewChore));
         return;
       }
 
@@ -224,7 +160,7 @@ function HouseholdBoardContent() {
         requestedFromChores: board.week.chores,
       });
     },
-    [activePreviewChore, board.week.chores],
+    [activePreviewChore, board.week.chores, getPreviewAnchorElement],
   );
 
   return (
@@ -255,7 +191,6 @@ function HouseholdBoardContent() {
             loading={board.week.loading}
             onAddChoreForDate={board.week.onAddChoreForDate}
             onNextWeek={board.week.onNextWeek}
-            onOpenChoreDetails={board.week.onSelectChore}
             onPreviousWeek={board.week.onPreviousWeek}
             onPreviewChore={(chore, anchorElement) => {
               setPreviewChore(chore);
@@ -296,29 +231,19 @@ function HouseholdBoardContent() {
         submitError={board.addChoreModal.submitError}
         submitting={board.addChoreModal.submitting}
       />
-
-      <ChoreDetailsModal
-        chore={board.choreDetailsModal.chore}
-        error={board.choreDetailsModal.error}
-        onClose={board.choreDetailsModal.onClose}
-        onCancelAction={board.choreDetailsModal.onCancelAction}
-        onEditAction={board.choreDetailsModal.onEditAction}
-        onPrimaryAction={board.choreDetailsModal.onPrimaryAction}
-        submitting={board.choreDetailsModal.submitting}
-        todayKey={board.choreDetailsModal.todayKey}
-      />
       <ChorePreviewPopover
         anchorElement={previewAnchorElement}
         chore={previewPopoverChore}
         onClose={closePreview}
+        onPrimaryAction={board.chorePreviewPopover.onPrimaryAction}
         onRebindPreviewTarget={rebindPreviewTarget}
         onDeleteChore={board.chorePreviewPopover.onDeleteChore}
-        onOpenDetails={openPreviewDetails}
         onSaveDateChanges={board.chorePreviewPopover.onSaveDateChanges}
-        onSaveDetailsChanges={board.chorePreviewPopover.onSaveDetailsChanges}
+        onSaveTitleTypeChanges={board.chorePreviewPopover.onSaveTitleTypeChanges}
         onSaveNotesChanges={board.chorePreviewPopover.onSaveNotesChanges}
         onSaveRepeatChanges={board.chorePreviewPopover.onSaveRepeatChanges}
         selectionKey={previewSelectionKey}
+        todayKey={board.chorePreviewPopover.todayKey}
       />
     </div>
   );

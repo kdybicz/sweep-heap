@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   areChorePreviewDatesDirty,
-  areChorePreviewDetailsDirty,
   areChorePreviewRepeatSettingsDirty,
+  areChorePreviewTitleTypeDirty,
   createChorePreviewSaveTrackingState,
   enqueueChorePreviewSave,
   finishChorePreviewSave,
@@ -22,26 +22,33 @@ import {
   type PreviewRepeatValue,
   resetChorePreviewSaveTrackingState,
 } from "@/app/household/board/chore-preview";
+import { StateIcon } from "@/app/household/board/components/ChoreIcons";
 import { addDaysToDateKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
   CancelChoreScope,
   EditChoreScope,
 } from "@/app/household/board/useHouseholdChoreActions.types";
-import type { ChoreType } from "@/lib/chore-ui-state";
+import {
+  type ChoreType,
+  getChoreStateLabel,
+  getPrimaryActionLabel,
+  isPrimaryActionDisabled,
+} from "@/lib/chore-ui-state";
 
 type ChorePreviewPopoverProps = {
   chore: ChoreItem | null;
   anchorElement: HTMLElement | null;
   selectionKey: string | null;
+  todayKey: string;
   onClose: () => void;
+  onPrimaryAction: (chore: ChoreItem) => void;
   onRebindPreviewTarget: (target: { choreId: number; occurrenceStartDate: string }) => void;
   onDeleteChore: (params: {
     choreId: number;
     occurrenceStartDate: string;
     scope: CancelChoreScope;
   }) => Promise<string | null>;
-  onOpenDetails: (target?: { choreId: number; occurrenceStartDate: string }) => void;
   onSaveDateChanges: (params: {
     chore: ChoreItem;
     scope: EditChoreScope;
@@ -52,7 +59,7 @@ type ChorePreviewPopoverProps = {
     targetChoreId?: number;
     targetOccurrenceStartDate?: string;
   }>;
-  onSaveDetailsChanges: (params: {
+  onSaveTitleTypeChanges: (params: {
     chore: ChoreItem;
     scope: EditChoreScope;
     title: string;
@@ -83,9 +90,9 @@ type ChorePreviewPopoverProps = {
   }>;
 };
 
-type ScopePopupMode = "date" | "details" | "repeat" | "notes" | "delete";
+type ScopePopupMode = "date" | "titleType" | "repeat" | "notes" | "delete";
 
-type PreviewSavePostAction = "none" | "close" | "open_details" | "delete";
+type PreviewSavePostAction = "none" | "close" | "delete";
 
 type PreviewSaveBehavior = {
   closeAfter: boolean;
@@ -209,12 +216,13 @@ export default function ChorePreviewPopover({
   chore,
   anchorElement,
   selectionKey,
+  todayKey,
   onClose,
+  onPrimaryAction,
   onRebindPreviewTarget,
   onDeleteChore,
-  onOpenDetails,
   onSaveDateChanges,
-  onSaveDetailsChanges,
+  onSaveTitleTypeChanges,
   onSaveNotesChanges,
   onSaveRepeatChanges,
 }: ChorePreviewPopoverProps) {
@@ -252,7 +260,9 @@ export default function ChorePreviewPopover({
   const [titleDraft, setTitleDraft] = useState(chore?.title ?? "");
   const [type, setType] = useState<ChoreType>(chore?.type ?? "close_on_done");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleSaveBehavior, setTitleSaveBehavior] = useState<PreviewSaveBehavior | null>(null);
+  const [titleTypeSaveBehavior, setTitleTypeSaveBehavior] = useState<PreviewSaveBehavior | null>(
+    null,
+  );
   const [repeatSaveBehavior, setRepeatSaveBehavior] = useState<PreviewSaveBehavior | null>(null);
   const [repeat, setRepeat] = useState<PreviewRepeatValue>(initialFormState.repeat);
   const [repeatEndMode, setRepeatEndMode] = useState<PreviewRepeatEndMode>(
@@ -278,7 +288,7 @@ export default function ChorePreviewPopover({
     setTitleDraft(chore.title);
     setType(chore.type);
     setIsEditingTitle(false);
-    setTitleSaveBehavior(null);
+    setTitleTypeSaveBehavior(null);
     setRepeatSaveBehavior(null);
     setStartDate(nextState.startDate);
     setEndDate(nextState.endDate);
@@ -349,6 +359,30 @@ export default function ChorePreviewPopover({
     [selectionKey],
   );
 
+  const focusAnchorElement = useCallback(() => {
+    const nextAnchorElement = chore
+      ? document.querySelector<HTMLElement>(
+          `[data-chore-preview-id="${chore.id}"][data-chore-preview-start="${chore.occurrence_start_date}"]`,
+        )
+      : null;
+
+    if (nextAnchorElement?.isConnected) {
+      nextAnchorElement.focus();
+      return;
+    }
+
+    if (!(anchorElement instanceof HTMLElement) || !anchorElement.isConnected) {
+      return;
+    }
+
+    anchorElement.focus();
+  }, [anchorElement, chore]);
+
+  const closePreview = useCallback(() => {
+    onClose();
+    focusAnchorElement();
+  }, [focusAnchorElement, onClose]);
+
   const closePreviewIfSelectionMatches = useCallback(
     (selectionSnapshot: ActivePreviewSelection = activeSelectionRef.current) => {
       if (!isSelectionStillCurrent(selectionSnapshot)) {
@@ -356,10 +390,10 @@ export default function ChorePreviewPopover({
       }
 
       invalidateActiveSelection();
-      onClose();
+      closePreview();
       return true;
     },
-    [invalidateActiveSelection, isSelectionStillCurrent, onClose],
+    [closePreview, invalidateActiveSelection, isSelectionStillCurrent],
   );
 
   const discardAndClosePreview = useCallback(() => {
@@ -368,29 +402,12 @@ export default function ChorePreviewPopover({
     closePreviewIfSelectionMatches();
   }, [closePreviewIfSelectionMatches, resetPreviewFields]);
 
-  const openDetailsIfSelectionMatches = useCallback(
-    (
-      selectionSnapshot: ActivePreviewSelection = activeSelectionRef.current,
-      target?: { choreId: number; occurrenceStartDate: string },
-    ) => {
-      if (!isSelectionStillCurrent(selectionSnapshot)) {
-        return false;
-      }
-
-      invalidateActiveSelection();
-      onClose();
-      onOpenDetails(target);
-      return true;
-    },
-    [invalidateActiveSelection, isSelectionStillCurrent, onClose, onOpenDetails],
-  );
-
   const getSaveBehaviorForTarget = useCallback(
     (target: EventTarget | null): PreviewSaveBehavior => {
       const node = target instanceof Node ? target : null;
       const actionTrigger =
-        node instanceof Element ? node.closest<HTMLElement>("[data-notes-post-action]") : null;
-      const postAction = (actionTrigger?.dataset.notesPostAction ??
+        node instanceof Element ? node.closest<HTMLElement>("[data-preview-post-action]") : null;
+      const postAction = (actionTrigger?.dataset.previewPostAction ??
         "none") as PreviewSavePostAction;
 
       if (postAction !== "none") {
@@ -438,7 +455,7 @@ export default function ChorePreviewPopover({
     ) => {
       if (!chore) {
         if (closeAfter) {
-          onClose();
+          closePreview();
         } else if (collapseAfter) {
           setIsExpanded(false);
         }
@@ -447,7 +464,7 @@ export default function ChorePreviewPopover({
 
       if (!hasPendingRepeatSettings) {
         if (closeAfter) {
-          onClose();
+          closePreview();
         } else if (collapseAfter) {
           setIsExpanded(false);
         }
@@ -501,11 +518,6 @@ export default function ChorePreviewPopover({
             setIsExpanded(false);
           }
 
-          if (postAction === "open_details") {
-            openDetailsIfSelectionMatches();
-            return;
-          }
-
           if (closeAfter || postAction === "close") {
             closePreviewIfSelectionMatches();
           }
@@ -524,9 +536,8 @@ export default function ChorePreviewPopover({
       getSelectionSnapshot,
       hasPendingRepeatSettings,
       isSelectionStillCurrent,
-      onClose,
+      closePreview,
       onDeleteChore,
-      openDetailsIfSelectionMatches,
       onSaveRepeatChanges,
       repeat,
       repeatEnd,
@@ -650,16 +661,6 @@ export default function ChorePreviewPopover({
         setIsExpanded(false);
       }
 
-      if (behavior?.postAction === "open_details") {
-        if (scope !== "all" && target) {
-          onOpenDetails(target);
-          return true;
-        }
-
-        openDetailsIfSelectionMatches();
-        return true;
-      }
-
       if (behavior?.closeAfter || behavior?.postAction === "close") {
         closePreviewIfSelectionMatches();
         return true;
@@ -673,13 +674,11 @@ export default function ChorePreviewPopover({
       enqueueSave,
       isSelectionStillCurrent,
       onDeleteChore,
-      onOpenDetails,
       onRebindPreviewTarget,
-      openDetailsIfSelectionMatches,
     ],
   );
 
-  const submitDetailsChanges = useCallback(
+  const submitTitleTypeChanges = useCallback(
     async (scope: EditChoreScope) => {
       if (!chore) {
         return;
@@ -690,7 +689,7 @@ export default function ChorePreviewPopover({
       const selectionSnapshot = getSelectionSnapshot();
 
       const result = await enqueueSave(() =>
-        onSaveDetailsChanges({
+        onSaveTitleTypeChanges({
           chore,
           scope,
           title: titleDraft,
@@ -719,7 +718,7 @@ export default function ChorePreviewPopover({
       if (
         await handleSaveBehaviorAfterMutation({
           scope,
-          behavior: titleSaveBehavior,
+          behavior: titleTypeSaveBehavior,
           target,
           selectionSnapshot,
         })
@@ -727,7 +726,7 @@ export default function ChorePreviewPopover({
         return;
       }
 
-      setTitleSaveBehavior(null);
+      setTitleTypeSaveBehavior(null);
       pendingTitleBlurBehaviorRef.current = null;
       suppressNextFooterActionRef.current = null;
     },
@@ -737,9 +736,9 @@ export default function ChorePreviewPopover({
       getSelectionSnapshot,
       handleSaveBehaviorAfterMutation,
       isSelectionStillCurrent,
-      onSaveDetailsChanges,
+      onSaveTitleTypeChanges,
       titleDraft,
-      titleSaveBehavior,
+      titleTypeSaveBehavior,
       type,
     ],
   );
@@ -759,14 +758,14 @@ export default function ChorePreviewPopover({
           collapseToViewPane();
         }
         if (closeAfter) {
-          onClose();
+          closePreview();
         }
         return;
       }
 
       setIsEditingTitle(false);
 
-      if (!areChorePreviewDetailsDirty(chore, { title: titleDraft, type })) {
+      if (!areChorePreviewTitleTypeDirty(chore, { title: titleDraft, type })) {
         if (postAction === "delete") {
           beginDeleteFlow();
           return;
@@ -775,28 +774,23 @@ export default function ChorePreviewPopover({
         if (collapseAfter) {
           collapseToViewPane();
         }
-        if (postAction === "open_details") {
-          onClose();
-          onOpenDetails();
-          return;
-        }
         if (closeAfter) {
-          onClose();
+          closePreview();
         }
         return;
       }
 
       if (chore.is_repeating) {
         setSaveError(null);
-        setTitleSaveBehavior({ closeAfter, collapseAfter, postAction });
-        setScopePopupMode("details");
+        setTitleTypeSaveBehavior({ closeAfter, collapseAfter, postAction });
+        setScopePopupMode("titleType");
         return;
       }
 
       setSaveError(null);
       const selectionSnapshot = getSelectionSnapshot();
       const result = await enqueueSave(() =>
-        onSaveDetailsChanges({
+        onSaveTitleTypeChanges({
           chore,
           scope: "all",
           title: titleDraft,
@@ -822,10 +816,6 @@ export default function ChorePreviewPopover({
       if (collapseAfter) {
         setIsExpanded(false);
       }
-      if (postAction === "open_details") {
-        openDetailsIfSelectionMatches();
-        return;
-      }
       if (closeAfter || postAction === "close") {
         closePreviewIfSelectionMatches();
       }
@@ -842,10 +832,8 @@ export default function ChorePreviewPopover({
       getSelectionSnapshot,
       isEditingTitle,
       isSelectionStillCurrent,
-      onClose,
-      onOpenDetails,
-      openDetailsIfSelectionMatches,
-      onSaveDetailsChanges,
+      closePreview,
+      onSaveTitleTypeChanges,
       titleDraft,
       type,
     ],
@@ -866,7 +854,7 @@ export default function ChorePreviewPopover({
           collapseToViewPane();
         }
         if (closeAfter) {
-          onClose();
+          closePreview();
         }
         return;
       }
@@ -882,17 +870,11 @@ export default function ChorePreviewPopover({
           return;
         }
 
-        if (postAction === "open_details") {
-          onClose();
-          onOpenDetails();
-          return;
-        }
-
         if (collapseAfter) {
           collapseToViewPane();
         }
         if (closeAfter) {
-          onClose();
+          closePreview();
         }
         return;
       }
@@ -933,10 +915,6 @@ export default function ChorePreviewPopover({
       if (collapseAfter) {
         setIsExpanded(false);
       }
-      if (postAction === "open_details") {
-        openDetailsIfSelectionMatches();
-        return;
-      }
       if (closeAfter || postAction === "close") {
         closePreviewIfSelectionMatches();
       }
@@ -954,9 +932,7 @@ export default function ChorePreviewPopover({
       isEditingNotes,
       isSelectionStillCurrent,
       notesDraft,
-      onClose,
-      onOpenDetails,
-      openDetailsIfSelectionMatches,
+      closePreview,
       onSaveNotesChanges,
     ],
   );
@@ -975,7 +951,7 @@ export default function ChorePreviewPopover({
     discardOnBlurRef.current = false;
     setIsExpanded(false);
     setIsEditingTitle(false);
-    setTitleSaveBehavior(null);
+    setTitleTypeSaveBehavior(null);
     setRepeatSaveBehavior(null);
     setDeleteTargetOverride(null);
     setIsEditingNotes(false);
@@ -995,7 +971,7 @@ export default function ChorePreviewPopover({
         (anchorElement.isConnected ? anchorElement : null);
 
       if (!nextAnchorElement) {
-        onClose();
+        closePreview();
         return;
       }
 
@@ -1011,7 +987,7 @@ export default function ChorePreviewPopover({
       window.removeEventListener("scroll", updateRect, true);
       window.removeEventListener("resize", updateRect);
     };
-  }, [anchorElement, chore, onClose, previewAnchorSelector]);
+  }, [anchorElement, chore, closePreview, previewAnchorSelector]);
 
   useEffect(() => {
     if (!chore) {
@@ -1061,7 +1037,7 @@ export default function ChorePreviewPopover({
         collapseToViewPane();
       }
 
-      onClose();
+      closePreview();
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1084,13 +1060,13 @@ export default function ChorePreviewPopover({
   }, [
     chore,
     collapseToViewPane,
+    closePreview,
     flushPendingRepeatSettings,
     hasPendingRepeatSettings,
     isEditingNotes,
     isEditingTitle,
     isExpanded,
     isSaving,
-    onClose,
     discardAndClosePreview,
   ]);
 
@@ -1112,7 +1088,7 @@ export default function ChorePreviewPopover({
     setTitleDraft(chore.title);
     setType(chore.type);
     setIsEditingTitle(false);
-    setTitleSaveBehavior(null);
+    setTitleTypeSaveBehavior(null);
     setRepeatSaveBehavior(null);
     setStartDate(nextState.startDate);
     setEndDate(nextState.endDate);
@@ -1166,6 +1142,14 @@ export default function ChorePreviewPopover({
     notesInputRef.current?.focus();
   }, [isEditingNotes]);
 
+  useEffect(() => {
+    if (!chore || !selectionKey || isEditingTitle || isEditingNotes) {
+      return;
+    }
+
+    popoverRef.current?.focus();
+  }, [chore, isEditingNotes, isEditingTitle, selectionKey]);
+
   const currentAnchorRect = anchorRect ?? anchorElement?.getBoundingClientRect() ?? null;
 
   if (!chore || !currentAnchorRect) {
@@ -1173,11 +1157,20 @@ export default function ChorePreviewPopover({
   }
 
   const repeatLabel = getChorePreviewRepeatLabelFromValue(repeat);
+  const statusLabel = getChoreStateLabel(chore);
   const trimmedTitleDraft = titleDraft.trim();
   const trimmedNotesDraft = notesDraft.trim();
   const isInteractionLocked = isSaving || scopePopupMode !== null;
   const isDateInteractionLocked =
     isSaving || (scopePopupMode !== null && scopePopupMode !== "date");
+  const isPrimaryActionLocked =
+    isInteractionLocked || isEditingTitle || isEditingNotes || hasPendingRepeatSettings;
+  const primaryActionButtonDisabled =
+    isPrimaryActionLocked ||
+    isPrimaryActionDisabled({
+      chore,
+      todayKey,
+    });
   const deleteTarget = deleteTargetOverride ?? {
     choreId: chore.id,
     occurrenceStartDate: chore.occurrence_start_date,
@@ -1194,12 +1187,13 @@ export default function ChorePreviewPopover({
         : [
             { scope: "single", label: "Only current chore" },
             { scope: "following", label: "All future chores" },
+            { scope: "all", label: "All chores" },
           ]
       : [{ scope: "single", label: "Only current chore" }];
   const scopeOptions =
     scopePopupMode === "date"
       ? getChorePreviewDateChangeScopeOptions(chore)
-      : scopePopupMode === "details"
+      : scopePopupMode === "titleType"
         ? getChorePreviewDateChangeScopeOptions(chore)
         : scopePopupMode === "notes"
           ? getChorePreviewDateChangeScopeOptions(chore)
@@ -1217,11 +1211,11 @@ export default function ChorePreviewPopover({
         : 390
       : isExpanded
         ? saveError
-          ? 390
-          : 350
+          ? 440
+          : 400
         : chore.notes
-          ? 235
-          : 185;
+          ? 290
+          : 240;
   const left = Math.min(Math.max(currentAnchorRect.left, 16), viewportWidth - popoverWidth - 16);
   const prefersAbove = currentAnchorRect.bottom + estimatedHeight + 16 > viewportHeight;
   const top = prefersAbove
@@ -1517,7 +1511,7 @@ export default function ChorePreviewPopover({
     if (
       !chore ||
       scopePopupMode !== null ||
-      !areChorePreviewDetailsDirty(chore, { title: titleDraft, type: value })
+      !areChorePreviewTitleTypeDirty(chore, { title: titleDraft, type: value })
     ) {
       return;
     }
@@ -1526,13 +1520,13 @@ export default function ChorePreviewPopover({
     const selectionSnapshot = getSelectionSnapshot();
 
     if (chore.is_repeating) {
-      setTitleSaveBehavior(null);
-      setScopePopupMode("details");
+      setTitleTypeSaveBehavior(null);
+      setScopePopupMode("titleType");
       return;
     }
 
     void enqueueSave(() =>
-      onSaveDetailsChanges({
+      onSaveTitleTypeChanges({
         chore,
         scope: "all",
         title: titleDraft,
@@ -1588,6 +1582,7 @@ export default function ChorePreviewPopover({
   return (
     <>
       <div
+        aria-label="Chore preview"
         className="fixed z-30 max-w-[calc(100vw-2rem)] rounded-2xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[0_16px_36px_-24px_rgba(23,32,72,0.42)]"
         onMouseDownCapture={(event) => {
           if (
@@ -1648,7 +1643,9 @@ export default function ChorePreviewPopover({
           collapseToViewPane();
         }}
         ref={popoverRef}
+        role="dialog"
         style={{ left, top, width: popoverWidth }}
+        tabIndex={-1}
       >
         <div
           aria-hidden="true"
@@ -1725,6 +1722,12 @@ export default function ChorePreviewPopover({
               <div className="text-[0.82rem] font-semibold leading-tight text-[var(--muted)]">
                 {getChorePreviewDateLabel(chore)}
               </div>
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-strong)]/45 px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                  <StateIcon chore={chore} className="h-3 w-3" />
+                  {statusLabel}
+                </span>
+              </div>
               {repeatLabel ? (
                 <div className="pt-1.5">
                   <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
@@ -1747,6 +1750,13 @@ export default function ChorePreviewPopover({
         >
           <div className="space-y-3 bg-[var(--surface-strong)]/35 px-4 py-3">
             <div className="space-y-1.5 text-sm leading-tight text-[var(--ink)]">
+              <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
+                <span className="text-right text-[var(--muted)]">status:</span>
+                <span className="inline-flex items-center gap-1 text-[0.88rem] font-medium text-[var(--ink)]">
+                  <StateIcon chore={chore} className="h-3.5 w-3.5" />
+                  {statusLabel}
+                </span>
+              </div>
               <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
                 <span className="text-right text-[var(--muted)]">type:</span>
                 <InlineSelectField disabled={isInteractionLocked}>
@@ -1893,26 +1903,21 @@ export default function ChorePreviewPopover({
           data-preview-footer="true"
         >
           <button
-            className="text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-[var(--accent)] transition hover:text-[var(--accent-strong)]"
-            disabled={isInteractionLocked}
+            className="min-w-0 flex-1 rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={primaryActionButtonDisabled}
             onClick={() => {
-              if (suppressNextFooterActionRef.current === "open_details") {
-                suppressNextFooterActionRef.current = null;
-                return;
-              }
-
-              onClose();
-              onOpenDetails();
+              onPrimaryAction(chore);
+              closePreviewIfSelectionMatches();
             }}
-            data-notes-post-action="open_details"
+            data-preview-post-action="close"
             type="button"
           >
-            Open details
+            {getPrimaryActionLabel(chore)}
           </button>
           <button
             aria-label="Delete chore"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--danger-stroke)] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
-            data-notes-post-action="delete"
+            data-preview-post-action="delete"
             disabled={isInteractionLocked}
             onClick={() => {
               if (suppressNextFooterActionRef.current === "delete") {
@@ -1937,8 +1942,8 @@ export default function ChorePreviewPopover({
           <div className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
             {scopePopupMode === "date"
               ? "Apply date changes"
-              : scopePopupMode === "details"
-                ? "Apply chore changes"
+              : scopePopupMode === "titleType"
+                ? "Apply title or type changes"
                 : scopePopupMode === "notes"
                   ? "Apply notes changes"
                   : scopePopupMode === "delete"
@@ -1948,7 +1953,7 @@ export default function ChorePreviewPopover({
           <p className="mt-1 text-sm leading-snug text-[var(--ink)]">
             {scopePopupMode === "date"
               ? "Choose which chores should move to the new dates."
-              : scopePopupMode === "details"
+              : scopePopupMode === "titleType"
                 ? "Choose which chores should use the new title or type."
                 : scopePopupMode === "notes"
                   ? "Choose which chores should use the new notes."
@@ -1967,8 +1972,8 @@ export default function ChorePreviewPopover({
                 onClick={() => {
                   void (scopePopupMode === "date"
                     ? submitDateChanges(option.scope)
-                    : scopePopupMode === "details"
-                      ? submitDetailsChanges(option.scope)
+                    : scopePopupMode === "titleType"
+                      ? submitTitleTypeChanges(option.scope)
                       : scopePopupMode === "notes"
                         ? submitNotesChanges(option.scope)
                         : scopePopupMode === "delete"
@@ -1987,11 +1992,11 @@ export default function ChorePreviewPopover({
                 const shouldClose = scopePopupMode === "notes" && notesSaveBehavior?.closeAfter;
                 const shouldCollapse =
                   (scopePopupMode === "notes" && notesSaveBehavior?.collapseAfter) ||
-                  (scopePopupMode === "details" && titleSaveBehavior?.collapseAfter) ||
+                  (scopePopupMode === "titleType" && titleTypeSaveBehavior?.collapseAfter) ||
                   (scopePopupMode === "repeat" && repeatSaveBehavior?.collapseAfter);
                 const shouldCloseAfterReset =
                   shouldClose ||
-                  (scopePopupMode === "details" && titleSaveBehavior?.closeAfter) ||
+                  (scopePopupMode === "titleType" && titleTypeSaveBehavior?.closeAfter) ||
                   (scopePopupMode === "repeat" && repeatSaveBehavior?.closeAfter);
 
                 resetPreviewFields();
@@ -2001,7 +2006,7 @@ export default function ChorePreviewPopover({
                 }
 
                 if (shouldCloseAfterReset) {
-                  onClose();
+                  closePreview();
                 }
               }}
               type="button"

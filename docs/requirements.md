@@ -177,13 +177,13 @@
 
 ### UI interaction constraints
 - Add-chore and edit/cancel actions remain available for past dates; only the primary done/open action is currently blocked for past-dated occurrences.
-- Primary action in chore details is disabled for past-dated occurrences.
+- Primary action in the chore preview popover is disabled for past-dated occurrences.
 - In the create/edit modal, the end-date input is inclusive; the UI converts it to the exclusive API/storage `endDate` internally.
 - In the create/edit modal, repeating chores default `Repeat ends` to `Never`; selecting `On date` reveals the repeat-end date field and sends `seriesEndDate`.
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores that start before or end after the visible week use a clipped edge treatment on the continued side (no outer corner radius and no outer vertical border).
 - In the sidebar Today list, multi-day chores are collapsed to a single entry per occurrence and may reuse the same compact single-card styling as one-day chores.
-- Single click on a board chore opens a compact preview popover with title, date span, repeat cadence, and notes; clicking the metadata block expands inline editing UI for date/repeat fields without persisting changes yet, and double click opens the full chore details modal.
+- Single click or keyboard activation on a board chore opens a compact preview popover with title, status, date span, repeat cadence, notes, primary completion/log action, and delete; clicking the metadata block expands inline editing UI for title/date/repeat fields with single, future, and whole-series scope choices where applicable.
 
 ## API Surface (Current Snapshot)
 - Failure envelope contract: API routes return `{ ok: false, code: string, error: string }` for handled errors.
@@ -284,7 +284,7 @@
 - No dedicated event/audit history table exists for chore state transitions; only latest exception state is stored.
 - `closed_reason = schedule_end` lifecycle is not currently persisted by background process; closure is mostly represented by derived listing behavior.
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
-- Cancel actions are available from the board chore details modal for single-occurrence, this-and-following, and whole-series cancellation.
+- Cancel actions are available from the board chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
 - Server-enforced completion undo is currently disabled; `UndoToastStack` remains in the codebase but is not wired into the board UI.
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in `TODO-3`.
 

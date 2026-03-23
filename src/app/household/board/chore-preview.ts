@@ -169,18 +169,16 @@ export const getPreviewPopoverChore = ({
   previewChore,
   visiblePreviewChore,
   pendingPreviewTarget,
-  pendingDetailsTarget,
 }: {
   previewChore: ChoreItem | null;
   visiblePreviewChore: ChoreItem | null;
   pendingPreviewTarget: ChorePreviewTarget | null;
-  pendingDetailsTarget: ChorePreviewTarget | null;
 }) => {
   if (visiblePreviewChore) {
     return visiblePreviewChore;
   }
 
-  if (previewChore && (pendingPreviewTarget || pendingDetailsTarget)) {
+  if (previewChore && pendingPreviewTarget) {
     return previewChore;
   }
 
@@ -290,26 +288,6 @@ export const findPreviewChoreForTarget = ({
   }, matchingChores[0]);
 };
 
-export const getOpenDetailsPreviewChore = ({
-  chores,
-  activePreviewChore,
-  target,
-}: {
-  chores: ChoreItem[];
-  activePreviewChore: ChoreItem | null;
-  target?: ChorePreviewTarget;
-}) => {
-  if (!target) {
-    return activePreviewChore;
-  }
-
-  return findPreviewChoreForTarget({
-    chores,
-    target,
-    preferredOffset: activePreviewChore ? getChorePreviewDayOffset(activePreviewChore) : 0,
-  });
-};
-
 export const areChorePreviewDatesDirty = (
   chore: ChoreItem,
   nextDates: Pick<ChorePreviewFormState, "startDate" | "endDate">,
@@ -332,11 +310,11 @@ export const areChorePreviewRepeatSettingsDirty = (
   );
 };
 
-export const areChorePreviewDetailsDirty = (
+export const areChorePreviewTitleTypeDirty = (
   chore: ChoreItem,
-  nextDetails: { title: string; type: ChoreType },
+  nextTitleType: { title: string; type: ChoreType },
 ) => {
-  return chore.title.trim() !== nextDetails.title.trim() || chore.type !== nextDetails.type;
+  return chore.title.trim() !== nextTitleType.title.trim() || chore.type !== nextTitleType.type;
 };
 
 export const isFirstChoreOccurrenceInSeries = (chore: ChoreItem) => {
@@ -356,6 +334,7 @@ export const getChorePreviewDateChangeScopeOptions = (
   return [
     { scope: "single", label: "Only current chore" },
     { scope: "following", label: "All future chores" },
+    { scope: "all", label: "All chores" },
   ];
 };
 

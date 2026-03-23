@@ -23,24 +23,26 @@ const createChore = (overrides: Partial<ChoreItem> = {}): ChoreItem => ({
 });
 
 describe("ChorePreviewPopover", () => {
-  it("renders an open details action and notes placeholder", () => {
+  it("renders status, primary action, and notes placeholder", () => {
     const markup = renderToStaticMarkup(
       <ChorePreviewPopover
         anchorElement={anchorElement}
         chore={createChore({ repeat_rule: "week", notes: null })}
         onClose={noop}
+        onPrimaryAction={noop}
         onRebindPreviewTarget={noop}
         onDeleteChore={async () => null}
-        onOpenDetails={noop}
         onSaveDateChanges={async () => ({ error: null })}
-        onSaveDetailsChanges={async () => ({ error: null })}
+        onSaveTitleTypeChanges={async () => ({ error: null })}
         onSaveNotesChanges={async () => ({ error: null })}
         onSaveRepeatChanges={async () => ({ error: null })}
         selectionKey="1:2026-03-11:0"
+        todayKey="2026-03-11"
       />,
     );
 
-    expect(markup).toContain("Open details");
+    expect(markup).toContain("Open");
+    expect(markup).toContain("Complete &amp; close");
     expect(markup).toContain("Add Notes");
     expect(markup).toContain("Repeats weekly");
     expect(markup).toContain("Every week");
@@ -58,14 +60,15 @@ describe("ChorePreviewPopover", () => {
         anchorElement={anchorElement}
         chore={createChore()}
         onClose={noop}
+        onPrimaryAction={noop}
         onRebindPreviewTarget={noop}
         onDeleteChore={async () => null}
-        onOpenDetails={noop}
         onSaveDateChanges={async () => ({ error: null })}
-        onSaveDetailsChanges={async () => ({ error: null })}
+        onSaveTitleTypeChanges={async () => ({ error: null })}
         onSaveNotesChanges={async () => ({ error: null })}
         onSaveRepeatChanges={async () => ({ error: null })}
         selectionKey="1:single:0"
+        todayKey="2026-03-11"
       />,
     );
 

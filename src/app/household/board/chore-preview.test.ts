@@ -17,7 +17,6 @@ import {
   getChorePreviewRepeatLabel,
   getChorePreviewSelectionKey,
   getDefaultPreviewRepeatEndDate,
-  getOpenDetailsPreviewChore,
   getPreviewPopoverChore,
   isFirstChoreOccurrenceInSeries,
   resetChorePreviewSaveTrackingState,
@@ -148,6 +147,7 @@ describe("chore preview helpers", () => {
     ).toEqual([
       { scope: "single", label: "Only current chore" },
       { scope: "following", label: "All future chores" },
+      { scope: "all", label: "All chores" },
     ]);
 
     expect(
@@ -160,6 +160,7 @@ describe("chore preview helpers", () => {
     ).toEqual([
       { scope: "single", label: "Only current chore" },
       { scope: "following", label: "All future chores" },
+      { scope: "all", label: "All chores" },
     ]);
   });
 
@@ -296,33 +297,6 @@ describe("chore preview helpers", () => {
     });
   });
 
-  it("does not fall back to stale preview data when a requested details target is missing", () => {
-    const activePreviewChore = createChore({
-      id: 1,
-      is_repeating: true,
-      occurrence_date: "2026-03-13",
-      occurrence_start_date: "2026-03-11",
-    });
-
-    expect(
-      getOpenDetailsPreviewChore({
-        chores: [],
-        activePreviewChore,
-        target: {
-          choreId: 9,
-          occurrenceStartDate: "2026-03-20",
-        },
-      }),
-    ).toBeNull();
-
-    expect(
-      getOpenDetailsPreviewChore({
-        chores: [],
-        activePreviewChore,
-      }),
-    ).toEqual(activePreviewChore);
-  });
-
   it("keeps rendering the previous preview chore while a target transition is pending", () => {
     const previewChore = createChore({
       id: 7,
@@ -339,7 +313,6 @@ describe("chore preview helpers", () => {
           choreId: 9,
           occurrenceStartDate: "2026-03-20",
         },
-        pendingDetailsTarget: null,
       }),
     ).toEqual(previewChore);
 
@@ -348,7 +321,6 @@ describe("chore preview helpers", () => {
         previewChore,
         visiblePreviewChore: null,
         pendingPreviewTarget: null,
-        pendingDetailsTarget: null,
       }),
     ).toBeNull();
   });

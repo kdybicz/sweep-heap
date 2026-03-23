@@ -28,7 +28,7 @@ export type SaveChoreNotesChangesParams = {
   notes: string;
 };
 
-export type SaveChoreDetailsChangesParams = {
+export type SaveChoreTitleTypeChangesParams = {
   chore: ChoreItem;
   scope: EditChoreScope;
   title: string;
@@ -83,16 +83,10 @@ export type UseHouseholdChoreActionsModel = {
   setNewRepeatEndMode: (value: RepeatEndMode) => void;
   setNewRepeatEnd: (value: string) => void;
   setNewNotes: (value: string) => void;
-  selectedChore: ChoreItem | null;
-  selectedChoreError: string | null;
-  selectedChoreSubmitting: boolean;
-  closeSelectedChore: () => void;
-  primarySelectedChoreAction: (chore: ChoreItem) => void;
-  cancelSelectedChore: (chore: ChoreItem, scope: CancelChoreScope) => Promise<void>;
-  editSelectedChore: (chore: ChoreItem, scope: EditChoreScope) => void;
+  primaryChoreAction: (chore: ChoreItem) => void;
   saveChoreDateChanges: (params: SaveChoreDateChangesParams) => Promise<ChorePreviewMutationTarget>;
-  saveChoreDetailsChanges: (
-    params: SaveChoreDetailsChangesParams,
+  saveChoreTitleTypeChanges: (
+    params: SaveChoreTitleTypeChangesParams,
   ) => Promise<ChorePreviewMutationTarget>;
   saveChoreRepeatChanges: (
     params: SaveChoreRepeatChangesParams,
@@ -101,7 +95,6 @@ export type UseHouseholdChoreActionsModel = {
     params: SaveChoreNotesChangesParams,
   ) => Promise<ChorePreviewMutationTarget>;
   deleteChore: (params: DeleteChoreParams) => Promise<string | null>;
-  onSelectChore: (chore: ChoreItem) => void;
   onAddChoreForDate: (dayKey: string | null) => void;
   onOpenAddChoreModal: () => void;
 };
