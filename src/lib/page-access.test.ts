@@ -22,7 +22,7 @@ vi.mock("@/auth", () => ({
   getSession: getSessionMock,
 }));
 
-vi.mock("@/lib/services", () => ({
+vi.mock("@/lib/services/active-household-service", () => ({
   resolveActiveHousehold: resolveActiveHouseholdMock,
 }));
 

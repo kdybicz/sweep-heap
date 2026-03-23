@@ -27,7 +27,7 @@ vi.mock("@/lib/household-members", () => ({
   getHouseholdMembersSnapshot: getHouseholdMembersSnapshotMock,
 }));
 
-vi.mock("@/lib/services", () => ({
+vi.mock("@/lib/services/household-members-service", () => ({
   createHouseholdMemberInvite: createHouseholdMemberInviteMock,
   removeHouseholdMember: removeHouseholdMemberMock,
   updateHouseholdMemberRole: updateHouseholdMemberRoleMock,

@@ -27,9 +27,12 @@ vi.mock("@/auth", () => ({
   getSession: getSessionMock,
 }));
 
-vi.mock("@/lib/services", () => ({
-  getPendingHouseholdInvite: getPendingHouseholdInviteMock,
+vi.mock("@/lib/services/active-household-service", () => ({
   resolveActiveHousehold: resolveActiveHouseholdMock,
+}));
+
+vi.mock("@/lib/services/household-invite-service", () => ({
+  getPendingHouseholdInvite: getPendingHouseholdInviteMock,
 }));
 
 vi.mock("@/app/household/invite/HouseholdInviteAcceptanceForm", () => ({

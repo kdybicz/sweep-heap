@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
 import { listActiveHouseholdsForUser } from "@/lib/repositories";
-import { resolveActiveHousehold } from "@/lib/services";
+import { resolveActiveHousehold } from "@/lib/services/active-household-service";
 import {
   getOptionalSessionContext,
   getSessionContext,

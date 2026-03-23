@@ -2,8 +2,13 @@ import { readApiJsonResponse } from "@/app/household/household-context-client";
 import type {
   HouseholdMembersApiInvite,
   HouseholdMembersApiMember,
-  HouseholdMembersApiResponse,
+  HouseholdMembersCreateInviteResponse,
   HouseholdMembersLeaveResponse,
+  HouseholdMembersRemoveResponse,
+  HouseholdMembersResendInviteResponse,
+  HouseholdMembersRevokeInviteResponse,
+  HouseholdMembersRoleUpdateResponse,
+  HouseholdMembersTransferOwnershipResponse,
 } from "@/app/household/members/household-members-view.types";
 import {
   type HouseholdMember,
@@ -12,7 +17,7 @@ import {
   toHouseholdMemberRole,
 } from "@/app/household/members/members-view-utils";
 
-const requestJson = async <T>(input: RequestInfo | URL, init?: RequestInit) => {
+const requestJson = async <T>(input: RequestInfo | URL, init?: RequestInit): Promise<T | null> => {
   const response = await fetch(input, init);
   return readApiJsonResponse<T>(response);
 };
@@ -21,7 +26,7 @@ const requestJsonWithBody = async <T>(
   input: RequestInfo | URL,
   method: "POST" | "PATCH" | "DELETE",
   body?: Record<string, unknown>,
-) =>
+): Promise<T | null> =>
   requestJson<T>(input, {
     method,
     headers: {
@@ -47,15 +52,17 @@ export const toMember = (member: HouseholdMembersApiMember): HouseholdMember => 
 });
 
 export const createHouseholdMemberInvite = async (email: string) =>
-  requestJsonWithBody<HouseholdMembersApiResponse>("/api/households/members", "POST", { email });
+  requestJsonWithBody<HouseholdMembersCreateInviteResponse>("/api/households/members", "POST", {
+    email,
+  });
 
 export const resendHouseholdMemberInvite = async (inviteId: number) =>
-  requestJson<HouseholdMembersApiResponse>(`/api/households/members/invites/${inviteId}`, {
+  requestJson<HouseholdMembersResendInviteResponse>(`/api/households/members/invites/${inviteId}`, {
     method: "POST",
   });
 
 export const revokeHouseholdMemberInvite = async (inviteId: number) =>
-  requestJson<HouseholdMembersApiResponse>(`/api/households/members/invites/${inviteId}`, {
+  requestJson<HouseholdMembersRevokeInviteResponse>(`/api/households/members/invites/${inviteId}`, {
     method: "DELETE",
   });
 
@@ -66,18 +73,18 @@ export const updateHouseholdMemberRoleRequest = async ({
   role: HouseholdMemberRole;
   userId: number;
 }) =>
-  requestJsonWithBody<HouseholdMembersApiResponse>("/api/households/members", "PATCH", {
+  requestJsonWithBody<HouseholdMembersRoleUpdateResponse>("/api/households/members", "PATCH", {
     userId,
     role,
   });
 
 export const removeHouseholdMemberRequest = async (userId: number) =>
-  requestJsonWithBody<HouseholdMembersApiResponse>("/api/households/members", "DELETE", {
+  requestJsonWithBody<HouseholdMembersRemoveResponse>("/api/households/members", "DELETE", {
     userId,
   });
 
 export const transferHouseholdOwnershipRequest = async (userId: number) =>
-  requestJsonWithBody<HouseholdMembersApiResponse>(
+  requestJsonWithBody<HouseholdMembersTransferOwnershipResponse>(
     "/api/households/members/owner-transfer",
     "POST",
     { userId },

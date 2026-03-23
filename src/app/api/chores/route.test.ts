@@ -20,11 +20,14 @@ vi.mock("@/auth", () => ({
   getSession: getSessionMock,
 }));
 
-vi.mock("@/lib/services", () => ({
-  listChores: listChoresMock,
-  mutateChore: mutateChoreMock,
+vi.mock("@/lib/services/active-household-service", () => ({
   reconcileActiveHouseholdSession: reconcileActiveHouseholdSessionMock,
   resolveActiveHousehold: resolveActiveHouseholdMock,
+}));
+
+vi.mock("@/lib/services/chore-service", () => ({
+  listChores: listChoresMock,
+  mutateChore: mutateChoreMock,
 }));
 
 import { GET, PATCH } from "@/app/api/chores/route";

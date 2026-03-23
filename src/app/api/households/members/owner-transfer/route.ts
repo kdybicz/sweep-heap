@@ -2,7 +2,7 @@ import { requireApiHouseholdAdmin } from "@/lib/api-access";
 import { API_ERROR_CODE, type ApiErrorCode, jsonError } from "@/lib/api-error";
 import { validateHouseholdOwnerTransferPayload } from "@/lib/api-payload-validation";
 import { parseJsonObjectBody } from "@/lib/http";
-import { transferHouseholdOwnership } from "@/lib/services";
+import { transferHouseholdOwnership } from "@/lib/services/household-members-service";
 
 export const dynamic = "force-dynamic";
 

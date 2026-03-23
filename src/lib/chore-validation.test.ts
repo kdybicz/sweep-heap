@@ -23,7 +23,7 @@ describe("validateChoreCreate", () => {
       title: "",
       type: "close_on_done",
       startDate: null,
-      endDate: null,
+      exclusiveEndDate: null,
       repeatRule: "none",
       seriesEndDate: null,
     });
@@ -40,7 +40,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "close_on_done",
       startDate: "2026-03-10",
-      endDate: "2026-03-02",
+      exclusiveEndDate: "2026-03-02",
       repeatRule: "week",
       seriesEndDate: null,
     });
@@ -53,7 +53,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "close_on_done",
       startDate: "2026-03-10",
-      endDate: "2026-03-10",
+      exclusiveEndDate: "2026-03-10",
       repeatRule: "week",
       seriesEndDate: null,
     });
@@ -66,7 +66,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "close_on_done",
       startDate: "2026-02-01",
-      endDate: "2026-02-02",
+      exclusiveEndDate: "2026-02-02",
       repeatRule: "week",
       seriesEndDate: null,
     });
@@ -80,7 +80,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "close_on_done",
       startDate: "2026-03-02",
-      endDate: "2026-03-03",
+      exclusiveEndDate: "2026-03-03",
       repeatRule: "none",
       seriesEndDate: "2026-04-01",
     });
@@ -93,7 +93,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "close_on_done",
       startDate: "2026-03-10",
-      endDate: "2026-03-11",
+      exclusiveEndDate: "2026-03-11",
       repeatRule: "week",
       seriesEndDate: "2026-03-02",
     });
@@ -106,7 +106,7 @@ describe("validateChoreCreate", () => {
       title: "Sweep",
       type: "something_else",
       startDate: "2026-03-10",
-      endDate: "2026-03-11",
+      exclusiveEndDate: "2026-03-11",
       repeatRule: "none",
       seriesEndDate: null,
     });

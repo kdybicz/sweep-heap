@@ -28,9 +28,12 @@ vi.mock("@/lib/api-access", () => ({
   requireApiHousehold: requireApiHouseholdMock,
 }));
 
-vi.mock("@/lib/services", () => ({
+vi.mock("@/lib/services/active-household-service", () => ({
   reconcileActiveHouseholdAfterMembershipMutation:
     reconcileActiveHouseholdAfterMembershipMutationMock,
+}));
+
+vi.mock("@/lib/services/ownership-guard-service", () => ({
   withHouseholdMutationLock: withHouseholdMutationLockMock,
 }));
 

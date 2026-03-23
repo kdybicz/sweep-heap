@@ -12,7 +12,7 @@ import {
   createHouseholdMemberInvite,
   removeHouseholdMember,
   updateHouseholdMemberRole,
-} from "@/lib/services";
+} from "@/lib/services/household-members-service";
 
 export const dynamic = "force-dynamic";
 

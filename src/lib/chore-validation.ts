@@ -1,8 +1,8 @@
-export type CreateChoreInput = {
+export type StoredChoreValidationInput = {
   title: string;
   type: string;
   startDate: string | null;
-  endDate: string | null;
+  exclusiveEndDate: string | null;
   repeatRule: string;
   seriesEndDate: string | null;
 };
@@ -24,10 +24,10 @@ export const validateChoreCreate = ({
   title,
   type,
   startDate,
-  endDate,
+  exclusiveEndDate,
   repeatRule,
   seriesEndDate,
-}: CreateChoreInput) => {
+}: StoredChoreValidationInput) => {
   const fieldErrors: Record<string, string> = {};
 
   if (!title) {
@@ -39,10 +39,10 @@ export const validateChoreCreate = ({
   if (!startDate) {
     fieldErrors.startDate = "Start date is required";
   }
-  if (!endDate) {
+  if (!exclusiveEndDate) {
     fieldErrors.endDate = "End date is required";
   }
-  if (startDate && endDate && endDate <= startDate) {
+  if (startDate && exclusiveEndDate && exclusiveEndDate <= startDate) {
     fieldErrors.endDate = "End date must be after start date";
   }
   if (!allowedRepeatRules.has(repeatRule)) {

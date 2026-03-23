@@ -4,7 +4,7 @@ import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { sendDeleteAccountConfirmationEmail } from "@/lib/delete-account-email";
 import { getAppOrigin } from "@/lib/http";
 import { buildDeleteAccountTokenIdentifier, createDeleteAccountToken } from "@/lib/repositories";
-import { listAccountDeletionBlockingHouseholds } from "@/lib/services";
+import { listAccountDeletionBlockingHouseholds } from "@/lib/services/ownership-guard-service";
 
 export const dynamic = "force-dynamic";
 

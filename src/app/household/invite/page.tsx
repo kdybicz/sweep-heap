@@ -8,7 +8,8 @@ import {
   toHouseholdInvitePagePath,
 } from "@/lib/household-invite-paths";
 import { parsePositiveInt } from "@/lib/organization-api";
-import { getPendingHouseholdInvite, resolveActiveHousehold } from "@/lib/services";
+import { resolveActiveHousehold } from "@/lib/services/active-household-service";
+import { getPendingHouseholdInvite } from "@/lib/services/household-invite-service";
 import { parseSessionContext } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";

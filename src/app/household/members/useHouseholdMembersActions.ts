@@ -102,26 +102,27 @@ export const useHouseholdMembersActions = ({
     try {
       const data = await createHouseholdMemberInvite(inviteEmail);
       closeActionsMenu();
+      if (!data) {
+        setError("Failed to invite member");
+        return;
+      }
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
-      if (!data?.ok) {
-        if (data?.existingInvite) {
+      if (!data.ok) {
+        if (data.existingInvite) {
           upsertPendingInvite(toPendingInvite(data.existingInvite));
         }
-        setError(data?.error ?? "Failed to invite member");
+        setError(data.error || "Failed to invite member");
         return;
       }
 
-      if (data.invite) {
-        upsertPendingInvite(toPendingInvite(data.invite));
-      }
-
+      upsertPendingInvite(toPendingInvite(data.invite));
       setInviteEmail("");
       setInviteOpen(false);
       setMessage(
         data.inviteEmailSent
-          ? `Invite sent to ${data.invite?.email ?? "the user"}.`
+          ? `Invite sent to ${data.invite.email}.`
           : "Invite created, but email delivery failed.",
       );
     } catch (inviteError) {
@@ -138,11 +139,15 @@ export const useHouseholdMembersActions = ({
     try {
       const data = await resendHouseholdMemberInvite(invite.id);
       closeActionsMenu();
+      if (!data) {
+        setError("Failed to resend invite");
+        return;
+      }
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
-      if (!data?.ok || !data?.invite) {
-        setError(data?.error ?? "Failed to resend invite");
+      if (!data.ok) {
+        setError(data.error || "Failed to resend invite");
         return;
       }
 
@@ -171,11 +176,15 @@ export const useHouseholdMembersActions = ({
     try {
       const data = await revokeHouseholdMemberInvite(invite.id);
       closeActionsMenu();
+      if (!data) {
+        setError("Failed to revoke invite");
+        return;
+      }
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
-      if (!data?.ok) {
-        setError(data?.error ?? "Failed to revoke invite");
+      if (!data.ok) {
+        setError(data.error || "Failed to revoke invite");
         return;
       }
 
@@ -203,11 +212,15 @@ export const useHouseholdMembersActions = ({
     try {
       const data = await updateHouseholdMemberRoleRequest({ userId, role });
       closeActionsMenu();
+      if (!data) {
+        setError("Failed to update member role");
+        return;
+      }
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
-      if (!data?.ok || !data?.member) {
-        setError(data?.error ?? "Failed to update member role");
+      if (!data.ok) {
+        setError(data.error || "Failed to update member role");
         return;
       }
 
@@ -233,11 +246,15 @@ export const useHouseholdMembersActions = ({
     try {
       const data = await removeHouseholdMemberRequest(member.userId);
       closeActionsMenu();
+      if (!data) {
+        setError("Failed to remove member");
+        return;
+      }
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
-      if (!data?.ok) {
-        setError(data?.error ?? "Failed to remove member");
+      if (!data.ok) {
+        setError(data.error || "Failed to remove member");
         return;
       }
 
@@ -267,11 +284,15 @@ export const useHouseholdMembersActions = ({
 
     try {
       const data = await transferHouseholdOwnershipRequest(member.userId);
+      if (!data) {
+        setError("Failed to transfer ownership");
+        return;
+      }
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
-      if (!data?.ok || !Array.isArray(data.members)) {
-        setError(data?.error ?? "Failed to transfer ownership");
+      if (!data.ok) {
+        setError(data.error || "Failed to transfer ownership");
         return;
       }
 
@@ -304,16 +325,21 @@ export const useHouseholdMembersActions = ({
 
     try {
       const data = await leaveHouseholdRequest();
+      if (!data) {
+        setError("Failed to leave household");
+        setLeavingHousehold(false);
+        return;
+      }
       if (recoverFromHouseholdContextError(data)) {
         return;
       }
-      if (!data?.ok) {
-        setError(data?.error ?? "Failed to leave household");
+      if (!data.ok) {
+        setError(data.error || "Failed to leave household");
         setLeavingHousehold(false);
         return;
       }
 
-      router.push(typeof data.nextPath === "string" ? data.nextPath : "/household/setup");
+      router.push(data.nextPath || "/household/setup");
       router.refresh();
     } catch (leaveError) {
       setError(leaveError instanceof Error ? leaveError.message : "Failed to leave household");

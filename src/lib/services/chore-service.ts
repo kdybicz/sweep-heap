@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { API_ERROR_CODE, type ApiErrorCode } from "@/lib/api-error";
 import { type ChorePatchPayload, validateChorePatchIntent } from "@/lib/api-payload-validation";
+import { getStoredChoreDurationDays } from "@/lib/chore-date-range";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import type { RepeatRule } from "@/lib/occurrences";
 import { generateOccurrenceDayEntries } from "@/lib/occurrences";
@@ -89,12 +90,6 @@ const normalizeNotes = (value: unknown) => {
 
 const addDays = (value: string, days: number) =>
   DateTime.fromISO(value, { zone: "UTC" }).plus({ days }).toISODate();
-
-const spanDaysBetween = (startDate: string, endDate: string) => {
-  const start = DateTime.fromISO(startDate, { zone: "UTC" }).startOf("day");
-  const end = DateTime.fromISO(endDate, { zone: "UTC" }).startOf("day");
-  return Math.max(Math.round(end.diff(start, "days").days), 1);
-};
 
 const dayOffsetBetween = (startDate: string, endDate: string) => {
   const start = DateTime.fromISO(startDate, { zone: "UTC" }).startOf("day");
@@ -201,7 +196,10 @@ export const listChores = async ({
           series_start_date: rowStartDate,
           repeat_rule: normalizeRepeatRule(row.repeat_rule),
           series_end_date: normalizeDate(row.series_end_date, timeZone),
-          duration_days: spanDaysBetween(rowStartDate, rowEndDate),
+          duration_days: getStoredChoreDurationDays({
+            startDate: rowStartDate,
+            exclusiveEndDate: rowEndDate,
+          }),
           notes: row.notes ?? null,
           status: exception?.kind === "state" ? (exception.status ?? "open") : "open",
           closed_reason: exception?.kind === "state" ? (exception.closed_reason ?? null) : null,
@@ -251,7 +249,7 @@ export const mutateChore = async ({
   const inputType =
     typeof input.type === "string" ? input.type.trim().toLowerCase() : "close_on_done";
   let startDate = normalizeDate(input.startDate, "UTC");
-  let endDate = normalizeDate(input.endDate, "UTC");
+  let exclusiveEndDate = normalizeDate(input.endDate, "UTC");
   let seriesEndDate = normalizeDate(input.seriesEndDate, "UTC");
   const repeatRule =
     typeof input.repeatRule === "string" ? normalizeRepeatRule(input.repeatRule) : "none";
@@ -261,17 +259,17 @@ export const mutateChore = async ({
   if (action === "create") {
     const timeZone = await getHouseholdTimeZoneById(householdId);
     const startDateLocal = normalizeDate(input.startDate, timeZone);
-    const endDateLocal = normalizeDate(input.endDate, timeZone);
+    const exclusiveEndDateLocal = normalizeDate(input.endDate, timeZone);
     const seriesEndDateLocal = normalizeDate(input.seriesEndDate, timeZone);
     startDate = startDateLocal;
-    endDate = endDateLocal;
+    exclusiveEndDate = exclusiveEndDateLocal;
     seriesEndDate = seriesEndDateLocal;
 
     const fieldErrors = validateChoreCreate({
       title,
       type: inputType,
       startDate: startDateLocal,
-      endDate: endDateLocal,
+      exclusiveEndDate: exclusiveEndDateLocal,
       repeatRule,
       seriesEndDate: seriesEndDateLocal,
     });
@@ -291,7 +289,7 @@ export const mutateChore = async ({
       title,
       type,
       startDate,
-      endDate,
+      endDate: exclusiveEndDate,
       seriesEndDate,
       repeatRule,
       notes,
@@ -303,7 +301,7 @@ export const mutateChore = async ({
         choreId: choreIdCreated,
         title,
         startDate,
-        endDate,
+        endDate: exclusiveEndDate,
         seriesEndDate,
         repeatRule,
         type,
@@ -369,13 +367,16 @@ export const mutateChore = async ({
     const treatFollowingAsAll =
       editScope === "following" && occurrenceStartDate === chore.start_date;
     const timeZone = await getHouseholdTimeZoneById(householdId);
-    const originalSpanDays = spanDaysBetween(chore.start_date, chore.end_date);
+    const originalDurationDays = getStoredChoreDurationDays({
+      startDate: chore.start_date,
+      exclusiveEndDate: chore.end_date,
+    });
     const useWholeSeriesDefaults = editScope === "all" || treatFollowingAsAll;
     const defaultStartDate = useWholeSeriesDefaults ? chore.start_date : occurrenceStartDate;
     const nextStartDate = normalizeDate(input.startDate, timeZone) ?? defaultStartDate;
-    const nextEndDate =
+    const nextExclusiveEndDate =
       normalizeDate(input.endDate, timeZone) ??
-      addDays(nextStartDate, originalSpanDays) ??
+      addDays(nextStartDate, originalDurationDays) ??
       nextStartDate;
     const nextRepeatRule =
       editScope === "single"
@@ -401,7 +402,7 @@ export const mutateChore = async ({
       title: nextTitle,
       type: nextType,
       startDate: nextStartDate,
-      endDate: nextEndDate,
+      exclusiveEndDate: nextExclusiveEndDate,
       repeatRule: nextRepeatRule,
       seriesEndDate: nextSeriesEndDate,
     });
@@ -431,7 +432,7 @@ export const mutateChore = async ({
         title: nextTitle,
         type: nextType,
         startDate: nextStartDate,
-        endDate: nextEndDate,
+        endDate: nextExclusiveEndDate,
         seriesEndDate: nextSeriesEndDate,
         repeatRule: nextRepeatRule,
         notes: nextNotes,
@@ -485,7 +486,7 @@ export const mutateChore = async ({
       title: nextTitle,
       type: nextType,
       startDate: nextStartDate,
-      endDate: nextEndDate,
+      endDate: nextExclusiveEndDate,
       seriesEndDate: nextSeriesEndDate,
       repeatRule: nextRepeatRule,
       notes: nextNotes,

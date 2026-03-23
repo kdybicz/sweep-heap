@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import HouseholdSetupForm from "@/app/household/setup/HouseholdSetupForm";
 import { requirePageSessionUser } from "@/lib/page-access";
-import { resolveActiveHousehold } from "@/lib/services";
+import { resolveActiveHousehold } from "@/lib/services/active-household-service";
 
 export default async function HouseholdSetupPage() {
   const access = await requirePageSessionUser();

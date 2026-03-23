@@ -3,10 +3,8 @@ import { requireApiHousehold } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { appendSetCookieHeaders, assertOkResponse } from "@/lib/auth-response";
 import { isLastOwnerError, toAuthApiError } from "@/lib/organization-api";
-import {
-  reconcileActiveHouseholdAfterMembershipMutation,
-  withHouseholdMutationLock,
-} from "@/lib/services";
+import { reconcileActiveHouseholdAfterMembershipMutation } from "@/lib/services/active-household-service";
+import { withHouseholdMutationLock } from "@/lib/services/ownership-guard-service";
 
 export const dynamic = "force-dynamic";
 

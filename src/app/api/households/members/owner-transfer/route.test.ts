@@ -11,7 +11,7 @@ vi.mock("@/lib/api-access", () => ({
   requireApiHouseholdAdmin: requireApiHouseholdAdminMock,
 }));
 
-vi.mock("@/lib/services", () => ({
+vi.mock("@/lib/services/household-members-service", () => ({
   transferHouseholdOwnership: transferHouseholdOwnershipMock,
 }));
 

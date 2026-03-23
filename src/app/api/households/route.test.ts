@@ -45,12 +45,15 @@ vi.mock("@/lib/repositories", () => ({
   updateHouseholdById: updateHouseholdByIdMock,
 }));
 
-vi.mock("@/lib/services", () => ({
-  householdHasOtherActiveMembers: householdHasOtherActiveMembersMock,
+vi.mock("@/lib/services/active-household-service", () => ({
   reconcileActiveHouseholdAfterMembershipMutation:
     reconcileActiveHouseholdAfterMembershipMutationMock,
   reconcileActiveHouseholdSession: reconcileActiveHouseholdSessionMock,
   resolveActiveHousehold: resolveActiveHouseholdMock,
+}));
+
+vi.mock("@/lib/services/ownership-guard-service", () => ({
+  householdHasOtherActiveMembers: householdHasOtherActiveMembersMock,
   withHouseholdMutationLock: withHouseholdMutationLockMock,
 }));
 

@@ -13,7 +13,7 @@ import {
   isChoreEditDirty,
 } from "@/app/household/board/chore-form";
 import { getChorePreviewDateMutationTarget } from "@/app/household/board/chore-preview";
-import { addDaysToDateKey, getHouseholdTodayKey } from "@/app/household/board/date-utils";
+import { getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
   DeleteChoreParams,
@@ -30,6 +30,7 @@ import {
   readApiJsonResponse,
   recoverFromHouseholdContextError,
 } from "@/app/household/household-context-client";
+import { toExclusiveChoreEndDate } from "@/lib/chore-date-range";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
 export type {
@@ -223,7 +224,7 @@ export default function useHouseholdChoreActions({
         occurrenceStartDate: chore.occurrence_start_date,
         scope,
         startDate,
-        endDate: addDaysToDateKey(endDate, 1),
+        endDate: toExclusiveChoreEndDate(endDate),
       });
 
       if (result.ok) {
@@ -409,7 +410,7 @@ export default function useHouseholdChoreActions({
             title: newTitle,
             type: newType,
             startDate: newDate,
-            endDate: addDaysToDateKey(newEndDate, 1),
+            endDate: toExclusiveChoreEndDate(newEndDate),
             repeatRule: newRepeat,
             seriesEndDate: getSeriesEndDateForSubmit({
               repeat: newRepeat,
@@ -444,7 +445,7 @@ export default function useHouseholdChoreActions({
             title: newTitle,
             type: newType,
             startDate: newDate,
-            endDate: addDaysToDateKey(newEndDate, 1),
+            endDate: toExclusiveChoreEndDate(newEndDate),
             repeatRule: newRepeat,
             seriesEndDate: getSeriesEndDateForSubmit({
               repeat: newRepeat,

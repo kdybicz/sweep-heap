@@ -1,6 +1,9 @@
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
-import { reconcileActiveHouseholdSession, resolveActiveHousehold } from "@/lib/services";
+import {
+  reconcileActiveHouseholdSession,
+  resolveActiveHousehold,
+} from "@/lib/services/active-household-service";
 import {
   getSessionContext,
   type SessionContextOk,

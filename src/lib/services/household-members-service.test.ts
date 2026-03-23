@@ -46,7 +46,7 @@ vi.mock("@/lib/services/ownership-guard-service", () => ({
 }));
 
 import {
-  createHouseholdInvite,
+  createHouseholdMemberInvite,
   removeHouseholdMember,
   resendHouseholdInvite,
   revokeHouseholdInvite,
@@ -81,7 +81,7 @@ describe("household-members-service", () => {
   it("creates a household invite and sends email", async () => {
     createInvitationMock.mockResolvedValue(pendingInvite({ email: "new@example.com" }));
 
-    const result = await createHouseholdInvite({
+    const result = await createHouseholdMemberInvite({
       email: "new@example.com",
       householdId: 11,
       householdName: "Home",
@@ -116,7 +116,7 @@ describe("household-members-service", () => {
     });
     listInvitationsMock.mockResolvedValue([pendingInvite({ email: "new@example.com" })]);
 
-    const result = await createHouseholdInvite({
+    const result = await createHouseholdMemberInvite({
       email: "new@example.com",
       householdId: 11,
       householdName: "Home",

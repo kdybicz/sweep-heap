@@ -90,7 +90,7 @@
 - When an authenticated user has no active household, household-gated APIs return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
 - Client fetch flows that lose household context mid-request should branch on `code` and recover to `/household/setup` for `HOUSEHOLD_REQUIRED`, or `/household/select` for `HOUSEHOLD_SELECTION_REQUIRED` and `HOUSEHOLD_NOT_FOUND`.
 - Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household, unless they need `/household/select` to choose among multiple existing memberships or `/user/delete/confirm` to finish a valid account-deletion link.
-- Settings, profile, and board pages stay household-gated; the signed-in pre-active-household surface includes auth redirects, invite acceptance, household setup, household selection, and `/user/delete/confirm` when the delete-confirmation token is valid.
+- Household-scoped product pages (board, profile, settings, and household management) stay household-gated; the signed-in pre-active-household surface includes auth redirects, invite acceptance, household setup, household selection, and `/user/delete/confirm` when the delete-confirmation token is valid.
 - Public entry points like `/` and `/auth` should immediately redirect signed-in users to `/household`, `/household/select`, or `/household/setup` based on active-household state and onboarding completeness.
 - Default magic-link sign-in should return through an entry point that applies the same onboarding redirect policy; invite sign-in should keep its explicit callback to `/api/households/invites/complete`.
 - Non-admin members can invite and resend invites.
@@ -187,6 +187,9 @@
 
 ## API Surface (Current Snapshot)
 - Failure envelope contract: API routes return `{ ok: false, code: string, error: string }` for handled errors.
+- Snapshot includes the app's business APIs plus the auth/session routes that drive sign-in callbacks and sign-out redirects.
+- `GET|POST /api/auth/[...auth]`
+  - Better Auth handler for magic-link sign-in, callback completion, and session operations.
 - `GET /api/health`
   - DB heartbeat check.
 - `GET /api/households`
@@ -242,6 +245,8 @@
   - Creates and emails delete confirmation token (30 min expiry).
 - `POST /api/me/delete-confirm`
   - Consumes token and deletes user account.
+- `POST /signout`
+  - Same-origin sign-out endpoint for switch-account and recovery flows; signs out the current session and redirects to a safe local path.
 
 ## Operational and Abuse-Prevention Guardrails
 - Current baseline:

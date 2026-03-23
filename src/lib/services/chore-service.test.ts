@@ -56,7 +56,7 @@ vi.mock("@/lib/date", () => ({
   toISODateOrThrow: toISODateOrThrowMock,
 }));
 
-import { listChores, mutateChore } from "@/lib/services";
+import { listChores, mutateChore } from "@/lib/services/chore-service";
 
 const scheduledSingleDaySeries = {
   start_date: "2026-01-03",

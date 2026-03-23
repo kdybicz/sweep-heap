@@ -25,7 +25,7 @@ vi.mock("@/lib/repositories", () => ({
   createDeleteAccountToken: createDeleteAccountTokenMock,
 }));
 
-vi.mock("@/lib/services", () => ({
+vi.mock("@/lib/services/ownership-guard-service", () => ({
   listAccountDeletionBlockingHouseholds: listAccountDeletionBlockingHouseholdsMock,
 }));
 

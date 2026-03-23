@@ -7,11 +7,13 @@ import { appendSetCookieHeaders, assertOkResponse } from "@/lib/auth-response";
 import { parseJsonObjectBody } from "@/lib/http";
 import { createHouseholdWithOwner, updateHouseholdById } from "@/lib/repositories";
 import {
-  householdHasOtherActiveMembers,
   reconcileActiveHouseholdAfterMembershipMutation,
   resolveActiveHousehold,
+} from "@/lib/services/active-household-service";
+import {
+  householdHasOtherActiveMembers,
   withHouseholdMutationLock,
-} from "@/lib/services";
+} from "@/lib/services/ownership-guard-service";
 
 export const dynamic = "force-dynamic";
 

@@ -24,7 +24,7 @@ vi.mock("@/lib/repositories", () => ({
   updateUserNameById: updateUserNameByIdMock,
 }));
 
-vi.mock("@/lib/services", () => ({
+vi.mock("@/lib/services/active-household-service", () => ({
   reconcileActiveHouseholdSession: reconcileActiveHouseholdSessionMock,
   resolveActiveHousehold: resolveActiveHouseholdMock,
 }));

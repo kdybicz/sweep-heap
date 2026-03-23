@@ -3,7 +3,7 @@ import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { validateChorePatchPayload } from "@/lib/api-payload-validation";
 import { parseJsonObjectBody } from "@/lib/http";
 import { HouseholdNotFoundError } from "@/lib/repositories";
-import { listChores, mutateChore } from "@/lib/services";
+import { listChores, mutateChore } from "@/lib/services/chore-service";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

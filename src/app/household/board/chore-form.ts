@@ -1,6 +1,6 @@
-import { addDaysToDateKey, subtractDaysFromDateKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
 import type { EditChoreScope } from "@/app/household/board/useHouseholdChoreActions.types";
+import { toInclusiveChoreEndDate } from "@/lib/chore-date-range";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
 const toRepeatSelectValue = (repeatRule: string | null | undefined) => {
@@ -112,7 +112,7 @@ export const getChoreFormValuesFromChore = (
     title: chore.title,
     type: chore.type,
     date: startDate,
-    endDate: subtractDaysFromDateKey(addDaysToDateKey(startDate, durationDays), 1),
+    endDate: toInclusiveChoreEndDate({ startDate, durationDays }),
     repeat: scope === "single" ? "none" : toRepeatSelectValue(chore.repeat_rule),
     repeatEndMode: scope === "single" ? "never" : chore.series_end_date ? "on_date" : "never",
     repeatEnd: scope === "single" ? startDate : (chore.series_end_date ?? startDate),

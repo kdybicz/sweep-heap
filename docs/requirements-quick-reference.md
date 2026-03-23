@@ -27,7 +27,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `/api/me` also reconciles stale `active_household_id` when request headers are available.
 - Signed-in users without an active household should stay in the signed-in onboarding flow until setup or invite acceptance completes, except when they need `/household/select` to choose among multiple memberships or `/user/delete/confirm` to finish a valid account-deletion link.
 - `/user/delete/confirm` remains available when a valid delete-confirmation token is being completed, even without an active household.
-- Settings, profile, and board pages stay behind active-household access.
+- Household-scoped product pages (board, profile, settings, and household management) stay behind active-household access.
 - `/` and `/auth` should bounce signed-in users into `/household`, `/household/select`, or `/household/setup` based on context.
 - Plain magic-link sign-in should return through the same onboarding redirect entry point; invite sign-in keeps the invite-complete callback.
 - Users cannot change their own role from the members endpoint.
@@ -73,6 +73,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Single click or keyboard activation opens a compact chore preview popover; the popover shows status, primary completion/log actions, delete, notes, and inline editing for title/date/repeat fields when expanded, including whole-series edit scopes where applicable.
 
 ## API Snapshot
+- Includes business APIs plus auth/session routes used by invite acceptance and sign-out flows.
+- `GET|POST /api/auth/[...auth]`
 - `GET /api/health`
 - `GET|POST|PATCH|DELETE /api/households`
 - `POST /api/households/active`
@@ -86,6 +88,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `GET|PATCH /api/me`
 - `POST /api/me/delete-request`
 - `POST /api/me/delete-confirm`
+- `POST /signout`
 - Account deletion is blocked while the user still owns a household with other active members.
 - Delete-request email delivery is required; SMTP failures return `500`.
 - Household deletion still returns to `/household` if reactivating the sole remaining household fails; page fallback can still resolve the sole remaining household for navigation, with best-effort cookie healing deferred to a later household-scoped API request with real request headers.

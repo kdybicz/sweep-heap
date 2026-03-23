@@ -19,7 +19,7 @@ vi.mock("@/lib/page-access", () => ({
   requirePageSessionUser: requirePageSessionUserMock,
 }));
 
-vi.mock("@/lib/services", () => ({
+vi.mock("@/lib/services/active-household-service", () => ({
   resolveActiveHousehold: resolveActiveHouseholdMock,
 }));
 

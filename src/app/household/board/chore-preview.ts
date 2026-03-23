@@ -1,8 +1,9 @@
 import { DateTime } from "luxon";
 
-import { addDaysToDateKey, subtractDaysFromDateKey } from "@/app/household/board/date-utils";
+import { addDaysToDateKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
 import type { EditChoreScope } from "@/app/household/board/useHouseholdChoreActions.types";
+import { toInclusiveChoreEndDate } from "@/lib/chore-date-range";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
 export type PreviewRepeatValue = "none" | "daily" | "weekly" | "biweekly" | "monthly" | "yearly";
@@ -223,7 +224,10 @@ export const getPreviewRepeatValue = (
 
 export const getChorePreviewFormState = (chore: ChoreItem): ChorePreviewFormState => {
   const startDate = chore.occurrence_start_date;
-  const endDate = subtractDaysFromDateKey(addDaysToDateKey(startDate, chore.duration_days ?? 1), 1);
+  const endDate = toInclusiveChoreEndDate({
+    startDate,
+    durationDays: chore.duration_days ?? 1,
+  });
 
   return {
     startDate,

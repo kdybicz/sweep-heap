@@ -220,7 +220,7 @@ const mapInviteOwnerRoleProtectionFailure = ({
   return null;
 };
 
-export const createHouseholdInvite = async ({
+export const createHouseholdMemberInvite = async ({
   email,
   householdId,
   householdName,
@@ -671,12 +671,12 @@ export const transferHouseholdOwnership = async ({
   });
 };
 
-export const mapInvitationNotFoundFailure = () =>
+export const mapHouseholdMemberInviteNotFoundFailure = () =>
   serviceFailure({
     status: 404,
     code: API_ERROR_CODE.PENDING_INVITE_NOT_FOUND,
     error: "Pending invite not found",
   });
 
-export const isPendingInviteNotFoundError = (error: unknown) =>
+export const isHouseholdMemberInviteNotFoundError = (error: unknown) =>
   isInvitationNotFoundError(toAuthApiError(error));
