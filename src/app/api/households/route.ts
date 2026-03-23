@@ -90,10 +90,10 @@ const handleUnexpectedError = (
   });
 };
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   let responseHeaders = new Headers();
   try {
-    const householdAccess = await requireApiHousehold(request?.headers);
+    const householdAccess = await requireApiHousehold(request.headers);
     if (!householdAccess.ok) {
       return householdAccess.response;
     }

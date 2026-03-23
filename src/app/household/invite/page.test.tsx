@@ -1,12 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionMock, getPendingHouseholdInviteByIdAndSecretMock, resolveActiveHouseholdMock } =
-  vi.hoisted(() => ({
+const { getPendingHouseholdInviteMock, getSessionMock, resolveActiveHouseholdMock } = vi.hoisted(
+  () => ({
+    getPendingHouseholdInviteMock: vi.fn(),
     getSessionMock: vi.fn(),
-    getPendingHouseholdInviteByIdAndSecretMock: vi.fn(),
     resolveActiveHouseholdMock: vi.fn(),
-  }));
+  }),
+);
 
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -26,11 +27,8 @@ vi.mock("@/auth", () => ({
   getSession: getSessionMock,
 }));
 
-vi.mock("@/lib/repositories", () => ({
-  getPendingHouseholdInviteByIdAndSecret: getPendingHouseholdInviteByIdAndSecretMock,
-}));
-
 vi.mock("@/lib/services", () => ({
+  getPendingHouseholdInvite: getPendingHouseholdInviteMock,
   resolveActiveHousehold: resolveActiveHouseholdMock,
 }));
 
@@ -53,13 +51,13 @@ describe("HouseholdInvitePage", () => {
   };
 
   beforeEach(() => {
-    getPendingHouseholdInviteByIdAndSecretMock.mockReset();
+    getPendingHouseholdInviteMock.mockReset();
     getSessionMock.mockReset();
     resolveActiveHouseholdMock.mockReset();
   });
 
   it("renders switch-account form when a different account is signed in", async () => {
-    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(invite);
+    getPendingHouseholdInviteMock.mockResolvedValue(invite);
     getSessionMock.mockResolvedValue({
       user: { id: "42", email: "other@example.com" },
       session: { activeOrganizationId: "7" },
@@ -87,7 +85,7 @@ describe("HouseholdInvitePage", () => {
   });
 
   it("keeps switch-account recovery available for sign-in callback errors", async () => {
-    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(invite);
+    getPendingHouseholdInviteMock.mockResolvedValue(invite);
     getSessionMock.mockResolvedValue({
       user: { id: "42", email: "invited@example.com" },
       session: { activeOrganizationId: null },
@@ -119,7 +117,7 @@ describe("HouseholdInvitePage", () => {
   });
 
   it("renders the acceptance form for a matching session without recovery errors", async () => {
-    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(invite);
+    getPendingHouseholdInviteMock.mockResolvedValue(invite);
     getSessionMock.mockResolvedValue({
       user: { id: "42", email: "invited@example.com" },
       session: { activeOrganizationId: null },
@@ -141,7 +139,7 @@ describe("HouseholdInvitePage", () => {
   });
 
   it("keeps sign-in as the escape path when no session is active", async () => {
-    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue(invite);
+    getPendingHouseholdInviteMock.mockResolvedValue(invite);
     getSessionMock.mockResolvedValue(null);
 
     const markup = renderToStaticMarkup(

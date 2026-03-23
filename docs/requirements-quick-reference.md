@@ -25,13 +25,14 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Household selection uses session `active_household_id` as the primary context; when multiple memberships exist without an active selection, redirect to `/household/select` or handle `HOUSEHOLD_SELECTION_REQUIRED`.
 - Client fetch flows that lose household context mid-request should recover by redirecting to `/household/setup` for `HOUSEHOLD_REQUIRED`, or `/household/select` for `HOUSEHOLD_SELECTION_REQUIRED` and `HOUSEHOLD_NOT_FOUND`.
 - `/api/me` also reconciles stale `active_household_id` when request headers are available.
-- Signed-in users without an active household should stay in the signed-in onboarding flow until setup or invite acceptance completes, except when they need `/household/select` to choose among multiple memberships.
+- Signed-in users without an active household should stay in the signed-in onboarding flow until setup or invite acceptance completes, except when they need `/household/select` to choose among multiple memberships or `/user/delete/confirm` to finish a valid account-deletion link.
+- `/user/delete/confirm` remains available when a valid delete-confirmation token is being completed, even without an active household.
 - Settings, profile, and board pages stay behind active-household access.
 - `/` and `/auth` should bounce signed-in users into `/household`, `/household/select`, or `/household/setup` based on context.
 - Plain magic-link sign-in should return through the same onboarding redirect entry point; invite sign-in keeps the invite-complete callback.
 - Users cannot change their own role from the members endpoint.
 - Household administrators cannot remove themselves from the members endpoint.
-- `POST /api/households/members/leave` attempts to reconcile stale `active_household_id` after self-leave; if Better Auth session healing fails after membership removal, the route still returns a best-effort `nextPath` and later household-scoped requests can finish healing.
+- `POST /api/households/members/leave` attempts to reconcile stale `active_household_id` after self-leave; if Better Auth session healing fails after membership removal, the route still returns a best-effort `nextPath` and later household-scoped API requests with real request headers can finish healing.
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ### Invites
@@ -87,7 +88,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `POST /api/me/delete-confirm`
 - Account deletion is blocked while the user still owns a household with other active members.
 - Delete-request email delivery is required; SMTP failures return `500`.
-- Household deletion still returns to `/household` if reactivating the sole remaining household fails; one-household bootstrap fallback covers the stale-session gap, with best-effort healing on a later household-scoped API request.
+- Household deletion still returns to `/household` if reactivating the sole remaining household fails; page fallback can still resolve the sole remaining household for navigation, with best-effort cookie healing deferred to a later household-scoped API request with real request headers.
 - If post-delete remaining-household inspection fails entirely, household deletion falls back to `/household/select`.
 
 ## Key File Map

@@ -1,10 +1,10 @@
 import { pool } from "@/lib/db";
 import type { HouseholdRole } from "@/lib/household-roles";
 
-export type MembershipSummary = {
+export type ActiveMembershipSummary = {
   householdId: number;
   role: string;
-  status: string;
+  status: "active";
 };
 
 export type ActiveHouseholdSummary = {
@@ -44,8 +44,8 @@ export type OwnedHouseholdMemberConstraint = {
   otherActiveMemberCount: number;
 };
 
-export const getUserMemberships = async (userId: number) => {
-  const result = await pool.query<MembershipSummary>(
+export const getActiveUserMemberships = async (userId: number) => {
+  const result = await pool.query<ActiveMembershipSummary>(
     "select household_id as \"householdId\", role, status from household_memberships where user_id = $1 and status = 'active' order by joined_at desc",
     [userId],
   );

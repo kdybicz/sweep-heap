@@ -102,7 +102,7 @@ make dev
 - `make db-reset` - resets DB, with automatic agent overrides when `AGENT` is set
 - `make seed-chores` - runs migrations then seeds demo data (not idempotent), with automatic agent overrides when `AGENT` is set
 - `make db-studio` - opens Drizzle Studio, with automatic agent overrides when `AGENT` is set
-- Direct script fallback: `yarn db:generate`, `yarn db:migrate`, `yarn db:reset`, `yarn db:studio`
+- Direct script fallback: `yarn db:generate`, `yarn db:migrate`, `yarn db:reset`, `yarn db:studio`, `yarn seed:chores`
 
 ## Local URLs
 

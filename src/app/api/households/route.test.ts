@@ -70,6 +70,8 @@ const requestWithRawBody = (method: "POST" | "PATCH", rawBody: string) =>
     body: rawBody,
   });
 
+const getRequest = () => new Request("http://localhost/api/households");
+
 describe("/api/households route", () => {
   beforeEach(() => {
     deleteOrganizationMock.mockReset();
@@ -127,7 +129,7 @@ describe("/api/households route", () => {
       },
     });
 
-    const response = await GET();
+    const response = await GET(getRequest());
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -150,7 +152,7 @@ describe("/api/households route", () => {
     });
     resolveActiveHouseholdMock.mockResolvedValue({ status: "none" });
 
-    const response = await GET();
+    const response = await GET(getRequest());
     const body = await response.json();
 
     expect(response.status).toBe(403);
@@ -201,7 +203,7 @@ describe("/api/households route", () => {
   it("GET returns invalid user when session user id is not numeric", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "not-a-number" } });
 
-    const response = await GET();
+    const response = await GET(getRequest());
     const body = await response.json();
 
     expect(response.status).toBe(400);
@@ -219,7 +221,7 @@ describe("/api/households route", () => {
       getSessionMock.mockResolvedValue({ user: { id: "7" } });
       resolveActiveHouseholdMock.mockRejectedValue(new Error("db failed"));
 
-      const response = await GET();
+      const response = await GET(getRequest());
       const body = await response.json();
 
       expect(response.status).toBe(500);
@@ -1339,7 +1341,7 @@ describe("/api/households route", () => {
       households: [],
     });
 
-    const response = await GET();
+    const response = await GET(getRequest());
     const body = await response.json();
 
     expect(response.status).toBe(409);

@@ -1,7 +1,7 @@
 import { requireApiSessionHouseholdResolution } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { parseJsonObjectBody } from "@/lib/http";
-import { getUserMemberships, updateUserNameById } from "@/lib/repositories";
+import { getActiveUserMemberships, updateUserNameById } from "@/lib/repositories";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +20,10 @@ const handleUnexpectedError = (
   });
 };
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   let responseHeaders = new Headers();
   try {
-    const sessionResolutionAccess = await requireApiSessionHouseholdResolution(request?.headers);
+    const sessionResolutionAccess = await requireApiSessionHouseholdResolution(request.headers);
     if (!sessionResolutionAccess.ok) {
       return sessionResolutionAccess.response;
     }
@@ -31,7 +31,7 @@ export async function GET(request?: Request) {
     const { householdResolution, sessionContext } = sessionResolutionAccess;
     responseHeaders = sessionResolutionAccess.responseHeaders;
 
-    const memberships = await getUserMemberships(sessionContext.userId);
+    const activeMemberships = await getActiveUserMemberships(sessionContext.userId);
     const activeHouseholdId =
       householdResolution.status === "resolved" ? householdResolution.household.id : null;
 
@@ -43,7 +43,7 @@ export async function GET(request?: Request) {
           email: sessionContext.sessionUserEmail,
           name: sessionContext.sessionUserName,
         },
-        memberships,
+        memberships: activeMemberships,
         activeHouseholdId,
       },
       { headers: responseHeaders },

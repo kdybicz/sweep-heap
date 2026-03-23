@@ -89,8 +89,8 @@
 - Household create/update requires a valid `timeZone`; missing, blank, or invalid values return `400` (`Invalid time zone`) instead of silently coercing to `UTC`.
 - When an authenticated user has no active household, household-gated APIs return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
 - Client fetch flows that lose household context mid-request should branch on `code` and recover to `/household/setup` for `HOUSEHOLD_REQUIRED`, or `/household/select` for `HOUSEHOLD_SELECTION_REQUIRED` and `HOUSEHOLD_NOT_FOUND`.
-- Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household, unless they need `/household/select` to choose among multiple existing memberships.
-- Settings, profile, and board pages stay household-gated; the signed-in pre-active-household surface is limited to auth redirects, invite acceptance, household setup, and household selection.
+- Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household, unless they need `/household/select` to choose among multiple existing memberships or `/user/delete/confirm` to finish a valid account-deletion link.
+- Settings, profile, and board pages stay household-gated; the signed-in pre-active-household surface includes auth redirects, invite acceptance, household setup, household selection, and `/user/delete/confirm` when the delete-confirmation token is valid.
 - Public entry points like `/` and `/auth` should immediately redirect signed-in users to `/household`, `/household/select`, or `/household/setup` based on active-household state and onboarding completeness.
 - Default magic-link sign-in should return through an entry point that applies the same onboarding redirect policy; invite sign-in should keep its explicit callback to `/api/households/invites/complete`.
 - Non-admin members can invite and resend invites.
@@ -107,7 +107,7 @@
 - Non-owner members can leave the active household through the dedicated self-leave API.
 - Owners must transfer ownership before leaving; after transfer, the former owner can leave through the same self-leave flow.
 - Self-leave attempts to reconcile `active_household_id` before returning: the sole remaining household is activated, multiple remaining households require `/household/select`, and no remaining households return the user to `/household/setup`.
-- If self-leave session healing fails after membership removal, the route still succeeds with a best-effort `nextPath`; later page/API bootstrap may heal the stale selection on the next household-scoped request.
+- If self-leave session healing fails after membership removal, the route still succeeds with a best-effort `nextPath`; later household-scoped API requests with real request headers can finish healing the stale selection, while pages may still resolve fallback state for navigation without persisting new session cookies.
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ## Invite Rules
@@ -202,7 +202,7 @@
 - `DELETE /api/households`
   - Deletes the active household (owner only, and only when no other active members remain).
   - Clears active context, redirects to `/household/setup` when none remain, `/household/select` when multiple remain, and re-activates the sole remaining household when possible.
-  - If sole-remaining-household activation fails, response still succeeds with `nextPath: "/household"`; page/API bootstrap fallback can still resolve the only remaining household, and session healing is best-effort until a later household-scoped API request.
+- If sole-remaining-household activation fails, response still succeeds with `nextPath: "/household"`; later page loads can still resolve the sole remaining household via fallback for navigation, but persisted session healing remains best-effort until a later household-scoped API request with real request headers.
   - If the remaining-households lookup itself fails after delete, response still succeeds but falls back to `nextPath: "/household/select"`.
 - `GET /api/households/members`
   - Returns active members and pending invites.
@@ -215,7 +215,7 @@
 - `POST /api/households/members/leave`
   - Removes the current non-owner member from the active household.
   - Attempts to reconcile active-household session state before returning the next client path.
-  - If post-leave session healing fails, response still succeeds with a best-effort `nextPath`; later household-scoped requests can finish healing stale session state.
+- If post-leave session healing fails, response still succeeds with a best-effort `nextPath`; later household-scoped API requests with real request headers can finish healing stale session state.
 - `POST /api/households/members/owner-transfer`
   - Transfers ownership to another active household member and demotes the acting owner to `admin`.
 - `POST /api/households/members/invites/[inviteId]`
@@ -234,7 +234,7 @@
   - `action=cancel`: cancel one occurrence (`single`), this and future chores (`following`), or the entire series (`all`).
   - `action=edit`: edit one occurrence (`single`), this and future chores (`following`), or the entire series (`all`).
 - `GET /api/me`
-  - Returns current user and memberships.
+- Returns current user and active memberships.
   - Reconciles stale `active_household_id` when request headers are available.
 - `PATCH /api/me`
   - Updates current user name.
@@ -263,7 +263,7 @@
 
 ## Ownership and Deletion Reconciliation (Current)
 - Deleting a user's last household leaves the user in onboarding with no active household; they may create a new household afterward.
-- When an active household is deleted or the user's membership in it ends through self-leave, `active_household_id` is cleared or re-resolved when possible before the client continues; if Better Auth session healing fails, later bootstrap fallback may finish healing stale selection.
+- When an active household is deleted or the user's membership in it ends through self-leave, `active_household_id` is cleared or re-resolved when possible before the client continues; if Better Auth session healing fails, later household-scoped API requests with real request headers can finish healing the stale selection, while pages may still resolve fallback state for navigation.
 - Multi-household support treats `active_household_id` as the acting context; membership list and ownership checks are evaluated against the targeted household, not inferred by latest membership.
 
 ## Code Organization Conventions

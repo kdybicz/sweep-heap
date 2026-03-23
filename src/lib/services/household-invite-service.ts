@@ -1,6 +1,7 @@
 import { auth, getSession } from "@/auth";
 import { assertOkResponse, copySetCookieHeaders } from "@/lib/auth-response";
 import { sendHouseholdInviteEmail } from "@/lib/household-invite-email";
+import { toHouseholdInvitePagePath } from "@/lib/household-invite-paths";
 import {
   generateHouseholdInviteSecret,
   hashHouseholdInviteSecret,
@@ -144,9 +145,13 @@ export const sendHouseholdInvite = async ({
   }
 
   const appOrigin = getAppOrigin(request);
-  const inviteUrl = new URL("/household/invite", appOrigin);
-  inviteUrl.searchParams.set("invitationId", String(inviteId));
-  inviteUrl.searchParams.set("secret", inviteSecret);
+  const inviteUrl = new URL(
+    toHouseholdInvitePagePath({
+      invitationId: inviteId,
+      secret: inviteSecret,
+    }),
+    appOrigin,
+  );
 
   let inviteEmailSent = false;
   try {

@@ -1,5 +1,6 @@
 import { getSession } from "@/auth";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
+import { parsePositiveInt } from "@/lib/organization-api";
 
 export type SessionContext =
   | {
@@ -20,17 +21,7 @@ export type SessionContext =
 
 export type SessionContextOk = Extract<SessionContext, { ok: true }>;
 
-const toSessionActiveHouseholdId = (value: unknown) => {
-  if (value === undefined || value === null || value === "") {
-    return null;
-  }
-
-  const sessionActiveHouseholdId = Number(value);
-
-  return Number.isInteger(sessionActiveHouseholdId) && sessionActiveHouseholdId > 0
-    ? sessionActiveHouseholdId
-    : null;
-};
+const toSessionActiveHouseholdId = (value: unknown) => parsePositiveInt(value);
 
 export const parseSessionContext = (
   session: Awaited<ReturnType<typeof getSession>>,
@@ -47,8 +38,8 @@ export const parseSessionContext = (
     };
   }
 
-  const userId = Number(rawUserId);
-  if (!Number.isFinite(userId)) {
+  const userId = parsePositiveInt(rawUserId);
+  if (userId === null) {
     return {
       ok: false,
       userId: null,

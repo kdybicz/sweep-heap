@@ -7,9 +7,8 @@ import {
   buildHouseholdInviteSignInRedirectUrl,
   toHouseholdInvitePagePath,
 } from "@/lib/household-invite-paths";
-import { hashHouseholdInviteSecret } from "@/lib/household-invite-secret";
-import { getPendingHouseholdInviteByIdAndSecret } from "@/lib/repositories";
-import { resolveActiveHousehold } from "@/lib/services";
+import { parsePositiveInt } from "@/lib/organization-api";
+import { getPendingHouseholdInvite, resolveActiveHousehold } from "@/lib/services";
 import { parseSessionContext } from "@/lib/session-context";
 
 export const dynamic = "force-dynamic";
@@ -36,14 +35,14 @@ export default async function HouseholdInvitePage({
     typeof resolvedSearchParams?.error === "string" ? resolvedSearchParams.error : "";
   const initialError = inviteErrorMessages[errorCode] ?? null;
 
-  const numericInvitationId = Number(invitationId);
-  if (!Number.isInteger(numericInvitationId) || numericInvitationId <= 0 || !inviteSecret) {
+  const numericInvitationId = parsePositiveInt(invitationId);
+  if (numericInvitationId === null || !inviteSecret) {
     redirect("/auth");
   }
 
-  const invite = await getPendingHouseholdInviteByIdAndSecret({
-    inviteId: numericInvitationId,
-    secretHash: hashHouseholdInviteSecret(inviteSecret),
+  const invite = await getPendingHouseholdInvite({
+    invitationId: numericInvitationId,
+    secret: inviteSecret,
   });
   if (!invite) {
     return (

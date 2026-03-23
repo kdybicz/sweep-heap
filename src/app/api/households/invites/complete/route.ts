@@ -1,3 +1,4 @@
+import { toHouseholdInvitePagePath } from "@/lib/household-invite-paths";
 import { parsePositiveInt } from "@/lib/organization-api";
 import {
   acceptHouseholdInvite,
@@ -7,23 +8,28 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const redirectTo = ({
+const redirectToInvitePage = ({
   error,
   invitationId,
   request,
   secret,
 }: {
   error: "invalid" | "sign-in" | "unexpected";
-  invitationId: string;
+  invitationId: number;
   request: Request;
   secret: string;
-}) => {
-  const url = new URL("/household/invite", request.url);
-  url.searchParams.set("invitationId", invitationId);
-  url.searchParams.set("secret", secret);
-  url.searchParams.set("error", error);
-  return url;
-};
+}) =>
+  Response.redirect(
+    new URL(
+      toHouseholdInvitePagePath({
+        error,
+        invitationId,
+        secret,
+      }),
+      request.url,
+    ),
+    302,
+  );
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -36,15 +42,12 @@ export async function GET(request: Request) {
 
   const sessionEmail = await getHouseholdInviteSessionEmail();
   if (!sessionEmail) {
-    return Response.redirect(
-      redirectTo({
-        error: "sign-in",
-        invitationId: String(numericInvitationId),
-        request,
-        secret,
-      }),
-      302,
-    );
+    return redirectToInvitePage({
+      error: "sign-in",
+      invitationId: numericInvitationId,
+      request,
+      secret,
+    });
   }
 
   const invite = await getPendingHouseholdInvite({
@@ -52,27 +55,21 @@ export async function GET(request: Request) {
     secret,
   });
   if (!invite) {
-    return Response.redirect(
-      redirectTo({
-        error: "invalid",
-        invitationId: String(numericInvitationId),
-        request,
-        secret,
-      }),
-      302,
-    );
+    return redirectToInvitePage({
+      error: "invalid",
+      invitationId: numericInvitationId,
+      request,
+      secret,
+    });
   }
 
   if (sessionEmail !== invite.email.trim().toLowerCase()) {
-    return Response.redirect(
-      redirectTo({
-        error: "sign-in",
-        invitationId: String(numericInvitationId),
-        request,
-        secret,
-      }),
-      302,
-    );
+    return redirectToInvitePage({
+      error: "sign-in",
+      invitationId: numericInvitationId,
+      request,
+      secret,
+    });
   }
 
   const acceptance = await acceptHouseholdInvite({
@@ -87,36 +84,27 @@ export async function GET(request: Request) {
   }
 
   if (acceptance.reason === "invalid") {
-    return Response.redirect(
-      redirectTo({
-        error: "invalid",
-        invitationId: String(numericInvitationId),
-        request,
-        secret,
-      }),
-      302,
-    );
+    return redirectToInvitePage({
+      error: "invalid",
+      invitationId: numericInvitationId,
+      request,
+      secret,
+    });
   }
 
   if (acceptance.reason === "recipient-mismatch") {
-    return Response.redirect(
-      redirectTo({
-        error: "sign-in",
-        invitationId: String(numericInvitationId),
-        request,
-        secret,
-      }),
-      302,
-    );
-  }
-
-  return Response.redirect(
-    redirectTo({
-      error: "unexpected",
-      invitationId: String(numericInvitationId),
+    return redirectToInvitePage({
+      error: "sign-in",
+      invitationId: numericInvitationId,
       request,
       secret,
-    }),
-    302,
-  );
+    });
+  }
+
+  return redirectToInvitePage({
+    error: "unexpected",
+    invitationId: numericInvitationId,
+    request,
+    secret,
+  });
 }

@@ -3,13 +3,13 @@ import { API_ERROR_CODE } from "@/lib/api-error";
 
 const {
   getSessionMock,
-  getUserMembershipsMock,
+  getActiveUserMembershipsMock,
   reconcileActiveHouseholdSessionMock,
   resolveActiveHouseholdMock,
   updateUserNameByIdMock,
 } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
-  getUserMembershipsMock: vi.fn(),
+  getActiveUserMembershipsMock: vi.fn(),
   reconcileActiveHouseholdSessionMock: vi.fn(),
   resolveActiveHouseholdMock: vi.fn(),
   updateUserNameByIdMock: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock("@/auth", () => ({
 }));
 
 vi.mock("@/lib/repositories", () => ({
-  getUserMemberships: getUserMembershipsMock,
+  getActiveUserMemberships: getActiveUserMembershipsMock,
   updateUserNameById: updateUserNameByIdMock,
 }));
 
@@ -45,10 +45,12 @@ const invalidJsonPatchRequest = () =>
     body: "{",
   });
 
+const getRequest = () => new Request("http://localhost/api/me");
+
 describe("/api/me route", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
-    getUserMembershipsMock.mockReset();
+    getActiveUserMembershipsMock.mockReset();
     reconcileActiveHouseholdSessionMock.mockReset();
     resolveActiveHouseholdMock.mockReset();
     updateUserNameByIdMock.mockReset();
@@ -59,7 +61,7 @@ describe("/api/me route", () => {
   it("GET rejects unauthenticated requests", async () => {
     getSessionMock.mockResolvedValue(null);
 
-    const response = await GET();
+    const response = await GET(getRequest());
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -68,14 +70,14 @@ describe("/api/me route", () => {
       code: API_ERROR_CODE.UNAUTHORIZED,
       error: "Unauthorized",
     });
-    expect(getUserMembershipsMock).not.toHaveBeenCalled();
+    expect(getActiveUserMembershipsMock).not.toHaveBeenCalled();
     expect(resolveActiveHouseholdMock).not.toHaveBeenCalled();
   });
 
   it("GET rejects non-numeric user ids", async () => {
     getSessionMock.mockResolvedValue({ user: { id: "abc" } });
 
-    const response = await GET();
+    const response = await GET(getRequest());
     const body = await response.json();
 
     expect(response.status).toBe(400);
@@ -84,11 +86,11 @@ describe("/api/me route", () => {
       code: API_ERROR_CODE.INVALID_USER,
       error: "Invalid user",
     });
-    expect(getUserMembershipsMock).not.toHaveBeenCalled();
+    expect(getActiveUserMembershipsMock).not.toHaveBeenCalled();
     expect(resolveActiveHouseholdMock).not.toHaveBeenCalled();
   });
 
-  it("GET returns user details and memberships", async () => {
+  it("GET returns user details and active memberships", async () => {
     getSessionMock.mockResolvedValue({
       user: {
         id: "4",
@@ -99,7 +101,7 @@ describe("/api/me route", () => {
         activeOrganizationId: "12",
       },
     });
-    getUserMembershipsMock.mockResolvedValue([
+    getActiveUserMembershipsMock.mockResolvedValue([
       {
         householdId: 12,
         role: "admin",
@@ -121,7 +123,7 @@ describe("/api/me route", () => {
       new Headers({ "set-cookie": "better-auth.session=healed; Path=/; HttpOnly" }),
     );
 
-    const response = await GET(new Request("http://localhost/api/me"));
+    const response = await GET(getRequest());
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -141,7 +143,7 @@ describe("/api/me route", () => {
       ],
       activeHouseholdId: 12,
     });
-    expect(getUserMembershipsMock).toHaveBeenCalledWith(4);
+    expect(getActiveUserMembershipsMock).toHaveBeenCalledWith(4);
     expect(resolveActiveHouseholdMock).toHaveBeenCalledWith({
       sessionActiveHouseholdId: 12,
       userId: 4,
@@ -175,7 +177,7 @@ describe("/api/me route", () => {
         activeOrganizationId: null,
       },
     });
-    getUserMembershipsMock.mockResolvedValue([
+    getActiveUserMembershipsMock.mockResolvedValue([
       {
         householdId: 12,
         role: "admin",
@@ -192,7 +194,7 @@ describe("/api/me route", () => {
       households: [],
     });
 
-    const response = await GET();
+    const response = await GET(getRequest());
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -212,7 +214,7 @@ describe("/api/me route", () => {
           activeOrganizationId: "12",
         },
       });
-      getUserMembershipsMock.mockResolvedValue([]);
+      getActiveUserMembershipsMock.mockResolvedValue([]);
       resolveActiveHouseholdMock.mockResolvedValue({
         status: "resolved",
         source: "session",
@@ -232,7 +234,7 @@ describe("/api/me route", () => {
       });
       reconcileActiveHouseholdSessionMock.mockRejectedValueOnce(reconciliationError);
 
-      const response = await GET(new Request("http://localhost/api/me"));
+      const response = await GET(getRequest());
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -257,9 +259,9 @@ describe("/api/me route", () => {
           email: "alex@example.com",
         },
       });
-      getUserMembershipsMock.mockRejectedValue(new Error("db failed"));
+      getActiveUserMembershipsMock.mockRejectedValue(new Error("db failed"));
 
-      const response = await GET();
+      const response = await GET(getRequest());
       const body = await response.json();
 
       expect(response.status).toBe(500);

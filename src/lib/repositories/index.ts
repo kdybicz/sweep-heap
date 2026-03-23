@@ -13,10 +13,10 @@ export {
 export {
   countActiveHouseholdMembersExcludingUser,
   createHouseholdWithOwner,
+  getActiveUserMemberships,
   getHouseholdSummaryForUser,
   getHouseholdTimeZoneById,
   getPendingHouseholdInviteByIdAndSecret,
-  getUserMemberships,
   HouseholdNotFoundError,
   listActiveHouseholdsForUser,
   listOwnedHouseholdsWithOtherMembers,

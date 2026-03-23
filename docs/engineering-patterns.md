@@ -73,7 +73,7 @@ Keep page-level access rules aligned with API permissions:
 
 - Server-rendered pages for privileged actions must enforce the same role checks as the API they submit to.
 - Household-scoped product pages (board, profile, settings, household management) should require an active household before rendering.
-- The signed-in pre-active-household surface includes auth redirects, invite acceptance, and household selection when multiple memberships exist without a valid active selection; household setup is also a signed-in create-household entry point for existing members.
+- The signed-in pre-active-household surface includes auth redirects, invite acceptance, `/user/delete/confirm` when its token is valid, and household selection when multiple memberships exist without a valid active selection; household setup is also a signed-in create-household entry point for existing members.
 - Public entry points such as `/` and `/auth` should redirect signed-in users to `/household`, `/household/select`, or `/household/setup` rather than leaving them on public pages.
 - Standalone flow pages should prefer explicit escape links to the safest known destination instead of relying on browser history; hide that escape when onboarding or recovery truly has no valid destination yet.
 - For household owner/admin flows (for example `/household/edit` with `PATCH /api/households`), redirect non-privileged members before rendering the edit form.

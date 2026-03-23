@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import nodemailer from "nodemailer";
 
 import { pool } from "@/lib/db";
+import { parsePositiveInt } from "@/lib/organization-api";
 import { getSmtpSettings } from "@/lib/smtp";
 
 const appUrl = process.env.AUTH_URL;
@@ -97,14 +98,6 @@ const householdMemberRole = organizationAccessControl.newRole({
   ac: ["read"],
 });
 
-const toUserId = (value: unknown) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-  return parsed;
-};
-
 export const auth = betterAuth({
   appName: "The Sweep Heap",
   baseURL: appUrl,
@@ -180,7 +173,7 @@ export const auth = betterAuth({
         member: householdMemberRole,
       },
       allowUserToCreateOrganization: async (user) => {
-        const userId = toUserId(user.id);
+        const userId = parsePositiveInt(user.id);
         return userId !== null;
       },
       schema: {
