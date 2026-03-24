@@ -248,6 +248,7 @@ describe("/api/households route", () => {
         name: "  The Heap  ",
         timeZone: "UTC",
         icon: "  🧹🧹🧹🧹🧹🧹🧹🧹🧹  ",
+        membersCanManageChores: false,
       }),
     );
     const body = await response.json();
@@ -261,6 +262,7 @@ describe("/api/households route", () => {
         name: "The Heap",
         timeZone: "UTC",
         icon: "🧹🧹🧹🧹🧹🧹🧹🧹",
+        membersCanManageChores: false,
       }),
     );
     expect(createHouseholdWithOwnerMock.mock.calls[0]?.[0]?.slug).toMatch(/^the-heap-/);
@@ -291,8 +293,30 @@ describe("/api/households route", () => {
       expect.objectContaining({
         userId: 21,
         name: "Side Project",
+        membersCanManageChores: true,
       }),
     );
+  });
+
+  it("POST rejects non-boolean member chore permissions", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "21" } });
+
+    const response = await POST(
+      requestWithBody("POST", {
+        name: "The Heap",
+        timeZone: "UTC",
+        membersCanManageChores: "sometimes",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "membersCanManageChores must be true or false",
+    });
+    expect(createHouseholdWithOwnerMock).not.toHaveBeenCalled();
   });
 
   it("POST fails when switching the active household fails", async () => {
@@ -819,6 +843,7 @@ describe("/api/households route", () => {
       name: "Flat 2",
       timeZone: "UTC",
       icon: null,
+      membersCanManageChores: false,
     });
 
     const response = await PATCH(
@@ -826,6 +851,7 @@ describe("/api/households route", () => {
         name: "  Flat 2  ",
         timeZone: "UTC",
         icon: "   ",
+        membersCanManageChores: false,
       }),
     );
     const body = await response.json();
@@ -835,6 +861,7 @@ describe("/api/households route", () => {
       name: "Flat 2",
       timeZone: "UTC",
       icon: null,
+      membersCanManageChores: false,
     });
     expect(response.status).toBe(200);
     expect(body).toEqual({
@@ -844,8 +871,43 @@ describe("/api/households route", () => {
         name: "Flat 2",
         timeZone: "UTC",
         icon: null,
+        membersCanManageChores: false,
       },
     });
+  });
+
+  it("PATCH rejects non-boolean member chore permissions", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "9" }, session: { activeOrganizationId: "3" } });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: {
+        id: 3,
+        name: "Flat",
+        timeZone: "UTC",
+        icon: "🏠",
+        role: "owner",
+        membersCanManageChores: true,
+      },
+    });
+
+    const response = await PATCH(
+      requestWithBody("PATCH", {
+        name: "Flat 2",
+        timeZone: "UTC",
+        icon: "🏠",
+        membersCanManageChores: "sometimes",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "membersCanManageChores must be true or false",
+    });
+    expect(updateHouseholdByIdMock).not.toHaveBeenCalled();
   });
 
   it("PATCH rejects invalid time zone", async () => {

@@ -41,7 +41,7 @@
 
 ### In scope now
 - Magic-link sign in, sign out, and invite-based sign-in handoff.
-- Household setup and editing (name, icon, time zone).
+- Household setup and editing (name, icon, time zone, member chore-management toggle), with the same toggle available during both create and later edits.
 - Household member management:
   - Invite by email.
   - Resend pending invite.
@@ -87,6 +87,7 @@
 - When multiple active households exist and no valid `active_household_id` is available, the user must choose a household before household-scoped actions continue.
 - Household time zone is editable by owners/admins (not immutable in current implementation).
 - Household create/update requires a valid `timeZone`; missing, blank, or invalid values return `400` (`Invalid time zone`) instead of silently coercing to `UTC`.
+- Household settings can disable chore add/edit/delete for regular members while still allowing owners/admins to manage chores.
 - When an authenticated user has no active household, household-gated APIs return `403` with `error: "Household required"` and `code: "HOUSEHOLD_REQUIRED"`.
 - Client fetch flows that lose household context mid-request should branch on `code` and recover to `/household/setup` for `HOUSEHOLD_REQUIRED`, or `/household/select` for `HOUSEHOLD_SELECTION_REQUIRED` and `HOUSEHOLD_NOT_FOUND`.
 - Signed-in users without an active household remain in onboarding and should be redirected to household setup until they create or join their first household, unless they need `/household/select` to choose among multiple existing memberships or `/user/delete/confirm` to finish a valid account-deletion link.
@@ -183,7 +184,7 @@
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores that start before or end after the visible week use a clipped edge treatment on the continued side (no outer corner radius and no outer vertical border).
 - In the sidebar Today list, multi-day chores are collapsed to a single entry per occurrence and may reuse the same compact single-card styling as one-day chores.
-- Single click or keyboard activation on a board chore opens a compact preview popover with title, status, date span, repeat cadence, notes, primary completion/log action, and delete; clicking the metadata block expands inline editing UI for title/date/repeat fields with single, future, and whole-series scope choices where applicable.
+- Single click or keyboard activation on a board chore opens a compact preview popover with title, status, date span, repeat cadence, notes, primary completion/log action, and delete when the viewer can manage chores; clicking the metadata block expands inline editing UI for title/date/repeat fields with single, future, and whole-series scope choices where applicable. When regular members are not allowed to manage chores, add buttons and edit/delete controls are hidden while completion/log actions remain available.
 
 ## API Surface (Current Snapshot)
 - Failure envelope contract: API routes return `{ ok: false, code: string, error: string }` for handled errors.

@@ -6,6 +6,7 @@ import DayColumn from "@/app/household/board/components/DayColumn";
 const noop = () => undefined;
 
 const buildProps = ({ dayKey = "2026-03-02", showEmptyState = false } = {}) => ({
+  canManageChores: true,
   dayKey,
   showEmptyState,
   loading: false,
@@ -35,5 +36,13 @@ describe("DayColumn", () => {
     const markup = renderToStaticMarkup(<DayColumn {...buildProps()} />);
 
     expect(markup).not.toContain("No chores scheduled");
+  });
+
+  it("hides add chore when the viewer cannot manage chores", () => {
+    const markup = renderToStaticMarkup(
+      <DayColumn {...buildProps({ dayKey: "2026-03-01" })} canManageChores={false} />,
+    );
+
+    expect(markup).not.toContain("Add chore");
   });
 });

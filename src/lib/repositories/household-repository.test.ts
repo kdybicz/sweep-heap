@@ -13,10 +13,13 @@ vi.mock("@/lib/db", () => ({
 
 import {
   countActiveHouseholdMembersExcludingUser,
+  getHouseholdSummaryForUser,
   getHouseholdTimeZoneById,
   getPendingHouseholdInviteByIdAndSecret,
+  listActiveHouseholdsForUser,
   listOwnedHouseholdsWithOtherMembers,
   setPendingHouseholdInviteSecretHash,
+  updateHouseholdById,
 } from "@/lib/repositories/household-repository";
 
 describe("getPendingHouseholdInviteByIdAndSecret", () => {
@@ -107,6 +110,146 @@ describe("getHouseholdTimeZoneById", () => {
     queryMock.mockResolvedValue({ rows: [] });
 
     await expect(getHouseholdTimeZoneById(7)).rejects.toThrow("Household 7 not found");
+  });
+});
+
+describe("listActiveHouseholdsForUser", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("maps household metadata into member chore permissions", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          id: 7,
+          name: "Home",
+          timeZone: "UTC",
+          icon: "🏡",
+          role: "member",
+          metadata: JSON.stringify({ membersCanManageChores: false }),
+        },
+        {
+          id: 8,
+          name: "Cabin",
+          timeZone: "Europe/Warsaw",
+          icon: null,
+          role: "admin",
+          metadata: null,
+        },
+      ],
+    });
+
+    await expect(listActiveHouseholdsForUser(9)).resolves.toEqual([
+      {
+        id: 7,
+        name: "Home",
+        timeZone: "UTC",
+        icon: "🏡",
+        role: "member",
+        membersCanManageChores: false,
+      },
+      {
+        id: 8,
+        name: "Cabin",
+        timeZone: "Europe/Warsaw",
+        icon: null,
+        role: "admin",
+        membersCanManageChores: true,
+      },
+    ]);
+  });
+});
+
+describe("getHouseholdSummaryForUser", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("defaults member chore permissions to true when metadata is invalid", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          id: 7,
+          name: "Home",
+          timeZone: "UTC",
+          icon: "🏡",
+          role: "member",
+          metadata: "not-json",
+        },
+      ],
+    });
+
+    await expect(getHouseholdSummaryForUser({ householdId: 7, userId: 9 })).resolves.toEqual({
+      id: 7,
+      name: "Home",
+      timeZone: "UTC",
+      icon: "🏡",
+      role: "member",
+      membersCanManageChores: true,
+    });
+  });
+});
+
+describe("updateHouseholdById", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("stores the member chore permission in metadata", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ metadata: JSON.stringify({ theme: "sunrise" }) }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 7,
+            name: "Home",
+            timeZone: "UTC",
+            icon: null,
+            metadata: JSON.stringify({ theme: "sunrise", membersCanManageChores: false }),
+          },
+        ],
+      });
+
+    await expect(
+      updateHouseholdById({
+        householdId: 7,
+        name: "Home",
+        timeZone: "UTC",
+        icon: null,
+        membersCanManageChores: false,
+      }),
+    ).resolves.toEqual({
+      id: 7,
+      name: "Home",
+      timeZone: "UTC",
+      icon: null,
+      membersCanManageChores: false,
+    });
+
+    expect(queryMock.mock.calls[1]?.[1]).toEqual([
+      "Home",
+      "UTC",
+      null,
+      JSON.stringify({ theme: "sunrise", membersCanManageChores: false }),
+      7,
+    ]);
+  });
+
+  it("returns null when the household does not exist", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      updateHouseholdById({
+        householdId: 7,
+        name: "Home",
+        timeZone: "UTC",
+        icon: null,
+        membersCanManageChores: true,
+      }),
+    ).resolves.toBeNull();
+
+    expect(queryMock).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -15,18 +15,23 @@ type HouseholdEditFormProps = {
   initialName: string;
   initialIcon: string;
   initialTimeZone: string;
+  initialMembersCanManageChores: boolean;
 };
 
 export default function HouseholdEditForm({
   canDeleteHousehold,
   initialName,
   initialIcon,
+  initialMembersCanManageChores,
   initialTimeZone,
 }: HouseholdEditFormProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [icon, setIcon] = useState(initialIcon);
   const [timeZone, setTimeZone] = useState(initialTimeZone);
+  const [membersCanManageChores, setMembersCanManageChores] = useState(
+    initialMembersCanManageChores,
+  );
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +51,7 @@ export default function HouseholdEditForm({
           name,
           icon,
           timeZone,
+          membersCanManageChores,
         }),
       });
       const data = await readApiJsonResponse<{ ok?: boolean; error?: string; code?: string }>(
@@ -142,6 +148,26 @@ export default function HouseholdEditForm({
             <option value={timeZone}>{timeZone}</option>
           )}
         </select>
+      </label>
+
+      <label className="flex items-start gap-3 rounded-2xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-4 text-left">
+        <input
+          checked={membersCanManageChores}
+          className="mt-1 h-4 w-4 rounded border-[var(--stroke)] text-[var(--accent)] focus:ring-[var(--accent)]"
+          onChange={(event) => setMembersCanManageChores(event.target.checked)}
+          type="checkbox"
+        />
+        <span className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+            Chore editing permissions
+          </span>
+          <span className="text-sm font-semibold text-[var(--ink)]">
+            Allow regular members to add, edit, and delete chores
+          </span>
+          <span className="text-sm text-[var(--muted)]">
+            Owners and admins can always manage chores, even when this is turned off.
+          </span>
+        </span>
       </label>
 
       {error ? (

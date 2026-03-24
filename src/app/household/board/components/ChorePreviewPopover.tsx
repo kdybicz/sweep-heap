@@ -39,6 +39,7 @@ import {
 type ChorePreviewPopoverProps = {
   chore: ChoreItem | null;
   anchorElement: HTMLElement | null;
+  canManageChores: boolean;
   selectionKey: string | null;
   todayKey: string;
   onClose: () => void;
@@ -215,6 +216,7 @@ function TrashIcon({ className }: { className?: string }) {
 export default function ChorePreviewPopover({
   chore,
   anchorElement,
+  canManageChores,
   selectionKey,
   todayKey,
   onClose,
@@ -1126,6 +1128,17 @@ export default function ChorePreviewPopover({
   }, [endDate, startDate]);
 
   useEffect(() => {
+    if (canManageChores) {
+      return;
+    }
+
+    setIsEditingTitle(false);
+    setIsEditingNotes(false);
+    setIsExpanded(false);
+    setScopePopupMode(null);
+  }, [canManageChores]);
+
+  useEffect(() => {
     if (!isEditingTitle) {
       return;
     }
@@ -1160,6 +1173,7 @@ export default function ChorePreviewPopover({
   const statusLabel = getChoreStateLabel(chore);
   const trimmedTitleDraft = titleDraft.trim();
   const trimmedNotesDraft = notesDraft.trim();
+  const showExpandedEditor = canManageChores && isExpanded;
   const isInteractionLocked = isSaving || scopePopupMode !== null;
   const isDateInteractionLocked =
     isSaving || (scopePopupMode !== null && scopePopupMode !== "date");
@@ -1200,16 +1214,16 @@ export default function ChorePreviewPopover({
           : scopePopupMode === "delete"
             ? deleteScopeOptions
             : getChorePreviewRepeatChangeScopeOptions(chore);
-  const preferredWidth = isExpanded ? 388 : 320;
+  const preferredWidth = showExpandedEditor ? 388 : 320;
   const viewportWidth = typeof window === "undefined" ? 1440 : window.innerWidth;
   const viewportHeight = typeof window === "undefined" ? 900 : window.innerHeight;
   const popoverWidth = Math.min(preferredWidth, viewportWidth - 32);
   const estimatedHeight =
-    isExpanded && repeat !== "none"
+    showExpandedEditor && repeat !== "none"
       ? saveError
         ? 430
         : 390
-      : isExpanded
+      : showExpandedEditor
         ? saveError
           ? 440
           : 400
@@ -1654,7 +1668,7 @@ export default function ChorePreviewPopover({
         />
         <div className="border-b border-[var(--stroke-soft)] px-4 pb-3 pt-3">
           <div ref={titleEditorRef}>
-            {isEditingTitle ? (
+            {canManageChores && isEditingTitle ? (
               <input
                 className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-base font-semibold leading-tight text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:shadow-[0_0_0_1px_var(--accent)]"
                 disabled={isInteractionLocked}
@@ -1690,7 +1704,7 @@ export default function ChorePreviewPopover({
                 ref={titleInputRef}
                 value={titleDraft}
               />
-            ) : (
+            ) : canManageChores ? (
               <button
                 className={`block w-full rounded-md px-2 py-1 text-left text-base font-semibold leading-tight transition hover:bg-[var(--surface-strong)]/30 ${
                   trimmedTitleDraft ? "text-[var(--ink)]" : "italic text-[var(--muted)]/70"
@@ -1704,152 +1718,185 @@ export default function ChorePreviewPopover({
               >
                 <span className="block truncate">{trimmedTitleDraft || "Add title"}</span>
               </button>
+            ) : (
+              <div className="block w-full rounded-md px-2 py-1 text-left text-base font-semibold leading-tight text-[var(--ink)]">
+                <span className="block truncate">{trimmedTitleDraft || "Untitled chore"}</span>
+              </div>
             )}
           </div>
         </div>
         <div
           className={`overflow-hidden transition-all duration-200 ease-out ${
-            isExpanded ? "max-h-0 opacity-0" : "max-h-28 opacity-100"
+            showExpandedEditor ? "max-h-0 opacity-0" : "max-h-28 opacity-100"
           }`}
         >
-          <button
-            aria-expanded={isExpanded}
-            className="block w-full px-4 pb-3 pt-3 text-left transition hover:bg-[var(--surface-strong)]/25"
-            onClick={() => setIsExpanded(true)}
-            type="button"
-          >
-            <div className="min-w-0">
-              <div className="text-[0.82rem] font-semibold leading-tight text-[var(--muted)]">
-                {getChorePreviewDateLabel(chore)}
-              </div>
-              <div className="pt-2">
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-strong)]/45 px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-                  <StateIcon chore={chore} className="h-3 w-3" />
-                  {statusLabel}
-                </span>
-              </div>
-              {repeatLabel ? (
-                <div className="pt-1.5">
-                  <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
-                    <span
-                      aria-hidden="true"
-                      className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]/70"
-                    />
-                    {repeatLabel}
+          {canManageChores ? (
+            <button
+              aria-expanded={showExpandedEditor}
+              className="block w-full px-4 pb-3 pt-3 text-left transition hover:bg-[var(--surface-strong)]/25"
+              onClick={() => setIsExpanded(true)}
+              type="button"
+            >
+              <div className="min-w-0">
+                <div className="text-[0.82rem] font-semibold leading-tight text-[var(--muted)]">
+                  {getChorePreviewDateLabel(chore)}
+                </div>
+                <div className="pt-2">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-strong)]/45 px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                    <StateIcon chore={chore} className="h-3 w-3" />
+                    {statusLabel}
                   </span>
                 </div>
-              ) : null}
-            </div>
-          </button>
-        </div>
-        <div
-          className={`overflow-hidden transition-all duration-200 ease-out ${
-            isExpanded ? "max-h-[28rem] opacity-100" : "max-h-0 opacity-0"
-          }`}
-          ref={editPaneRef}
-        >
-          <div className="space-y-3 bg-[var(--surface-strong)]/35 px-4 py-3">
-            <div className="space-y-1.5 text-sm leading-tight text-[var(--ink)]">
-              <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
-                <span className="text-right text-[var(--muted)]">status:</span>
-                <span className="inline-flex items-center gap-1 text-[0.88rem] font-medium text-[var(--ink)]">
-                  <StateIcon chore={chore} className="h-3.5 w-3.5" />
-                  {statusLabel}
-                </span>
+                {repeatLabel ? (
+                  <div className="pt-1.5">
+                    <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
+                      <span
+                        aria-hidden="true"
+                        className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]/70"
+                      />
+                      {repeatLabel}
+                    </span>
+                  </div>
+                ) : null}
               </div>
-              <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
-                <span className="text-right text-[var(--muted)]">type:</span>
-                <InlineSelectField disabled={isInteractionLocked}>
-                  <select
-                    aria-label="Chore type"
-                    className="bg-transparent px-2 py-0.5 text-[0.88rem] font-medium text-[var(--ink)] outline-none"
-                    disabled={isInteractionLocked}
-                    onChange={(event) => handleTypeChange(event.target.value as ChoreType)}
-                    value={type}
-                  >
-                    <option value="close_on_done">Close when done</option>
-                    <option value="stay_open">Stay open</option>
-                  </select>
-                </InlineSelectField>
-              </div>
-              <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
-                <span className="text-right text-[var(--muted)]">starts:</span>
-                <InlineDateField
-                  disabled={isDateInteractionLocked}
-                  onChange={handleStartDateChange}
-                  value={startDate}
-                />
-              </div>
-              <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
-                <span className="text-right text-[var(--muted)]">ends:</span>
-                <InlineDateField
-                  disabled={isDateInteractionLocked}
-                  min={startDate}
-                  onChange={handleEndDateChange}
-                  value={endDate}
-                />
-              </div>
-              <div className="space-y-1.5" ref={repeatEditorRef}>
-                <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
-                  <span className="text-right text-[var(--muted)]">repeat:</span>
-                  <InlineSelectField disabled={isInteractionLocked}>
-                    <select
-                      className="bg-transparent px-2 py-0.5 text-[0.88rem] font-medium text-[var(--ink)] outline-none"
-                      disabled={isInteractionLocked}
-                      onChange={(event) =>
-                        handleRepeatChange(event.target.value as PreviewRepeatValue)
-                      }
-                      value={repeat}
-                    >
-                      <option value="none">Does not repeat</option>
-                      <option value="daily">Every day</option>
-                      <option value="weekly">Every week</option>
-                      <option value="biweekly">Every 2 weeks</option>
-                      <option value="monthly">Every month</option>
-                      <option value="yearly">Every year</option>
-                    </select>
-                  </InlineSelectField>
+            </button>
+          ) : (
+            <div className="px-4 pb-3 pt-3 text-left">
+              <div className="min-w-0">
+                <div className="text-[0.82rem] font-semibold leading-tight text-[var(--muted)]">
+                  {getChorePreviewDateLabel(chore)}
                 </div>
-                {repeat !== "none" ? (
-                  <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
-                    <span className="text-right text-[var(--muted)]">ends:</span>
-                    <div className="flex items-center gap-2.5">
-                      <InlineSelectField disabled={isInteractionLocked}>
-                        <select
-                          className="bg-transparent px-2 py-0.5 text-[0.88rem] font-medium text-[var(--ink)] outline-none"
-                          disabled={isInteractionLocked}
-                          onChange={(event) =>
-                            handleRepeatEndModeChange(event.target.value as PreviewRepeatEndMode)
-                          }
-                          value={repeatEndMode}
-                        >
-                          <option value="never">Never</option>
-                          <option value="on_date">On date</option>
-                        </select>
-                      </InlineSelectField>
-                      {repeatEndMode === "on_date" ? (
-                        <InlineDateField
-                          disabled={isInteractionLocked}
-                          min={startDate}
-                          onChange={handleRepeatEndDateChange}
-                          value={repeatEnd}
-                        />
-                      ) : (
-                        <span className="text-[0.88rem] font-medium text-[var(--ink)]">
-                          {getChorePreviewRepeatEndLabelFromState({
-                            repeat,
-                            repeatEndMode,
-                            repeatEnd,
-                          })}
-                        </span>
-                      )}
-                    </div>
+                <div className="pt-2">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-strong)]/45 px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                    <StateIcon chore={chore} className="h-3 w-3" />
+                    {statusLabel}
+                  </span>
+                </div>
+                {repeatLabel ? (
+                  <div className="pt-1.5">
+                    <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
+                      <span
+                        aria-hidden="true"
+                        className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]/70"
+                      />
+                      {repeatLabel}
+                    </span>
                   </div>
                 ) : null}
               </div>
             </div>
-          </div>
+          )}
         </div>
+        {canManageChores ? (
+          <div
+            className={`overflow-hidden transition-all duration-200 ease-out ${
+              showExpandedEditor ? "max-h-[28rem] opacity-100" : "max-h-0 opacity-0"
+            }`}
+            ref={editPaneRef}
+          >
+            <div className="space-y-3 bg-[var(--surface-strong)]/35 px-4 py-3">
+              <div className="space-y-1.5 text-sm leading-tight text-[var(--ink)]">
+                <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
+                  <span className="text-right text-[var(--muted)]">status:</span>
+                  <span className="inline-flex items-center gap-1 text-[0.88rem] font-medium text-[var(--ink)]">
+                    <StateIcon chore={chore} className="h-3.5 w-3.5" />
+                    {statusLabel}
+                  </span>
+                </div>
+                <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
+                  <span className="text-right text-[var(--muted)]">type:</span>
+                  <InlineSelectField disabled={isInteractionLocked}>
+                    <select
+                      aria-label="Chore type"
+                      className="bg-transparent px-2 py-0.5 text-[0.88rem] font-medium text-[var(--ink)] outline-none"
+                      disabled={isInteractionLocked}
+                      onChange={(event) => handleTypeChange(event.target.value as ChoreType)}
+                      value={type}
+                    >
+                      <option value="close_on_done">Close when done</option>
+                      <option value="stay_open">Stay open</option>
+                    </select>
+                  </InlineSelectField>
+                </div>
+                <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
+                  <span className="text-right text-[var(--muted)]">starts:</span>
+                  <InlineDateField
+                    disabled={isDateInteractionLocked}
+                    onChange={handleStartDateChange}
+                    value={startDate}
+                  />
+                </div>
+                <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
+                  <span className="text-right text-[var(--muted)]">ends:</span>
+                  <InlineDateField
+                    disabled={isDateInteractionLocked}
+                    min={startDate}
+                    onChange={handleEndDateChange}
+                    value={endDate}
+                  />
+                </div>
+                <div className="space-y-1.5" ref={repeatEditorRef}>
+                  <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
+                    <span className="text-right text-[var(--muted)]">repeat:</span>
+                    <InlineSelectField disabled={isInteractionLocked}>
+                      <select
+                        className="bg-transparent px-2 py-0.5 text-[0.88rem] font-medium text-[var(--ink)] outline-none"
+                        disabled={isInteractionLocked}
+                        onChange={(event) =>
+                          handleRepeatChange(event.target.value as PreviewRepeatValue)
+                        }
+                        value={repeat}
+                      >
+                        <option value="none">Does not repeat</option>
+                        <option value="daily">Every day</option>
+                        <option value="weekly">Every week</option>
+                        <option value="biweekly">Every 2 weeks</option>
+                        <option value="monthly">Every month</option>
+                        <option value="yearly">Every year</option>
+                      </select>
+                    </InlineSelectField>
+                  </div>
+                  {repeat !== "none" ? (
+                    <div className="grid grid-cols-[76px_1fr] items-center gap-x-3">
+                      <span className="text-right text-[var(--muted)]">ends:</span>
+                      <div className="flex items-center gap-2.5">
+                        <InlineSelectField disabled={isInteractionLocked}>
+                          <select
+                            className="bg-transparent px-2 py-0.5 text-[0.88rem] font-medium text-[var(--ink)] outline-none"
+                            disabled={isInteractionLocked}
+                            onChange={(event) =>
+                              handleRepeatEndModeChange(event.target.value as PreviewRepeatEndMode)
+                            }
+                            value={repeatEndMode}
+                          >
+                            <option value="never">Never</option>
+                            <option value="on_date">On date</option>
+                          </select>
+                        </InlineSelectField>
+                        {repeatEndMode === "on_date" ? (
+                          <InlineDateField
+                            disabled={isInteractionLocked}
+                            min={startDate}
+                            onChange={handleRepeatEndDateChange}
+                            value={repeatEnd}
+                          />
+                        ) : (
+                          <span className="text-[0.88rem] font-medium text-[var(--ink)]">
+                            {getChorePreviewRepeatEndLabelFromState({
+                              repeat,
+                              repeatEndMode,
+                              repeatEnd,
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {saveError ? (
           <div className="border-t border-[var(--stroke-soft)] px-4 py-3">
             <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-semibold text-[var(--danger-ink)]">
@@ -1858,7 +1905,7 @@ export default function ChorePreviewPopover({
           </div>
         ) : null}
         <div className="border-t border-[var(--stroke-soft)] px-4 py-3" ref={notesEditorRef}>
-          {isEditingNotes ? (
+          {canManageChores && isEditingNotes ? (
             <textarea
               className="min-h-[90px] w-full resize-none rounded-xl border border-[var(--stroke)] bg-[var(--surface)] px-3 py-2 text-sm leading-snug text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:shadow-[0_0_0_1px_var(--accent)]"
               disabled={isInteractionLocked}
@@ -1880,7 +1927,7 @@ export default function ChorePreviewPopover({
               ref={notesInputRef}
               value={notesDraft}
             />
-          ) : (
+          ) : canManageChores ? (
             <button
               className={`block w-full rounded-xl whitespace-pre-wrap text-left text-sm leading-snug transition hover:bg-[var(--surface-strong)]/30 ${
                 trimmedNotesDraft
@@ -1896,6 +1943,16 @@ export default function ChorePreviewPopover({
             >
               {trimmedNotesDraft || "Add Notes"}
             </button>
+          ) : (
+            <div
+              className={`block w-full whitespace-pre-wrap text-left text-sm leading-snug ${
+                trimmedNotesDraft
+                  ? "px-0 text-[var(--muted)]"
+                  : "px-0 italic text-[var(--muted)]/70"
+              }`}
+            >
+              {trimmedNotesDraft || "No notes"}
+            </div>
           )}
         </div>
         <div
@@ -1914,23 +1971,25 @@ export default function ChorePreviewPopover({
           >
             {getPrimaryActionLabel(chore)}
           </button>
-          <button
-            aria-label="Delete chore"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--danger-stroke)] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
-            data-preview-post-action="delete"
-            disabled={isInteractionLocked}
-            onClick={() => {
-              if (suppressNextFooterActionRef.current === "delete") {
-                suppressNextFooterActionRef.current = null;
-                return;
-              }
+          {canManageChores ? (
+            <button
+              aria-label="Delete chore"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--danger-stroke)] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+              data-preview-post-action="delete"
+              disabled={isInteractionLocked}
+              onClick={() => {
+                if (suppressNextFooterActionRef.current === "delete") {
+                  suppressNextFooterActionRef.current = null;
+                  return;
+                }
 
-              beginDeleteFlow();
-            }}
-            type="button"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+                beginDeleteFlow();
+              }}
+              type="button"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
       </div>
       {scopePopupMode ? (

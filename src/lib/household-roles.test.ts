@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canManageHouseholdChores,
   isHouseholdElevatedRole,
   isHouseholdRole,
   normalizeHouseholdRole,
@@ -25,5 +26,16 @@ describe("household role helpers", () => {
     expect(isHouseholdElevatedRole("owner")).toBe(true);
     expect(isHouseholdElevatedRole("admin")).toBe(true);
     expect(isHouseholdElevatedRole("member")).toBe(false);
+  });
+
+  it("allows elevated roles to manage chores regardless of member setting", () => {
+    expect(canManageHouseholdChores({ role: "owner", membersCanManageChores: false })).toBe(true);
+    expect(canManageHouseholdChores({ role: "admin", membersCanManageChores: false })).toBe(true);
+  });
+
+  it("uses the household setting for regular members", () => {
+    expect(canManageHouseholdChores({ role: "member", membersCanManageChores: true })).toBe(true);
+    expect(canManageHouseholdChores({ role: "member", membersCanManageChores: false })).toBe(false);
+    expect(canManageHouseholdChores({ role: "member" })).toBe(true);
   });
 });

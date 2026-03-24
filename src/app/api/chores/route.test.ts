@@ -287,6 +287,77 @@ describe("PATCH /api/chores", () => {
     expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, payload });
   });
 
+  it("rejects chore edit mutations for members when household settings disable them", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11, role: "member", membersCanManageChores: false },
+    });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "edit",
+          scope: "single",
+          choreId: 3,
+          occurrenceStartDate: "2026-01-03",
+          title: "Deep clean",
+        }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.FORBIDDEN,
+      error: "Members cannot add, edit, or delete chores in this household",
+    });
+    expect(mutateChoreMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects chore creation for members when household settings disable chore management", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11, role: "member", membersCanManageChores: false },
+    });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          title: "Deep clean",
+          type: "close_on_done",
+          startDate: "2026-01-03",
+          endDate: "2026-01-04",
+          repeatRule: "none",
+        }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      ok: false,
+      code: API_ERROR_CODE.FORBIDDEN,
+      error: "Members cannot add, edit, or delete chores in this household",
+    });
+    expect(mutateChoreMock).not.toHaveBeenCalled();
+  });
+
   it("forwards edit payloads with all scope to the service", async () => {
     getSessionMock.mockResolvedValue({
       user: { id: "21" },

@@ -13,7 +13,67 @@ export type ActiveHouseholdSummary = {
   timeZone: string;
   icon: string | null;
   role: string;
+  membersCanManageChores?: boolean;
 };
+
+type HouseholdMetadata = Record<string, unknown> & {
+  membersCanManageChores?: boolean;
+};
+
+type ActiveHouseholdSummaryRow = {
+  id: number;
+  name: string;
+  timeZone: string;
+  icon: string | null;
+  role: string;
+  metadata: string | null;
+};
+
+const parseHouseholdMetadata = (value: unknown): HouseholdMetadata => {
+  if (typeof value !== "string" || !value.trim()) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return parsed as HouseholdMetadata;
+  } catch {
+    return {};
+  }
+};
+
+const buildHouseholdMetadataValue = ({
+  existingMetadata,
+  membersCanManageChores,
+}: {
+  existingMetadata: unknown;
+  membersCanManageChores: boolean;
+}) => {
+  const nextMetadata = {
+    ...parseHouseholdMetadata(existingMetadata),
+  };
+
+  if (membersCanManageChores) {
+    delete nextMetadata.membersCanManageChores;
+  } else {
+    nextMetadata.membersCanManageChores = false;
+  }
+
+  return Object.keys(nextMetadata).length === 0 ? null : JSON.stringify(nextMetadata);
+};
+
+const mapActiveHouseholdSummary = (row: ActiveHouseholdSummaryRow): ActiveHouseholdSummary => ({
+  id: row.id,
+  name: row.name,
+  timeZone: row.timeZone,
+  icon: row.icon,
+  role: row.role,
+  membersCanManageChores: parseHouseholdMetadata(row.metadata).membersCanManageChores !== false,
+});
 
 export type HouseholdMemberRole = HouseholdRole;
 
@@ -53,11 +113,11 @@ export const getActiveUserMemberships = async (userId: number) => {
 };
 
 export const listActiveHouseholdsForUser = async (userId: number) => {
-  const result = await pool.query<ActiveHouseholdSummary>(
-    "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.status = 'active' order by hm.joined_at desc, h.id desc",
+  const result = await pool.query<ActiveHouseholdSummaryRow>(
+    "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role, h.metadata as metadata from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.status = 'active' order by hm.joined_at desc, h.id desc",
     [userId],
   );
-  return result.rows;
+  return result.rows.map(mapActiveHouseholdSummary);
 };
 
 export const createHouseholdWithOwner = async ({
@@ -66,19 +126,27 @@ export const createHouseholdWithOwner = async ({
   slug,
   timeZone,
   icon,
+  membersCanManageChores = true,
 }: {
   userId: number;
   name: string;
   slug: string;
   timeZone: string;
   icon: string | null;
+  membersCanManageChores?: boolean;
 }) => {
   const client = await pool.connect();
   try {
     await client.query("begin");
     const householdResult = await client.query(
       "insert into households (name, slug, time_zone, icon, metadata) values ($1, $2, $3, $4, $5) returning id",
-      [name.trim(), slug, timeZone, icon, null],
+      [
+        name.trim(),
+        slug,
+        timeZone,
+        icon,
+        buildHouseholdMetadataValue({ existingMetadata: null, membersCanManageChores }),
+      ],
     );
     const householdId = householdResult.rows[0]?.id as number | undefined;
     if (!householdId) {
@@ -117,11 +185,11 @@ export const getHouseholdSummaryForUser = async ({
   householdId: number;
   userId: number;
 }) => {
-  const result = await pool.query<ActiveHouseholdSummary>(
-    "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.household_id = $2 and hm.status = 'active' limit 1",
+  const result = await pool.query<ActiveHouseholdSummaryRow>(
+    "select h.id as id, h.name as name, h.time_zone as \"timeZone\", h.icon as icon, hm.role as role, h.metadata as metadata from household_memberships hm join households h on h.id = hm.household_id where hm.user_id = $1 and hm.household_id = $2 and hm.status = 'active' limit 1",
     [userId, householdId],
   );
-  return result.rows[0] ?? null;
+  return result.rows[0] ? mapActiveHouseholdSummary(result.rows[0]) : null;
 };
 
 export const getPendingHouseholdInviteByIdAndSecret = async ({
@@ -158,22 +226,56 @@ export const updateHouseholdById = async ({
   name,
   timeZone,
   icon,
+  membersCanManageChores,
 }: {
   householdId: number;
   name: string;
   timeZone: string;
   icon: string | null;
+  membersCanManageChores: boolean;
 }) => {
+  const existingMetadataResult = await pool.query<{ metadata: string | null }>(
+    "select metadata from households where id = $1",
+    [householdId],
+  );
+
+  const existingHousehold = existingMetadataResult.rows[0];
+  if (!existingHousehold) {
+    return null;
+  }
+
   const result = await pool.query<{
     id: number;
     name: string;
     timeZone: string;
     icon: string | null;
+    metadata: string | null;
   }>(
-    'update households set name = $1, time_zone = $2, icon = $3 where id = $4 returning id, name, time_zone as "timeZone", icon',
-    [name.trim(), timeZone, icon, householdId],
+    'update households set name = $1, time_zone = $2, icon = $3, metadata = $4 where id = $5 returning id, name, time_zone as "timeZone", icon, metadata',
+    [
+      name.trim(),
+      timeZone,
+      icon,
+      buildHouseholdMetadataValue({
+        existingMetadata: existingHousehold.metadata,
+        membersCanManageChores,
+      }),
+      householdId,
+    ],
   );
-  return result.rows[0] ?? null;
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    timeZone: row.timeZone,
+    icon: row.icon,
+    membersCanManageChores: parseHouseholdMetadata(row.metadata).membersCanManageChores !== false,
+  };
 };
 
 export const countActiveHouseholdMembersExcludingUser = async ({

@@ -19,6 +19,7 @@ export default async function HouseholdEditPage() {
           <HouseholdEditForm
             canDeleteHousehold={household.role === "owner"}
             initialIcon={household.icon ?? ""}
+            initialMembersCanManageChores={household.membersCanManageChores ?? true}
             initialName={household.name}
             initialTimeZone={household.timeZone}
           />

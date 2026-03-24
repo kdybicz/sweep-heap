@@ -54,6 +54,37 @@ describe("createHouseholdWithOwner", () => {
     expect(client.release).toHaveBeenCalledTimes(1);
   });
 
+  it("stores disabled member chore permissions in household metadata", async () => {
+    const client = {
+      query: vi.fn(),
+      release: vi.fn(),
+    };
+    connectMock.mockResolvedValue(client as unknown as PoolClient);
+
+    client.query
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ id: 43 }] })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+
+    await createHouseholdWithOwner({
+      userId: 9,
+      name: "Home",
+      slug: "home-1234",
+      timeZone: "UTC",
+      icon: null,
+      membersCanManageChores: false,
+    });
+
+    expect(client.query.mock.calls[1]?.[1]).toEqual([
+      "Home",
+      "home-1234",
+      "UTC",
+      null,
+      JSON.stringify({ membersCanManageChores: false }),
+    ]);
+  });
+
   it("rolls back when membership insert fails", async () => {
     const client = {
       query: vi.fn(),

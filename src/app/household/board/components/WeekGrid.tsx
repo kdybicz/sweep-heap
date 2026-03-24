@@ -7,6 +7,7 @@ import { buildWeekGridLayout } from "@/app/household/board/multi-day-chore-layou
 import type { ChoreItem } from "@/app/household/board/types";
 
 type WeekGridProps = {
+  canManageChores: boolean;
   rangeLabel: string;
   onPreviousWeek: () => void;
   onNextWeek: () => void;
@@ -20,6 +21,7 @@ type WeekGridProps = {
 };
 
 export default function WeekGrid({
+  canManageChores,
   rangeLabel,
   onPreviousWeek,
   onNextWeek,
@@ -123,6 +125,7 @@ export default function WeekGrid({
                     const dayKey = day.toISODate();
                     return (
                       <DayColumn
+                        canManageChores={canManageChores}
                         dayKey={dayKey}
                         key={day.toISO()}
                         loading={loading}

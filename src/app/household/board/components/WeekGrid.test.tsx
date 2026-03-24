@@ -27,6 +27,7 @@ describe("WeekGrid", () => {
   it("renders all chores once in the shared board area", () => {
     const markup = renderToStaticMarkup(
       <WeekGrid
+        canManageChores
         chores={[
           createChore({ id: 1, title: "Single chore" }),
           createChore({

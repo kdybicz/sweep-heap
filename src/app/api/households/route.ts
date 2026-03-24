@@ -55,6 +55,26 @@ const toIcon = (value: unknown) => {
   return trimmed.slice(0, 16);
 };
 
+const parseMembersCanManageChores = (value: unknown) => {
+  if (value === undefined) {
+    return {
+      ok: true as const,
+      value: undefined,
+    };
+  }
+
+  if (typeof value !== "boolean") {
+    return {
+      ok: false as const,
+    };
+  }
+
+  return {
+    ok: true as const,
+    value,
+  };
+};
+
 const toSlugBase = (value: string) => {
   const normalized = value
     .trim()
@@ -146,6 +166,16 @@ export async function POST(request: Request) {
 
     const timeZone = parsedTimeZone.timeZone;
     const icon = toIcon(payload?.icon);
+    const parsedMembersCanManageChores = parseMembersCanManageChores(
+      payload?.membersCanManageChores,
+    );
+    if (!parsedMembersCanManageChores.ok) {
+      return jsonError({
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: "membersCanManageChores must be true or false",
+      });
+    }
     const previousActiveHousehold = await resolveActiveHousehold({
       sessionActiveHouseholdId: sessionAccess.sessionContext.sessionActiveHouseholdId,
       userId: sessionAccess.sessionContext.userId,
@@ -156,6 +186,7 @@ export async function POST(request: Request) {
       slug: buildHouseholdSlug(name),
       timeZone,
       icon,
+      membersCanManageChores: parsedMembersCanManageChores.value ?? true,
     });
 
     const responseHeaders = new Headers();
@@ -264,11 +295,25 @@ export async function PATCH(request: Request) {
 
     const timeZone = parsedTimeZone.timeZone;
     const icon = toIcon(payload?.icon);
+    const parsedMembersCanManageChores = parseMembersCanManageChores(
+      payload?.membersCanManageChores,
+    );
+    if (!parsedMembersCanManageChores.ok) {
+      return jsonError({
+        headers: adminAccess.responseHeaders,
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: "membersCanManageChores must be true or false",
+      });
+    }
+
     const updated = await updateHouseholdById({
       householdId: household.id,
       name,
       timeZone,
       icon,
+      membersCanManageChores:
+        parsedMembersCanManageChores.value ?? household.membersCanManageChores ?? true,
     });
 
     if (!updated) {

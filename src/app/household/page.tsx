@@ -1,6 +1,6 @@
 import HouseholdBoard from "@/app/household/board/HouseholdBoard";
 import { HouseholdViewerProvider } from "@/app/household/board/HouseholdViewerContext";
-import { isHouseholdElevatedRole } from "@/lib/household-roles";
+import { canManageHouseholdChores, isHouseholdElevatedRole } from "@/lib/household-roles";
 import { requirePageActiveHousehold } from "@/lib/page-access";
 import { listActiveHouseholdsForUser } from "@/lib/repositories";
 
@@ -10,6 +10,10 @@ export default async function HouseholdPage() {
   const allHouseholds = await listActiveHouseholdsForUser(access.userId);
 
   const isHouseholdAdmin = isHouseholdElevatedRole(household.role);
+  const canManageChores = canManageHouseholdChores({
+    role: household.role,
+    membersCanManageChores: household.membersCanManageChores,
+  });
   const canSwitchHouseholds = allHouseholds.length > 1;
   const householdName = household.name.trim() || "Your household";
   const householdIcon = household.icon?.trim() || "";
@@ -18,6 +22,7 @@ export default async function HouseholdPage() {
 
   return (
     <HouseholdViewerProvider
+      canManageChores={canManageChores}
       canSwitchHouseholds={canSwitchHouseholds}
       householdIcon={householdIcon}
       householdName={householdName}

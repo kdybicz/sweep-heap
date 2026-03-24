@@ -50,8 +50,14 @@ function HouseholdBoardContent() {
   const [pendingPreviewTarget, setPendingPreviewTarget] = useState<PendingPreviewTarget | null>(
     null,
   );
-  const { canSwitchHouseholds, householdIcon, householdName, isHouseholdAdmin, userName } =
-    useHouseholdViewer();
+  const {
+    canManageChores,
+    canSwitchHouseholds,
+    householdIcon,
+    householdName,
+    isHouseholdAdmin,
+    userName,
+  } = useHouseholdViewer();
 
   const closePreview = useCallback(() => {
     setPreviewChore(null);
@@ -186,6 +192,7 @@ function HouseholdBoardContent() {
             userName={userName}
           />
           <WeekGrid
+            canManageChores={canManageChores}
             chores={board.week.chores}
             days={board.week.days}
             loading={board.week.loading}
@@ -233,6 +240,7 @@ function HouseholdBoardContent() {
       />
       <ChorePreviewPopover
         anchorElement={previewAnchorElement}
+        canManageChores={canManageChores}
         chore={previewPopoverChore}
         onClose={closePreview}
         onPrimaryAction={board.chorePreviewPopover.onPrimaryAction}

@@ -16,6 +16,7 @@ export default function HouseholdSetupForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
+  const [membersCanManageChores, setMembersCanManageChores] = useState(true);
   const suggestedTimeZone = useMemo(() => getDefaultTimeZone(), []);
   const [timeZone, setTimeZone] = useState(suggestedTimeZone);
   const [loading, setLoading] = useState(false);
@@ -35,6 +36,7 @@ export default function HouseholdSetupForm() {
           name,
           timeZone,
           icon,
+          membersCanManageChores,
         }),
       });
       const data = await response.json();
@@ -81,6 +83,25 @@ export default function HouseholdSetupForm() {
               </option>
             ))}
         </select>
+      </label>
+      <label className="flex items-start gap-3 rounded-2xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-4 text-left">
+        <input
+          checked={membersCanManageChores}
+          className="mt-1 h-4 w-4 rounded border-[var(--stroke)] text-[var(--accent)] focus:ring-[var(--accent)]"
+          onChange={(event) => setMembersCanManageChores(event.target.checked)}
+          type="checkbox"
+        />
+        <span className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+            Chore editing permissions
+          </span>
+          <span className="text-sm font-semibold text-[var(--ink)]">
+            Allow regular members to add, edit, and delete chores
+          </span>
+          <span className="text-sm text-[var(--muted)]">
+            Owners and admins can always manage chores, even when this is turned off.
+          </span>
+        </span>
       </label>
       {error ? (
         <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">

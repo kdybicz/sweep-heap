@@ -103,6 +103,7 @@ describe("chore popover interactions", () => {
     await render(
       <ChorePreviewPopover
         anchorElement={anchorElement}
+        canManageChores
         chore={chore}
         onClose={onClose}
         onPrimaryAction={noop}
@@ -140,6 +141,7 @@ describe("chore popover interactions", () => {
     const { container } = await render(
       <ChorePreviewPopover
         anchorElement={anchorElement}
+        canManageChores
         chore={chore}
         onClose={noop}
         onPrimaryAction={noop}
@@ -176,6 +178,7 @@ describe("chore popover interactions", () => {
     await render(
       <ChorePreviewPopover
         anchorElement={anchorElement}
+        canManageChores
         chore={chore}
         onClose={onClose}
         onPrimaryAction={noop}
@@ -217,6 +220,7 @@ describe("chore popover interactions", () => {
     const { container } = await render(
       <ChorePreviewPopover
         anchorElement={anchorElement}
+        canManageChores
         chore={chore}
         onClose={noop}
         onPrimaryAction={noop}
@@ -266,6 +270,7 @@ describe("chore popover interactions", () => {
     await render(
       <ChorePreviewPopover
         anchorElement={staleAnchor}
+        canManageChores
         chore={reboundChore}
         onClose={onClose}
         onPrimaryAction={noop}

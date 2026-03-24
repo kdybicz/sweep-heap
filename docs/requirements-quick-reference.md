@@ -18,6 +18,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Owner-only: delete household, transfer ownership, and manage owner-role memberships/invites.
 - Non-owner members can leave the active household; owners transfer first, then leave as non-owners.
 - Household create/edit requires a valid `timeZone`; missing, blank, or invalid values return `400` (`Invalid time zone`).
+- Household settings can disable chore add/edit/delete for regular members; owners/admins still keep chore management access.
+- The same member chore-management toggle is available during initial household setup and later household edits.
 - Household time zone is required in storage and household lookups should fail loudly rather than silently defaulting when a household record is missing.
 - `POST /api/households` rolls back the new household if session activation fails and restores the prior active household when one existed; if rollback cannot be completed, it returns `500` with `Failed to activate new household and roll back create`.
 - API failures include `{ ok: false, code, error }`; control flow should branch on `code`.
@@ -70,7 +72,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores clipped by the current week use a clipped edge treatment at the left and/or right edge (no outer corner radius and no outer vertical border).
 - The sidebar Today list collapses multi-day chores to one entry per occurrence.
-- Single click or keyboard activation opens a compact chore preview popover; the popover shows status, primary completion/log actions, delete, notes, and inline editing for title/date/repeat fields when expanded, including whole-series edit scopes where applicable.
+- Single click or keyboard activation opens a compact chore preview popover; the popover shows status, primary completion/log actions, delete for viewers who can manage chores, notes, and inline editing for title/date/repeat fields when expanded, including whole-series edit scopes where applicable.
 
 ## API Snapshot
 - Includes business APIs plus auth/session routes used by invite acceptance and sign-out flows.

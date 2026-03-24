@@ -1,4 +1,5 @@
 type DayColumnProps = {
+  canManageChores: boolean;
   dayKey: string | null;
   showEmptyState: boolean;
   loading: boolean;
@@ -6,6 +7,7 @@ type DayColumnProps = {
 };
 
 export default function DayColumn({
+  canManageChores,
   dayKey,
   showEmptyState,
   loading,
@@ -16,13 +18,15 @@ export default function DayColumn({
       <div className="min-h-6 text-xs text-[var(--muted)]">
         {loading ? "Loading chores..." : showEmptyState ? "No chores scheduled" : null}
       </div>
-      <button
-        className="pointer-events-auto rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-        onClick={() => onAddChoreForDate(dayKey)}
-        type="button"
-      >
-        Add chore
-      </button>
+      {canManageChores ? (
+        <button
+          className="pointer-events-auto rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => onAddChoreForDate(dayKey)}
+          type="button"
+        >
+          Add chore
+        </button>
+      ) : null}
     </div>
   );
 }

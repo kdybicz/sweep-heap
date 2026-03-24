@@ -27,6 +27,7 @@ describe("ChorePreviewPopover", () => {
     const markup = renderToStaticMarkup(
       <ChorePreviewPopover
         anchorElement={anchorElement}
+        canManageChores
         chore={createChore({ repeat_rule: "week", notes: null })}
         onClose={noop}
         onPrimaryAction={noop}
@@ -58,6 +59,7 @@ describe("ChorePreviewPopover", () => {
     const markup = renderToStaticMarkup(
       <ChorePreviewPopover
         anchorElement={anchorElement}
+        canManageChores
         chore={createChore()}
         onClose={noop}
         onPrimaryAction={noop}
@@ -73,5 +75,30 @@ describe("ChorePreviewPopover", () => {
     );
 
     expect(markup).toContain("width:320px");
+  });
+
+  it("hides edit and delete controls when chore management is disabled", () => {
+    const markup = renderToStaticMarkup(
+      <ChorePreviewPopover
+        anchorElement={anchorElement}
+        canManageChores={false}
+        chore={createChore({ repeat_rule: "week", notes: "Use gentle cycle" })}
+        onClose={noop}
+        onPrimaryAction={noop}
+        onRebindPreviewTarget={noop}
+        onDeleteChore={async () => null}
+        onSaveDateChanges={async () => ({ error: null })}
+        onSaveTitleTypeChanges={async () => ({ error: null })}
+        onSaveNotesChanges={async () => ({ error: null })}
+        onSaveRepeatChanges={async () => ({ error: null })}
+        selectionKey="1:2026-03-11:0"
+        todayKey="2026-03-11"
+      />,
+    );
+
+    expect(markup).not.toContain('aria-label="Delete chore"');
+    expect(markup).not.toContain('aria-label="Chore type"');
+    expect(markup).not.toContain('aria-expanded="false"');
+    expect(markup).toContain("Use gentle cycle");
   });
 });

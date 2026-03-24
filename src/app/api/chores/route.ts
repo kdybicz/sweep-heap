@@ -1,6 +1,7 @@
 import { requireApiHousehold } from "@/lib/api-access";
 import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
 import { validateChorePatchPayload } from "@/lib/api-payload-validation";
+import { canManageHouseholdChores } from "@/lib/household-roles";
 import { parseJsonObjectBody } from "@/lib/http";
 import { HouseholdNotFoundError } from "@/lib/repositories";
 import { listChores, mutateChore } from "@/lib/services/chore-service";
@@ -40,6 +41,10 @@ const parseWeekOffset = (value: string | null) => {
   }
 
   return Math.max(-maxWeekOffset, Math.min(maxWeekOffset, parsed));
+};
+
+const requiresChoreManagementPermission = (action: string | null | undefined) => {
+  return action === "create" || action === "edit" || action === "cancel";
 };
 
 export async function GET(request: Request) {
@@ -116,6 +121,21 @@ export async function PATCH(request: Request) {
         status: 400,
         code: payloadValidation.code,
         error: payloadValidation.error,
+      });
+    }
+
+    if (
+      requiresChoreManagementPermission(payloadValidation.data.action) &&
+      !canManageHouseholdChores({
+        role: householdAccess.household.role,
+        membersCanManageChores: householdAccess.household.membersCanManageChores,
+      })
+    ) {
+      return jsonError({
+        headers: householdAccess.responseHeaders,
+        status: 403,
+        code: API_ERROR_CODE.FORBIDDEN,
+        error: "Members cannot add, edit, or delete chores in this household",
       });
     }
 
