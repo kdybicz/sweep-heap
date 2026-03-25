@@ -93,7 +93,7 @@ export default function AddChoreModal({
   const notesFieldId = `${titleId}-notes`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-4 sm:items-center sm:py-8">
       <button
         aria-label="Close add chore dialog"
         className="absolute inset-0 bg-black/40"
@@ -103,7 +103,7 @@ export default function AddChoreModal({
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="relative w-full max-w-2xl overflow-hidden rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
+        className="relative my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)] sm:max-h-[calc(100dvh-4rem)]"
         ref={dialogRef}
         role="dialog"
         tabIndex={-1}
@@ -118,7 +118,7 @@ export default function AddChoreModal({
           <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{modalDescription}</p>
         </div>
 
-        <form className="flex flex-col gap-5 px-6 py-5" onSubmit={onSubmit}>
+        <form className="flex min-h-0 flex-col gap-5 overflow-y-auto px-6 py-5" onSubmit={onSubmit}>
           {submitError ? <div className={appDangerMessageClass}>{submitError}</div> : null}
 
           <section className="rounded-[0.9rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-5 sm:p-6">

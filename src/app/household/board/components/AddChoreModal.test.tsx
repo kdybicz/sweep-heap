@@ -45,5 +45,7 @@ describe("AddChoreModal", () => {
     expect(markup).toContain("Create chore");
     expect(markup).toContain("Close on done");
     expect(markup).toContain("Stays open");
+    expect(markup).toContain("overflow-y-auto");
+    expect(markup).toContain("max-h-[calc(100dvh-2rem)]");
   });
 });
