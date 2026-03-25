@@ -57,7 +57,7 @@ const styles = {
     backgroundColor: emailColors.surface,
     border: `1px solid ${emailColors.border}`,
     borderRadius: "18px",
-    boxShadow: "0 18px 40px rgba(58, 45, 34, 0.08)",
+    boxShadow: "0 18px 40px rgba(29, 49, 84, 0.08)",
     overflow: "hidden",
   },
   heroBand: {

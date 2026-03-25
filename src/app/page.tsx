@@ -63,7 +63,7 @@ const previewTasks = [
     meta: "Today",
     span: "col-span-2",
     fill: "var(--accent)",
-    text: "#fffdfa",
+    text: "var(--surface-weak)",
   },
   {
     title: "Laundry loop",
@@ -98,7 +98,7 @@ const previewTasks = [
     meta: "Repeat",
     span: "col-span-2",
     fill: "var(--accent-secondary)",
-    text: "#fffdfa",
+    text: "var(--surface-weak)",
   },
   {
     title: "Sheets",
@@ -196,7 +196,7 @@ export default async function LandingPage() {
           <div className="landing-reveal landing-reveal-delay-2 relative lg:justify-self-end">
             <div className="absolute -left-10 top-8 h-28 w-28 bg-[var(--accent-soft)] blur-3xl" />
             <div className="absolute -right-10 bottom-10 h-36 w-36 bg-[var(--accent-secondary-soft)] blur-3xl" />
-            <div className="poster-float relative overflow-hidden border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_76%,white_24%)] p-3 shadow-[0_28px_80px_rgba(53,37,24,0.18)] sm:p-4">
+            <div className="poster-float relative overflow-hidden border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_76%,white_24%)] p-3 shadow-[0_28px_80px_rgba(29,49,84,0.16)] sm:p-4">
               <div className="absolute inset-0 bg-[linear-gradient(140deg,transparent,rgba(255,255,255,0.26)_45%,transparent_60%)] opacity-70" />
               <div className="relative grid gap-3 lg:grid-cols-[238px_minmax(0,1fr)]">
                 <div className="flex flex-col gap-3 border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-4">
@@ -302,7 +302,7 @@ export default async function LandingPage() {
                                 ? {
                                     background:
                                       "linear-gradient(135deg, var(--accent), var(--accent-secondary))",
-                                    color: "#fffdfa",
+                                    color: "var(--surface-weak)",
                                   }
                                 : undefined
                             }
@@ -435,7 +435,7 @@ export default async function LandingPage() {
               <h2 className="mt-4 max-w-[11ch] text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">
                 Bring the whole household onto one sharper board.
               </h2>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-[rgba(255,253,248,0.72)] sm:text-base">
+              <p className="mt-4 max-w-xl text-sm leading-7 text-[rgba(255,255,255,0.74)] sm:text-base">
                 Sign in with email and we will route you to setup, household selection, or the live
                 board without extra steps.
               </p>
@@ -449,7 +449,7 @@ export default async function LandingPage() {
                 Continue with email
               </Link>
               <a
-                className="rounded-[0.8rem] border border-[rgba(255,253,248,0.18)] bg-[rgba(255,253,248,0.06)] px-6 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--surface-weak)] transition hover:-translate-y-0.5 hover:bg-[rgba(255,253,248,0.12)]"
+                className="rounded-[0.8rem] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)] px-6 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--surface-weak)] transition hover:-translate-y-0.5 hover:bg-[rgba(255,255,255,0.12)]"
                 href="#workflow"
               >
                 Review workflow

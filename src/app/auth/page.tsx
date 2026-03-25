@@ -84,7 +84,7 @@ export default async function AuthPage() {
         </section>
 
         <section className="landing-reveal landing-reveal-delay-1 lg:justify-self-end">
-          <div className="relative overflow-hidden border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_84%,white_16%)] p-3 shadow-[0_28px_72px_rgba(53,37,24,0.18)] sm:p-4">
+          <div className="relative overflow-hidden border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_84%,white_16%)] p-3 shadow-[0_28px_72px_rgba(29,49,84,0.16)] sm:p-4">
             <div className="absolute inset-0 bg-[linear-gradient(150deg,transparent,rgba(255,255,255,0.2)_45%,transparent_64%)] opacity-70" />
             <div className="relative max-w-[42rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-6 sm:p-8">
               <div className="max-w-2xl border-b border-[var(--stroke-soft)] pb-5">
