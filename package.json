@@ -26,6 +26,8 @@
     "dev:fix": "yarn format:write && yarn lint:fix && yarn test && yarn typecheck"
   },
   "dependencies": {
+    "@react-email/components": "^1.0.10",
+    "@react-email/render": "^2.0.4",
     "@tanstack/react-query": "^5.90.21",
     "better-auth": "^1.4.20",
     "drizzle-orm": "^0.45.1",

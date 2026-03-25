@@ -32,6 +32,12 @@ Delivery semantics:
 - Household invite create/resend is best-effort: persist/update invite state first, then attempt SMTP send, and return `ok: true` with `inviteEmailSent` to report delivery outcome.
 - Delete-account request is email-required: if SMTP send fails, return `500` with `{ ok: false, code: "INTERNAL_SERVER_ERROR", error: "Failed to send confirmation email" }`.
 
+Template standard:
+
+- Use shared React Email templates under `src/lib/email/templates/*` instead of hand-built HTML strings.
+- Reuse the shared layout/theme in `src/lib/email/EmailLayout.tsx` so transactional emails keep one visual system and one maintenance surface.
+- Render both `html` and `text` from the same template source via `@react-email/render` to reduce copy drift between MIME parts.
+
 Rules for `secure`:
 
 - If `SMTP_SECURE` is set (`true`/`false`), it overrides auto-detection.
