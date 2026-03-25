@@ -1,6 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import {
+  AppPageBackLink,
+  AppPageCard,
+  AppPageHeader,
+  AppPageShell,
+} from "@/app/components/AppPageShell";
 import HouseholdInviteAcceptanceForm from "@/app/household/invite/HouseholdInviteAcceptanceForm";
 import { getSession } from "@/auth";
 import {
@@ -47,26 +52,14 @@ export default async function HouseholdInvitePage({
   });
   if (!invite) {
     return (
-      <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,_var(--glow-1),_transparent_55%),radial-gradient(circle_at_80%_10%,_var(--glow-3),_transparent_45%),linear-gradient(180deg,_var(--glow-2),_transparent_55%)]" />
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 pb-20 pt-16">
-          <header className="flex flex-col gap-3">
-            <div className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">Invite</div>
-            <h1 className="text-3xl font-semibold">Invite unavailable</h1>
-            <p className="text-sm text-[var(--muted)]">
-              This invite is invalid or has expired. Ask a household member to send a new one.
-            </p>
-          </header>
-          <div>
-            <Link
-              className="inline-flex rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-              href="/auth"
-            >
-              Back to sign in
-            </Link>
-          </div>
-        </div>
-      </main>
+      <AppPageShell>
+        <AppPageHeader
+          aside={<AppPageBackLink href="/auth" label="Back to sign in" />}
+          description="This invite is invalid or has expired. Ask a household member to send a new one."
+          eyebrow="Invite"
+          title="Invite unavailable"
+        />
+      </AppPageShell>
     );
   }
 
@@ -106,75 +99,61 @@ export default async function HouseholdInvitePage({
     : null;
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,_var(--glow-1),_transparent_55%),radial-gradient(circle_at_80%_10%,_var(--glow-3),_transparent_45%),linear-gradient(180deg,_var(--glow-2),_transparent_55%)]" />
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 pb-20 pt-16">
-        <header className="flex flex-col gap-3">
-          <div className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">Invite</div>
-          <h1 className="text-3xl font-semibold">Join {invite.householdName}</h1>
-          <p className="text-sm text-[var(--muted)]">
-            This invite is for {invite.email}. Accepting it will sign you in if needed and switch
-            you into this household.
-          </p>
-        </header>
+    <AppPageShell>
+      <AppPageHeader
+        aside={<AppPageBackLink href={exitAction.href} label={exitAction.label} />}
+        description={`This invite is for ${invite.email}. Accepting it will sign you in if needed and switch you into this household.`}
+        eyebrow="Invite"
+        title={`Join ${invite.householdName}`}
+      />
 
-        <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-8 shadow-[var(--shadow)]">
-          {canRecoverBySwitchingAccount &&
-          switchAccountRedirectTo &&
-          switchAccountFailureRedirectTo ? (
-            <div className="flex flex-col gap-4">
-              {needsAccountSwitch ? (
-                <p className="text-sm text-[var(--muted)]">
-                  This invite is for{" "}
-                  <span className="font-semibold text-[var(--ink)]">{invite.email}</span>, but you
-                  are currently signed in as{" "}
-                  <span className="font-semibold text-[var(--ink)]">{sessionEmail}</span>.
-                </p>
-              ) : (
-                <p className="text-sm text-[var(--muted)]">
-                  Sign-out recovery is available if this session is no longer valid for the invited
-                  account.
-                </p>
-              )}
-              {initialError ? (
-                <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
-                  {initialError}
-                </div>
-              ) : null}
-              <form action="/signout" method="post">
-                <input name="redirectTo" type="hidden" value={switchAccountRedirectTo} />
-                <input
-                  name="failureRedirectTo"
-                  type="hidden"
-                  value={switchAccountFailureRedirectTo}
-                />
-                <button
-                  className="inline-flex w-fit rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
-                  type="submit"
-                >
-                  Sign out and continue
-                </button>
-              </form>
-            </div>
-          ) : (
-            <HouseholdInviteAcceptanceForm
-              householdName={invite.householdName}
-              invitationId={numericInvitationId}
-              secret={inviteSecret}
-              initialError={initialError}
-            />
-          )}
-        </div>
-
-        <div>
-          <Link
-            className="inline-flex rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-            href={exitAction.href}
-          >
-            {exitAction.label}
-          </Link>
-        </div>
-      </div>
-    </main>
+      <AppPageCard>
+        {canRecoverBySwitchingAccount &&
+        switchAccountRedirectTo &&
+        switchAccountFailureRedirectTo ? (
+          <div className="flex flex-col gap-4">
+            {needsAccountSwitch ? (
+              <p className="text-sm leading-7 text-[var(--muted)]">
+                This invite is for{" "}
+                <span className="font-semibold text-[var(--ink)]">{invite.email}</span>, but you are
+                currently signed in as{" "}
+                <span className="font-semibold text-[var(--ink)]">{sessionEmail}</span>.
+              </p>
+            ) : (
+              <p className="text-sm leading-7 text-[var(--muted)]">
+                Sign-out recovery is available if this session is no longer valid for the invited
+                account.
+              </p>
+            )}
+            {initialError ? (
+              <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
+                {initialError}
+              </div>
+            ) : null}
+            <form action="/signout" className="flex flex-col gap-4" method="post">
+              <input name="redirectTo" type="hidden" value={switchAccountRedirectTo} />
+              <input
+                name="failureRedirectTo"
+                type="hidden"
+                value={switchAccountFailureRedirectTo}
+              />
+              <button
+                className="inline-flex w-fit rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
+                type="submit"
+              >
+                Sign out and continue
+              </button>
+            </form>
+          </div>
+        ) : (
+          <HouseholdInviteAcceptanceForm
+            householdName={invite.householdName}
+            initialError={initialError}
+            invitationId={numericInvitationId}
+            secret={inviteSecret}
+          />
+        )}
+      </AppPageCard>
+    </AppPageShell>
   );
 }

@@ -3,6 +3,13 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
+import {
+  AppFormField,
+  AppFormSection,
+  appDangerMessageClass,
+  appInputClass,
+  appPrimaryButtonClass,
+} from "@/app/components/AppFormPrimitives";
 import { authClient } from "@/lib/auth-client";
 import { getSafeLocalPath } from "@/lib/safe-local-path";
 
@@ -54,29 +61,30 @@ export default function AuthForm() {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-        Email
-        <input
-          className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
-          required
-        />
-      </label>
-      {error ? (
-        <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
-          {error}
-        </div>
-      ) : null}
-      <button
-        className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-        type="submit"
-        disabled={loading}
+      <AppFormSection
+        description="Use the email address you want this sign-in link sent to."
+        title="Email sign-in"
       >
-        {loading ? "Sending link..." : "Send magic link"}
-      </button>
+        <AppFormField
+          description="We only send a magic link. No password is required."
+          htmlFor="auth-email"
+          label="Email"
+        >
+          <input
+            className={appInputClass}
+            id="auth-email"
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            required
+            type="email"
+            value={email}
+          />
+        </AppFormField>
+        {error ? <div className={appDangerMessageClass}>{error}</div> : null}
+        <button className={appPrimaryButtonClass} disabled={loading} type="submit">
+          {loading ? "Sending link..." : "Send magic link"}
+        </button>
+      </AppFormSection>
     </form>
   );
 }

@@ -3,6 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  AppFormField,
+  AppFormSection,
+  appDangerButtonClass,
+  appDangerMessageClass,
+  appInputClass,
+  appPrimaryButtonClass,
+  appSecondaryButtonClass,
+  appToggleCardClass,
+} from "@/app/components/AppFormPrimitives";
 import HouseholdIconPicker from "@/app/household/components/HouseholdIconPicker";
 import {
   readApiJsonResponse,
@@ -119,87 +129,97 @@ export default function HouseholdEditForm({
 
   return (
     <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-      <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-        Household name
-        <input
-          className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
-          type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          required
-        />
-      </label>
-
-      <HouseholdIconPicker onChange={setIcon} showEmptyIconPreview={false} value={icon} />
-
-      <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-        Time zone
-        <select
-          className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
-          value={timeZone}
-          onChange={(event) => setTimeZone(event.target.value)}
+      <AppFormSection
+        description="Update the shared details people see across menus, invites, and the weekly board."
+        title="Household details"
+      >
+        <AppFormField
+          description="Keep the household name recognizable for everyone already using the board."
+          htmlFor="household-edit-name"
+          label="Household name"
         >
-          {householdTimeZones.map((zone) => (
-            <option key={zone} value={zone}>
-              {zone}
-            </option>
-          ))}
-          {householdTimeZones.includes(timeZone) ? null : (
-            <option value={timeZone}>{timeZone}</option>
-          )}
-        </select>
-      </label>
+          <input
+            className={appInputClass}
+            id="household-edit-name"
+            onChange={(event) => setName(event.target.value)}
+            required
+            type="text"
+            value={name}
+          />
+        </AppFormField>
 
-      <label className="flex items-start gap-3 rounded-2xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-4 text-left">
-        <input
-          checked={membersCanManageChores}
-          className="mt-1 h-4 w-4 rounded border-[var(--stroke)] text-[var(--accent)] focus:ring-[var(--accent)]"
-          onChange={(event) => setMembersCanManageChores(event.target.checked)}
-          type="checkbox"
-        />
-        <span className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-            Chore editing permissions
-          </span>
-          <span className="text-sm font-semibold text-[var(--ink)]">
-            Allow regular members to add, edit, and delete chores
-          </span>
-          <span className="text-sm text-[var(--muted)]">
-            Owners and admins can always manage chores, even when this is turned off.
-          </span>
-        </span>
-      </label>
+        <HouseholdIconPicker onChange={setIcon} showEmptyIconPreview={false} value={icon} />
 
-      {error ? (
-        <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
-          {error}
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-          type="submit"
-          disabled={loading || deleteLoading}
+        <AppFormField
+          description="Weekly grouping and recurring chores continue to use this household time zone."
+          htmlFor="household-edit-time-zone"
+          label="Time zone"
         >
-          {loading ? "Saving..." : "Save household"}
-        </button>
-        <Link
-          className="rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-          href="/household"
+          <select
+            className={appInputClass}
+            id="household-edit-time-zone"
+            onChange={(event) => setTimeZone(event.target.value)}
+            value={timeZone}
+          >
+            {householdTimeZones.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+            {householdTimeZones.includes(timeZone) ? null : (
+              <option value={timeZone}>{timeZone}</option>
+            )}
+          </select>
+        </AppFormField>
+      </AppFormSection>
+
+      <AppFormSection
+        description="Fine-tune what regular members can do without affecting owner or admin access."
+        title="Permissions"
+      >
+        <label className={appToggleCardClass}>
+          <input
+            checked={membersCanManageChores}
+            className="mt-1 h-4 w-4 rounded border-[var(--stroke)] text-[var(--accent)] focus:ring-[var(--accent)]"
+            onChange={(event) => setMembersCanManageChores(event.target.checked)}
+            type="checkbox"
+          />
+          <span className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-[var(--ink)]">
+              Allow regular members to add, edit, and delete chores
+            </span>
+            <span className="text-sm leading-6 text-[var(--muted)]">
+              Owners and admins can always manage chores, even when this is turned off.
+            </span>
+          </span>
+        </label>
+      </AppFormSection>
+
+      {canDeleteHousehold ? (
+        <AppFormSection
+          description="This is permanent. Deletion only succeeds when no other active members remain in the household."
+          title="Danger zone"
         >
-          Cancel
-        </Link>
-        {canDeleteHousehold ? (
           <button
-            className="rounded-full border border-[var(--danger)] bg-[var(--danger)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--danger-ink)] disabled:cursor-not-allowed disabled:opacity-60"
-            type="button"
-            onClick={handleDelete}
+            className={appDangerButtonClass}
             disabled={loading || deleteLoading}
+            onClick={handleDelete}
+            type="button"
           >
             {deleteLoading ? "Deleting..." : "Delete household"}
           </button>
-        ) : null}
+        </AppFormSection>
+      ) : null}
+
+      {error ? <div className={appDangerMessageClass}>{error}</div> : null}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button className={appPrimaryButtonClass} disabled={loading || deleteLoading} type="submit">
+          {loading ? "Saving..." : "Save household"}
+        </button>
+        <Link className={appSecondaryButtonClass} href="/household">
+          Cancel
+        </Link>
       </div>
     </form>
   );

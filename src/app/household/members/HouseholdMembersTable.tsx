@@ -89,7 +89,7 @@ const ActionsMenuTrigger = ({
   <button
     aria-expanded={ariaExpanded}
     aria-label={ariaLabel}
-    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--stroke)] bg-[var(--surface-weak)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stroke)] bg-[var(--surface)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
     disabled={disabled}
     onClick={() => onToggle(menuId)}
     ref={setActionsMenuButtonRef(menuId)}
@@ -127,9 +127,9 @@ const HouseholdInviteRow = ({
   const disableActionsMenu = disableResend && disableRevoke;
 
   return (
-    <tr className="border-b border-[var(--stroke-soft)] last:border-b-0 hover:bg-[var(--surface-weak)]">
-      <td className="px-4 py-3 font-semibold text-[var(--muted)]">Pending invite</td>
-      <td className="px-4 py-3 text-[var(--muted)]">{invite.email}</td>
+    <tr className="border-b border-[var(--stroke-soft)] last:border-b-0 hover:bg-[var(--surface-weak)]/70">
+      <td className="px-4 py-4 font-semibold text-[var(--muted)]">Pending invite</td>
+      <td className="px-4 py-4 text-[var(--muted)]">{invite.email}</td>
       <td className="px-4 py-3">
         <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
           {toRoleLabel(invite.role)}
@@ -140,8 +140,8 @@ const HouseholdInviteRow = ({
           Pending
         </span>
       </td>
-      <td className="px-4 py-3 text-[var(--muted)]">{formatDate(invite.createdAt)}</td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-4 py-4 text-[var(--muted)]">{formatDate(invite.createdAt)}</td>
+      <td className="px-4 py-4 text-right">
         <div className="relative inline-flex justify-end" data-actions-menu-root={actionsMenuId}>
           <ActionsMenuTrigger
             ariaExpanded={openActionsMenuId === actionsMenuId}
@@ -153,7 +153,7 @@ const HouseholdInviteRow = ({
           />
           {renderActionsMenu(
             actionsMenuId,
-            "min-w-40 rounded-xl border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
+            "min-w-44 rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
             <>
               <button
                 className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -233,8 +233,8 @@ const HouseholdMemberRow = ({
   const disableActionsMenu = disableTransferOwnership && disableRemove && disableLeaveHousehold;
 
   return (
-    <tr className="border-b border-[var(--stroke-soft)] last:border-b-0 hover:bg-[var(--surface-weak)]">
-      <td className="px-4 py-3 font-semibold">
+    <tr className="border-b border-[var(--stroke-soft)] last:border-b-0 hover:bg-[var(--surface-weak)]/70">
+      <td className="px-4 py-4 font-semibold">
         {member.name?.trim() || "No name"}
         {isViewer ? (
           <span className="ml-2 rounded-full border border-[var(--stroke-soft)] bg-[var(--surface)] px-2 py-0.5 text-[0.58rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
@@ -242,11 +242,11 @@ const HouseholdMemberRow = ({
           </span>
         ) : null}
       </td>
-      <td className="px-4 py-3 text-[var(--muted)]">{member.email}</td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-4 text-[var(--muted)]">{member.email}</td>
+      <td className="px-4 py-4">
         {canEditMemberRole ? (
           <select
-            className="rounded-lg border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
             value={member.role}
             onChange={(event) =>
               onRoleChange({
@@ -266,13 +266,13 @@ const HouseholdMemberRow = ({
           </span>
         )}
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-4">
         <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
           Active
         </span>
       </td>
-      <td className="px-4 py-3 text-[var(--muted)]">{formatDate(member.joinedAt)}</td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-4 py-4 text-[var(--muted)]">{formatDate(member.joinedAt)}</td>
+      <td className="px-4 py-4 text-right">
         <div className="relative inline-flex justify-end" data-actions-menu-root={actionsMenuId}>
           <ActionsMenuTrigger
             ariaExpanded={openActionsMenuId === actionsMenuId}
@@ -284,7 +284,7 @@ const HouseholdMemberRow = ({
           />
           {renderActionsMenu(
             actionsMenuId,
-            "min-w-48 rounded-xl border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
+            "min-w-48 rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
             <>
               <button
                 className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -346,67 +346,74 @@ export default function HouseholdMembersTable({
   onTransferOwnership,
 }: HouseholdMembersTableProps) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-[var(--stroke)] bg-[var(--surface)]">
-      <table className="min-w-full text-left text-sm text-[var(--ink)]">
-        <thead className="border-b border-[var(--stroke)] bg-[var(--surface-weak)] text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-          <tr>
-            <th className="px-4 py-3 font-semibold">Name</th>
-            <th className="px-4 py-3 font-semibold">Email</th>
-            <th className="px-4 py-3 font-semibold">Role</th>
-            <th className="px-4 py-3 font-semibold">Status</th>
-            <th className="px-4 py-3 font-semibold">Added</th>
-            <th className="px-4 py-3 text-right font-semibold">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredRows.length ? (
-            filteredRows.map((row) =>
-              row.kind === "invite" ? (
-                <HouseholdInviteRow
-                  hasElevatedHouseholdRole={hasElevatedHouseholdRole}
-                  viewerIsOwner={viewerIsOwner}
-                  invite={row.invite}
-                  key={`invite-${row.invite.id}`}
-                  onResendInvite={onResendInvite}
-                  onRevokeInvite={onRevokeInvite}
-                  openActionsMenuId={openActionsMenuId}
-                  renderActionsMenu={renderActionsMenu}
-                  resendingInviteId={resendingInviteId}
-                  revokingInviteId={revokingInviteId}
-                  setActionsMenuButtonRef={setActionsMenuButtonRef}
-                  toggleActionsMenu={toggleActionsMenu}
-                />
-              ) : (
-                <HouseholdMemberRow
-                  hasElevatedHouseholdRole={hasElevatedHouseholdRole}
-                  viewerIsOwner={viewerIsOwner}
-                  key={`member-${row.member.userId}`}
-                  leavingHousehold={leavingHousehold}
-                  member={row.member}
-                  onLeaveHousehold={onLeaveHousehold}
-                  onRemove={onRemove}
-                  onRoleChange={onRoleChange}
-                  onTransferOwnership={onTransferOwnership}
-                  openActionsMenuId={openActionsMenuId}
-                  removingUserId={removingUserId}
-                  renderActionsMenu={renderActionsMenu}
-                  roleUpdatingUserId={roleUpdatingUserId}
-                  setActionsMenuButtonRef={setActionsMenuButtonRef}
-                  toggleActionsMenu={toggleActionsMenu}
-                  transferringOwnerUserId={transferringOwnerUserId}
-                  viewerUserId={viewerUserId}
-                />
-              ),
-            )
-          ) : (
+    <div className="overflow-hidden rounded-[1.6rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow-soft)]">
+      <div className="border-b border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-4">
+        <div className="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">
+          Members and invites
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left text-sm text-[var(--ink)]">
+          <thead className="border-b border-[var(--stroke-soft)] bg-[var(--surface)] text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
             <tr>
-              <td className="px-4 py-8 text-center text-sm text-[var(--muted)]" colSpan={6}>
-                No members or invites match your search.
-              </td>
+              <th className="px-4 py-3 font-semibold">Name</th>
+              <th className="px-4 py-3 font-semibold">Email</th>
+              <th className="px-4 py-3 font-semibold">Role</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Added</th>
+              <th className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filteredRows.length ? (
+              filteredRows.map((row) =>
+                row.kind === "invite" ? (
+                  <HouseholdInviteRow
+                    hasElevatedHouseholdRole={hasElevatedHouseholdRole}
+                    viewerIsOwner={viewerIsOwner}
+                    invite={row.invite}
+                    key={`invite-${row.invite.id}`}
+                    onResendInvite={onResendInvite}
+                    onRevokeInvite={onRevokeInvite}
+                    openActionsMenuId={openActionsMenuId}
+                    renderActionsMenu={renderActionsMenu}
+                    resendingInviteId={resendingInviteId}
+                    revokingInviteId={revokingInviteId}
+                    setActionsMenuButtonRef={setActionsMenuButtonRef}
+                    toggleActionsMenu={toggleActionsMenu}
+                  />
+                ) : (
+                  <HouseholdMemberRow
+                    hasElevatedHouseholdRole={hasElevatedHouseholdRole}
+                    viewerIsOwner={viewerIsOwner}
+                    key={`member-${row.member.userId}`}
+                    leavingHousehold={leavingHousehold}
+                    member={row.member}
+                    onLeaveHousehold={onLeaveHousehold}
+                    onRemove={onRemove}
+                    onRoleChange={onRoleChange}
+                    onTransferOwnership={onTransferOwnership}
+                    openActionsMenuId={openActionsMenuId}
+                    removingUserId={removingUserId}
+                    renderActionsMenu={renderActionsMenu}
+                    roleUpdatingUserId={roleUpdatingUserId}
+                    setActionsMenuButtonRef={setActionsMenuButtonRef}
+                    toggleActionsMenu={toggleActionsMenu}
+                    transferringOwnerUserId={transferringOwnerUserId}
+                    viewerUserId={viewerUserId}
+                  />
+                ),
+              )
+            ) : (
+              <tr>
+                <td className="px-4 py-8 text-center text-sm text-[var(--muted)]" colSpan={6}>
+                  No members or invites match your search.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,11 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import {
+  AppFormField,
+  appInputButtonClass,
+  appSecondaryButtonClass,
+} from "@/app/components/AppFormPrimitives";
 import { useDialogFocusTrap } from "@/lib/use-dialog-focus-trap";
 
 const householdIcons = [
@@ -53,21 +58,23 @@ export default function HouseholdIconPicker({
   });
 
   return (
-    <div className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-      <span>Household icon</span>
-      <button
-        className="flex items-center justify-between rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-left text-sm font-semibold normal-case tracking-normal text-[var(--ink)] outline-none transition hover:border-[var(--accent)]"
-        onClick={() => setOpen(true)}
-        type="button"
+    <>
+      <AppFormField
+        description="Pick a simple mark for menus and the board header."
+        label="Household icon"
       >
-        <span className="inline-flex items-center gap-2">
-          {selectedIcon || showEmptyIconPreview ? (
-            <span className="text-xl leading-none">{selectedIcon || "🏡"}</span>
-          ) : null}
-          <span>{selectedIcon ? "Selected icon" : "Choose an icon"}</span>
-        </span>
-        <span className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--muted)]">Pick</span>
-      </button>
+        <button className={appInputButtonClass} onClick={() => setOpen(true)} type="button">
+          <span className="inline-flex items-center gap-3">
+            {selectedIcon || showEmptyIconPreview ? (
+              <span className="text-xl leading-none">{selectedIcon || "🏡"}</span>
+            ) : null}
+            <span>{selectedIcon ? "Selected icon" : "Choose an icon"}</span>
+          </span>
+          <span className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--muted)]">
+            Pick
+          </span>
+        </button>
+      </AppFormField>
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
           <button
@@ -79,24 +86,27 @@ export default function HouseholdIconPicker({
           <div
             aria-labelledby={titleId}
             aria-modal="true"
-            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
+            className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
             ref={dialogRef}
             role="dialog"
             tabIndex={-1}
           >
-            <div className="border-b border-[var(--stroke)] bg-[var(--surface-weak)] px-6 py-5">
+            <div className="border-b border-[var(--stroke-soft)] px-6 py-5">
               <h3
-                className="text-xl font-semibold normal-case tracking-normal text-[var(--ink)]"
+                className="text-xl font-semibold tracking-[-0.02em] text-[var(--ink)]"
                 id={titleId}
               >
                 Choose an icon
               </h3>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                Keep it compact and readable at small sizes.
+              </p>
             </div>
             <div className="flex flex-col gap-4 px-6 py-5">
               <div className="grid grid-cols-6 gap-2">
                 {householdIcons.map((icon) => (
                   <button
-                    className="rounded-lg border border-[var(--stroke-soft)] bg-[var(--card)] px-2 py-2 text-xl leading-none transition hover:-translate-y-0.5 hover:border-[var(--accent)]"
+                    className="rounded-xl border border-[var(--stroke-soft)] bg-[var(--card)] px-2 py-2 text-xl leading-none transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--surface)]"
                     key={icon}
                     onClick={() => {
                       onChange(icon);
@@ -108,9 +118,9 @@ export default function HouseholdIconPicker({
                   </button>
                 ))}
               </div>
-              <div className="flex items-center justify-end gap-2 border-t border-[var(--stroke)] pt-4">
+              <div className="flex items-center justify-end gap-2 border-t border-[var(--stroke-soft)] pt-4">
                 <button
-                  className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
+                  className={appSecondaryButtonClass}
                   onClick={() => {
                     onChange("");
                     setOpen(false);
@@ -120,7 +130,7 @@ export default function HouseholdIconPicker({
                   No icon
                 </button>
                 <button
-                  className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
+                  className={appSecondaryButtonClass}
                   onClick={() => setOpen(false)}
                   type="button"
                 >
@@ -131,6 +141,6 @@ export default function HouseholdIconPicker({
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

@@ -3,6 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import {
+  AppFormSection,
+  appDangerMessageClass,
+  appPrimaryButtonClass,
+} from "@/app/components/AppFormPrimitives";
+
 export default function HouseholdInviteAcceptanceForm({
   householdName,
   invitationId,
@@ -59,24 +65,16 @@ export default function HouseholdInviteAcceptanceForm({
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      <p className="text-sm text-[var(--muted)]">
-        Join <span className="font-semibold text-[var(--ink)]">{householdName}</span> using this
-        invite.
-      </p>
-
-      {error ? (
-        <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
-          {error}
-        </div>
-      ) : null}
-
-      <button
-        className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-        type="submit"
-        disabled={loading}
+      <AppFormSection
+        description={`Join ${householdName} using this invite. If the household was already active for you, we will switch you into it after acceptance.`}
+        title="Accept household invite"
       >
-        {loading ? "Accepting..." : "Accept invite"}
-      </button>
+        {error ? <div className={appDangerMessageClass}>{error}</div> : null}
+
+        <button className={appPrimaryButtonClass} disabled={loading} type="submit">
+          {loading ? "Accepting..." : "Accept invite"}
+        </button>
+      </AppFormSection>
     </form>
   );
 }

@@ -1,6 +1,11 @@
 import { headers } from "next/headers";
-import Link from "next/link";
 
+import {
+  AppPageBackLink,
+  AppPageCard,
+  AppPageHeader,
+  AppPageShell,
+} from "@/app/components/AppPageShell";
 import HouseholdMembersView from "@/app/household/members/HouseholdMembersView";
 import { getHouseholdMembersSnapshot } from "@/lib/household-members";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
@@ -29,36 +34,22 @@ export default async function HouseholdMembersPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,_var(--glow-1),_transparent_55%),radial-gradient(circle_at_80%_10%,_var(--glow-3),_transparent_45%),linear-gradient(180deg,_var(--glow-2),_transparent_55%)]" />
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pb-20 pt-16">
-        <header className="flex flex-col gap-3">
-          <div className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">Household</div>
-          <h1 className="text-3xl font-semibold">Members</h1>
-          <p className="text-sm text-[var(--muted)]">
-            Manage who can access {household.name.trim() || "your household"}. Search members,
-            invite new people, and set household roles.
-          </p>
-        </header>
+    <AppPageShell size="wide">
+      <AppPageHeader
+        aside={<AppPageBackLink href="/household" label="Back to board" />}
+        description={`Manage who can access ${household.name.trim() || "your household"}. Search members, invite new people, and set household roles.`}
+        eyebrow="Household"
+        title="Members"
+      />
 
-        <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-6 shadow-[var(--shadow)] sm:p-8">
-          <HouseholdMembersView
-            hasElevatedHouseholdRole={isHouseholdElevatedRole(household.role)}
-            initialMembers={initialMembers}
-            initialPendingInvites={initialPendingInvites}
-            viewerUserId={userId}
-          />
-        </div>
-
-        <div>
-          <Link
-            className="inline-flex rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-            href="/household"
-          >
-            Back to board
-          </Link>
-        </div>
-      </div>
-    </main>
+      <AppPageCard className="sm:p-8" padding="md">
+        <HouseholdMembersView
+          hasElevatedHouseholdRole={isHouseholdElevatedRole(household.role)}
+          initialMembers={initialMembers}
+          initialPendingInvites={initialPendingInvites}
+          viewerUserId={userId}
+        />
+      </AppPageCard>
+    </AppPageShell>
   );
 }

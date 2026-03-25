@@ -23,7 +23,7 @@ export default function AccountHeader({
   const icon = householdIcon.trim();
 
   return (
-    <header className="py-1">
+    <header className="rounded-[1.75rem] border border-[var(--stroke)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow-soft)] sm:px-5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="sr-only" id={householdHeadingId}>

@@ -39,21 +39,21 @@ export default function HouseholdSidebar({
 
   return (
     <aside className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]">
+      <div className="flex flex-col gap-4 rounded-[1.9rem] border border-[var(--stroke)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]">
         <div className="flex items-start gap-4">
           <div>
-            <span className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">
+            <span className="text-[0.68rem] font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
               The Sweep Heap
             </span>
-            <h1 className="text-3xl font-semibold tracking-tight">Weekly Choreboard</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">Weekly board</h1>
           </div>
         </div>
-        <p className="text-sm text-[var(--muted)]">
-          Make the week feel lighter with a focused, all-day view.
+        <p className="text-sm leading-7 text-[var(--muted)]">
+          See the week, track what is open today, and keep the household moving without extra noise.
         </p>
       </div>
 
-      <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
+      <div className="rounded-[1.75rem] border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">Week progress</span>
           <span className="text-xs text-[var(--muted)]">
@@ -88,7 +88,7 @@ export default function HouseholdSidebar({
         </div>
       </div>
 
-      <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
+      <div className="rounded-[1.75rem] border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">Today</span>
           <span className="text-xs text-[var(--muted)]">{today.toFormat("ccc, LLL d")}</span>

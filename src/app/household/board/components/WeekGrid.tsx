@@ -40,11 +40,11 @@ export default function WeekGrid({
   );
 
   return (
-    <div className="rounded-3xl border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow)]">
-      <div className="overflow-hidden rounded-2xl bg-[var(--card)]">
+    <div className="rounded-[1.9rem] border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow)]">
+      <div className="overflow-hidden rounded-[1.5rem] bg-[var(--card)]">
         <div className="overflow-x-auto">
           <div className="min-w-[980px]">
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface)] px-3 pb-3 pt-0">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface)] px-4 pb-4 pt-1">
               <h2 className="text-2xl font-semibold tracking-tight">{rangeLabel}</h2>
               <div className="flex items-center gap-2">
                 <button

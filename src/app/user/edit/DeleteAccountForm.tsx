@@ -1,6 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import {
+  AppFormSection,
+  appDangerButtonClass,
+  appDangerMessageClass,
+  appInfoMessageClass,
+} from "@/app/components/AppFormPrimitives";
 
 export default function DeleteAccountForm() {
   const [loading, setLoading] = useState(false);
@@ -38,29 +44,26 @@ export default function DeleteAccountForm() {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      {confirmationSent ? (
-        <div className="rounded-2xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-xs font-semibold text-[var(--ink)]">
-          Please check your email. We just sent a confirmation link to continue account deletion.
-          Open that link only if you want to permanently delete your account. The link expires in 30
-          minutes.
-        </div>
-      ) : null}
-      {error ? (
-        <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
-          {error}
-        </div>
-      ) : null}
-      <p className="text-sm text-[var(--muted)]">
-        You can delete your account only after any households you own no longer have other active
-        members.
-      </p>
-      <button
-        className="rounded-full border border-[var(--danger)] bg-[var(--danger)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--danger-ink)] disabled:cursor-not-allowed disabled:opacity-60"
-        type="submit"
-        disabled={loading}
+      <AppFormSection
+        description="Start by sending yourself a confirmation link. Deletion only proceeds after you open that email."
+        title="Request account deletion"
       >
-        {loading ? "Sending link..." : "Delete account"}
-      </button>
+        {confirmationSent ? (
+          <div className={appInfoMessageClass}>
+            Please check your email. We just sent a confirmation link to continue account deletion.
+            Open that link only if you want to permanently delete your account. The link expires in
+            30 minutes.
+          </div>
+        ) : null}
+        {error ? <div className={appDangerMessageClass}>{error}</div> : null}
+        <p className="text-sm leading-7 text-[var(--muted)]">
+          You can delete your account only after any households you own no longer have other active
+          members.
+        </p>
+        <button className={appDangerButtonClass} disabled={loading} type="submit">
+          {loading ? "Sending link..." : "Delete account"}
+        </button>
+      </AppFormSection>
     </form>
   );
 }

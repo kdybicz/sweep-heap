@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import {
+  AppFormField,
+  AppFormSection,
+  appDangerMessageClass,
+  appInputClass,
+  appPrimaryButtonClass,
+  appReadOnlyClass,
+  appSecondaryButtonClass,
+} from "@/app/components/AppFormPrimitives";
 import { householdTimeZones } from "@/lib/time-zones";
 
 type UserDetailsEditFormProps = {
@@ -61,61 +70,67 @@ export default function UserDetailsEditForm({
 
   return (
     <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-      <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-        Name
-        <input
-          className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-sm font-semibold text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
-          type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          required
-        />
-      </label>
-
-      <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-        Email
-        <input
-          className="rounded-xl border border-[var(--stroke)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-[var(--ink)] opacity-90"
-          type="email"
-          value={email}
-          readOnly
-          placeholder="No email available"
-        />
-      </label>
-
-      <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-        Household time zone
-        <select
-          className="rounded-xl border border-[var(--stroke)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-[var(--ink)] opacity-90 disabled:cursor-not-allowed"
-          value={householdTimeZone}
-          disabled
+      <AppFormSection
+        description="Keep your personal details current while showing the household context this profile uses."
+        title="Profile details"
+      >
+        <AppFormField
+          description="This is the name shown in household menus and member lists."
+          htmlFor="user-details-name"
+          label="Name"
         >
-          {timeZoneOptions.map((zone) => (
-            <option key={zone} value={zone}>
-              {zone}
-            </option>
-          ))}
-        </select>
-      </label>
+          <input
+            className={appInputClass}
+            id="user-details-name"
+            onChange={(event) => setName(event.target.value)}
+            required
+            type="text"
+            value={name}
+          />
+        </AppFormField>
 
-      {error ? (
-        <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
-          {error}
-        </div>
-      ) : null}
+        <AppFormField
+          description="Your sign-in email cannot be edited here."
+          htmlFor="user-details-email"
+          label="Email"
+        >
+          <input
+            className={appReadOnlyClass}
+            id="user-details-email"
+            placeholder="No email available"
+            readOnly
+            type="email"
+            value={email}
+          />
+        </AppFormField>
+
+        <AppFormField
+          description="The active household time zone stays read only on the profile page."
+          htmlFor="user-details-household-time-zone"
+          label="Household time zone"
+        >
+          <select
+            className={appReadOnlyClass}
+            disabled
+            id="user-details-household-time-zone"
+            value={householdTimeZone}
+          >
+            {timeZoneOptions.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+        </AppFormField>
+      </AppFormSection>
+
+      {error ? <div className={appDangerMessageClass}>{error}</div> : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-          type="submit"
-          disabled={loading}
-        >
+        <button className={appPrimaryButtonClass} disabled={loading} type="submit">
           {loading ? "Saving..." : "Save profile"}
         </button>
-        <Link
-          className="rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
-          href="/household"
-        >
+        <Link className={appSecondaryButtonClass} href="/household">
           Cancel
         </Link>
       </div>

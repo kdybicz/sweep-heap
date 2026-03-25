@@ -171,8 +171,8 @@ function HouseholdBoardContent() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_10%_10%,_var(--glow-1),_transparent_55%),radial-gradient(circle_at_85%_5%,_var(--glow-3),_transparent_45%),linear-gradient(180deg,_var(--glow-2),_transparent_45%)]" />
-      <main className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-6 px-4 pb-10 pt-8 lg:grid-cols-[260px_1fr]">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_12%_12%,rgba(255,255,255,0.72),transparent_28%),radial-gradient(circle_at_82%_10%,rgba(42,91,215,0.14),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))] dark:bg-[radial-gradient(circle_at_12%_12%,rgba(255,255,255,0.05),transparent_28%),radial-gradient(circle_at_82%_10%,rgba(110,160,255,0.12),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))]" />
+      <main className="mx-auto grid w-full max-w-[1460px] grid-cols-1 gap-5 px-4 pb-12 pt-6 lg:grid-cols-[280px_1fr] lg:gap-6 lg:pt-8">
         <HouseholdSidebar
           doneChores={board.sidebar.doneChores}
           loadingToday={board.sidebar.loadingToday}

@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  AppFormField,
+  AppFormSection,
+  appDangerMessageClass,
+  appInfoMessageClass,
+  appInputClass,
+  appPrimaryButtonClass,
+  appSecondaryButtonClass,
+} from "@/app/components/AppFormPrimitives";
 import HouseholdMembersTable from "@/app/household/members/HouseholdMembersTable";
 import type { HouseholdMembersViewProps } from "@/app/household/members/household-members-view.types";
 import { useHouseholdActionsMenu } from "@/app/household/members/useHouseholdActionsMenu";
@@ -50,74 +59,89 @@ export default function HouseholdMembersView({
     viewerUserId,
   });
 
+  const activeMembersCount = filteredRows.filter((row) => row.kind === "member").length;
+  const pendingInvitesCount = filteredRows.filter((row) => row.kind === "invite").length;
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <label className="flex max-w-md flex-1 flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-          Search members and invites
-          <input
-            className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Name, email, role, or status"
-          />
-        </label>
+      <AppFormSection
+        description="Search the current roster, send a fresh invite, or review what is still pending."
+        title="Roster controls"
+      >
+        <div className="flex flex-wrap gap-3 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
+          <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface)] px-3 py-1.5">
+            {activeMembersCount} active
+          </span>
+          <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface)] px-3 py-1.5">
+            {pendingInvitesCount} pending
+          </span>
+        </div>
 
-        <button
-          className="w-full rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] lg:w-auto"
-          type="button"
-          onClick={toggleInviteOpen}
-        >
-          {inviteOpen ? "Close invite" : "Invite"}
-        </button>
-      </div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-md flex-1">
+            <AppFormField
+              description="Search by name, email, role, or current status."
+              htmlFor="household-members-query"
+              label="Search members and invites"
+            >
+              <input
+                className={appInputClass}
+                id="household-members-query"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Name, email, role, or status"
+                type="search"
+                value={query}
+              />
+            </AppFormField>
+          </div>
+
+          <button
+            className={`w-full lg:w-auto ${inviteOpen ? appSecondaryButtonClass : appPrimaryButtonClass}`}
+            onClick={toggleInviteOpen}
+            type="button"
+          >
+            {inviteOpen ? "Close invite" : "Invite member"}
+          </button>
+        </div>
+      </AppFormSection>
 
       {inviteOpen ? (
-        <form
-          className="flex flex-col gap-3 rounded-2xl border border-[var(--stroke)] bg-[var(--card)] p-4"
-          onSubmit={handleInvite}
-        >
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-            Invite by email
-            <input
-              className="rounded-xl border border-[var(--stroke)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
-              type="email"
-              value={inviteEmail}
-              onChange={(event) => setInviteEmail(event.target.value)}
-              placeholder="friend@example.com"
-              required
-            />
-          </label>
-          <p className="text-xs text-[var(--muted)]">
-            New invites appear in the table below until accepted or expired.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-              type="submit"
-              disabled={inviteSubmitting}
+        <form className="contents" onSubmit={handleInvite}>
+          <AppFormSection
+            description="New invites stay visible in the list below until they are accepted, revoked, or expire."
+            title="Send an invite"
+          >
+            <AppFormField
+              description="Send the invite to the exact email address the person will use to sign in."
+              htmlFor="household-members-invite-email"
+              label="Invite by email"
             >
-              {inviteSubmitting ? "Inviting..." : "Send invite"}
-            </button>
-          </div>
+              <input
+                className={appInputClass}
+                id="household-members-invite-email"
+                onChange={(event) => setInviteEmail(event.target.value)}
+                placeholder="friend@example.com"
+                required
+                type="email"
+                value={inviteEmail}
+              />
+            </AppFormField>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button className={appPrimaryButtonClass} disabled={inviteSubmitting} type="submit">
+                {inviteSubmitting ? "Inviting..." : "Send invite"}
+              </button>
+            </div>
+          </AppFormSection>
         </form>
       ) : null}
 
-      {error ? (
-        <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
-          {error}
-        </div>
-      ) : null}
+      {error ? <div className={appDangerMessageClass}>{error}</div> : null}
 
-      {message ? (
-        <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold text-[var(--ink)]">
-          {message}
-        </div>
-      ) : null}
+      {message ? <div className={appInfoMessageClass}>{message}</div> : null}
 
       {!hasElevatedHouseholdRole ? (
-        <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-3 text-xs font-semibold text-[var(--muted)]">
+        <div className={appInfoMessageClass}>
           You can invite new members, resend pending invites, and leave your own membership. Role
           changes, removals, and invite revokes are limited to admins and owners.
         </div>

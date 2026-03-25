@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { AppFormSection } from "@/app/components/AppFormPrimitives";
 import {
   THEME_PREFERENCE_COOKIE_KEY,
   THEME_PREFERENCE_COOKIE_MAX_AGE_SECONDS,
@@ -103,43 +104,52 @@ export default function AppearanceSettingsForm() {
   };
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-          Appearance
-        </p>
-        <p className="text-xs text-[var(--muted)]">
-          Changes apply immediately and are saved for this browser.
-        </p>
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-3">
+    <AppFormSection
+      description="Changes apply immediately and are saved for this browser."
+      title="Appearance"
+    >
+      <div className="grid gap-3 sm:grid-cols-3">
         {themeOptions.map((themeOption) => {
           const isSelected = themePreference === themeOption.value;
 
           return (
             <label
               key={themeOption.value}
-              className={`flex cursor-pointer flex-col gap-1 rounded-xl border px-3 py-2 text-left transition ${
+              className={`flex cursor-pointer flex-col gap-2 rounded-[1.25rem] border px-4 py-4 text-left transition ${
                 isSelected
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-                  : "border-[var(--stroke)] bg-[var(--surface)] hover:border-[var(--accent)]"
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_16px_32px_rgba(42,91,215,0.12)]"
+                  : "border-[var(--stroke-soft)] bg-[var(--surface)] hover:border-[var(--accent)] hover:bg-[var(--surface-weak)]"
               }`}
             >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-[var(--ink)]">{themeOption.label}</span>
+                <span
+                  className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${
+                    isSelected
+                      ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                      : "border-[var(--stroke)] bg-[var(--surface-weak)]"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${isSelected ? "bg-white" : "bg-transparent"}`}
+                  />
+                </span>
+              </div>
               <input
-                className="sr-only"
-                type="radio"
-                name="theme-preference"
-                value={themeOption.value}
                 checked={isSelected}
+                className="sr-only"
+                name="theme-preference"
                 onChange={() => handleThemePreferenceChange(themeOption.value)}
+                type="radio"
+                value={themeOption.value}
               />
-              <span className="text-sm font-semibold text-[var(--ink)]">{themeOption.label}</span>
-              <span className="text-xs text-[var(--muted)]">{themeOption.description}</span>
+              <span className="text-sm leading-6 text-[var(--muted)]">
+                {themeOption.description}
+              </span>
             </label>
           );
         })}
       </div>
-    </section>
+    </AppFormSection>
   );
 }

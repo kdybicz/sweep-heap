@@ -2,6 +2,11 @@ import { DateTime } from "luxon";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  appDangerMessageClass,
+  appPrimaryButtonClass,
+  appSecondaryButtonClass,
+} from "@/app/components/AppFormPrimitives";
+import {
   areChorePreviewDatesDirty,
   areChorePreviewRepeatSettingsDirty,
   areChorePreviewTitleTypeDirty,
@@ -1597,7 +1602,7 @@ export default function ChorePreviewPopover({
     <>
       <div
         aria-label="Chore preview"
-        className="fixed z-30 max-w-[calc(100vw-2rem)] rounded-2xl border border-[var(--stroke)] bg-[var(--surface)] shadow-[0_16px_36px_-24px_rgba(23,32,72,0.42)]"
+        className="fixed z-30 max-w-[calc(100vw-2rem)] rounded-[1.6rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[0_16px_36px_-24px_rgba(23,32,72,0.42)]"
         onMouseDownCapture={(event) => {
           if (
             isEditingTitle &&
@@ -1899,15 +1904,13 @@ export default function ChorePreviewPopover({
         ) : null}
         {saveError ? (
           <div className="border-t border-[var(--stroke-soft)] px-4 py-3">
-            <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-semibold text-[var(--danger-ink)]">
-              {saveError}
-            </div>
+            <div className={appDangerMessageClass}>{saveError}</div>
           </div>
         ) : null}
         <div className="border-t border-[var(--stroke-soft)] px-4 py-3" ref={notesEditorRef}>
           {canManageChores && isEditingNotes ? (
             <textarea
-              className="min-h-[90px] w-full resize-none rounded-xl border border-[var(--stroke)] bg-[var(--surface)] px-3 py-2 text-sm leading-snug text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:shadow-[0_0_0_1px_var(--accent)]"
+              className="min-h-[110px] w-full resize-none rounded-[1.1rem] border border-[var(--stroke)] bg-[var(--surface)] px-4 py-3 text-sm leading-7 text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:shadow-[0_0_0_1px_var(--accent)]"
               disabled={isInteractionLocked}
               onBlur={(event) => {
                 if (discardOnBlurRef.current) {
@@ -1929,7 +1932,7 @@ export default function ChorePreviewPopover({
             />
           ) : canManageChores ? (
             <button
-              className={`block w-full rounded-xl whitespace-pre-wrap text-left text-sm leading-snug transition hover:bg-[var(--surface-strong)]/30 ${
+              className={`block w-full rounded-[1rem] whitespace-pre-wrap text-left text-sm leading-7 transition hover:bg-[var(--surface-strong)]/30 ${
                 trimmedNotesDraft
                   ? "px-0 text-[var(--muted)]"
                   : "px-0 italic text-[var(--muted)]/70"
@@ -1960,7 +1963,7 @@ export default function ChorePreviewPopover({
           data-preview-footer="true"
         >
           <button
-            className="min-w-0 flex-1 rounded-full border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+            className={`min-w-0 flex-1 px-4 py-2 text-[0.72rem] tracking-[0.14em] ${appPrimaryButtonClass}`}
             disabled={primaryActionButtonDisabled}
             onClick={() => {
               onPrimaryAction(chore);
@@ -1974,7 +1977,7 @@ export default function ChorePreviewPopover({
           {canManageChores ? (
             <button
               aria-label="Delete chore"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--danger-stroke)] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--danger-stroke)] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
               data-preview-post-action="delete"
               disabled={isInteractionLocked}
               onClick={() => {
@@ -1994,7 +1997,7 @@ export default function ChorePreviewPopover({
       </div>
       {scopePopupMode ? (
         <div
-          className="fixed z-40 w-[min(18rem,calc(100vw-2rem))] rounded-2xl border border-[var(--stroke)] bg-[var(--surface)] px-4 py-4 shadow-[0_22px_38px_-24px_rgba(23,32,72,0.52)]"
+          className="fixed z-40 w-[min(18rem,calc(100vw-2rem))] rounded-[1.4rem] border border-[var(--stroke)] bg-[var(--surface)] px-4 py-4 shadow-[0_22px_38px_-24px_rgba(23,32,72,0.52)]"
           ref={scopePopupRef}
           style={{ left: scopePopupLeft, top: scopePopupTop, width: scopePopupWidth }}
         >
@@ -2025,7 +2028,7 @@ export default function ChorePreviewPopover({
           <div className="mt-3 flex flex-col gap-2">
             {scopeOptions.map((option) => (
               <button
-                className="rounded-full border border-[var(--stroke)] bg-[var(--surface-weak)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                className={appSecondaryButtonClass}
                 disabled={isSaving}
                 key={option.scope}
                 onClick={() => {
@@ -2045,7 +2048,7 @@ export default function ChorePreviewPopover({
               </button>
             ))}
             <button
-              className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+              className={appSecondaryButtonClass}
               disabled={isSaving}
               onClick={() => {
                 const shouldClose = scopePopupMode === "notes" && notesSaveBehavior?.closeAfter;
