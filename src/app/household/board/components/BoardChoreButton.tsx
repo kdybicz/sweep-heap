@@ -19,14 +19,14 @@ const getChoreClasses = (chore: ChoreItem) => {
   const isLogged = completed && chore.type === "stay_open";
 
   if (isLogged) {
-    return "border-[var(--accent-soft)] bg-[var(--surface-strong)] text-[var(--ink)]";
+    return "border-[var(--accent-secondary)] bg-[var(--accent-secondary-soft)] text-[var(--ink)]";
   }
 
   if (completed || isClosed) {
-    return "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--muted)]";
+    return "border-[var(--accent-tertiary)] bg-[var(--accent-tertiary-soft)] text-[var(--muted)]";
   }
 
-  return "border-[var(--stroke)] bg-[var(--card)] text-[var(--ink)] hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]";
+  return "border-[var(--stroke)] bg-[var(--card)] text-[var(--ink)] hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]";
 };
 
 export default function BoardChoreButton({
@@ -41,7 +41,7 @@ export default function BoardChoreButton({
 
   return (
     <button
-      className={`flex min-w-0 items-center justify-between gap-2 border px-2.5 py-2 text-left text-[0.7rem] font-semibold transition ${shapeClassName ?? "rounded-lg"} ${getChoreClasses(chore)} ${className ?? ""}`}
+      className={`flex min-w-0 items-center justify-between gap-2 border px-2.5 py-2 text-left text-[0.7rem] font-semibold transition ${shapeClassName ?? "rounded-[0.72rem]"} ${getChoreClasses(chore)} ${className ?? ""}`}
       data-chore-preview-date={chore.occurrence_date}
       data-chore-preview-id={chore.id}
       data-chore-preview-start={chore.occurrence_start_date}

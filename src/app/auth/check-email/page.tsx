@@ -12,24 +12,25 @@ export default async function CheckEmailPage() {
   await redirectSignedInUserToApp();
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.72),transparent_30%),radial-gradient(circle_at_80%_12%,rgba(42,91,215,0.14),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))] dark:bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.04),transparent_28%),radial-gradient(circle_at_80%_12%,rgba(110,160,255,0.12),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))]" />
+    <main className="relative min-h-screen overflow-hidden bg-[var(--bg)] text-[var(--ink)]">
+      <div className="ambient-drift absolute inset-0 -z-20 bg-[radial-gradient(circle_at_18%_18%,var(--glow-1),transparent_30%),radial-gradient(circle_at_80%_12%,var(--glow-2),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))]" />
+      <div className="editorial-grid absolute inset-0 -z-10 opacity-35" />
 
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 pb-16 pt-8 lg:min-h-screen lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-16 lg:py-10">
         <section className="landing-reveal flex max-w-lg flex-col gap-6">
           <Link
-            className="w-fit text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-[var(--muted)] transition hover:text-[var(--ink)]"
+            className="w-fit text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-[var(--muted)] transition hover:text-[var(--accent-secondary)]"
             href="/"
           >
             Back to landing
           </Link>
 
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--stroke)] bg-[var(--surface-weak)] text-sm font-semibold uppercase tracking-[0.28em] shadow-[var(--shadow-soft)]">
+            <div className="flex h-11 w-11 items-center justify-center border border-[var(--stroke)] bg-[var(--surface-weak)] text-sm font-semibold uppercase tracking-[0.28em] shadow-[var(--shadow-soft)]">
               SH
             </div>
             <div>
-              <div className="text-[0.65rem] uppercase tracking-[0.32em] text-[var(--muted)]">
+              <div className="text-[0.65rem] uppercase tracking-[0.32em] text-[var(--accent-secondary)]">
                 The Sweep Heap
               </div>
               <div className="text-sm font-medium text-[var(--muted)]">Magic link on the way</div>
@@ -53,7 +54,7 @@ export default async function CheckEmailPage() {
             <div className="mt-4 space-y-3">
               {inboxChecklist.map((item, index) => (
                 <div className="flex items-center gap-3" key={item}>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stroke)] bg-[var(--surface)] text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+                  <span className="flex h-8 w-8 items-center justify-center border border-[var(--stroke)] bg-[var(--surface)] text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
                     0{index + 1}
                   </span>
                   <span className="text-sm text-[var(--ink)]">{item}</span>
@@ -64,9 +65,9 @@ export default async function CheckEmailPage() {
         </section>
 
         <section className="landing-reveal landing-reveal-delay-1">
-          <div className="mx-auto max-w-xl rounded-[2rem] border border-[var(--stroke)] bg-[var(--surface)] p-6 shadow-[var(--shadow)] sm:p-8">
+          <div className="mx-auto max-w-xl border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_84%,white_16%)] p-6 shadow-[var(--shadow)] sm:p-8">
             <div className="mb-6 space-y-2">
-              <div className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+              <div className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[var(--accent)]">
                 Check your inbox
               </div>
               <h2 className="text-2xl font-semibold tracking-[-0.03em]">
@@ -80,13 +81,13 @@ export default async function CheckEmailPage() {
 
             <div className="flex flex-wrap gap-3">
               <Link
-                className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
+                className="rounded-[0.75rem] border border-transparent bg-[linear-gradient(135deg,var(--accent),var(--accent-secondary))] px-5 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_18px_28px_rgba(40,94,240,0.22)]"
                 href="/auth"
               >
                 Use a different email
               </Link>
               <Link
-                className="rounded-full border border-[var(--stroke)] bg-[var(--surface)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+                className="rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--surface)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-strong)]"
                 href="/"
               >
                 Back to landing

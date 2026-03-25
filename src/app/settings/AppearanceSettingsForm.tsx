@@ -115,23 +115,23 @@ export default function AppearanceSettingsForm() {
           return (
             <label
               key={themeOption.value}
-              className={`flex cursor-pointer flex-col gap-2 rounded-[1.25rem] border px-4 py-4 text-left transition ${
+              className={`flex cursor-pointer flex-col gap-2 border px-4 py-4 text-left transition ${
                 isSelected
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_16px_32px_rgba(42,91,215,0.12)]"
-                  : "border-[var(--stroke-soft)] bg-[var(--surface)] hover:border-[var(--accent)] hover:bg-[var(--surface-weak)]"
+                  ? "border-[var(--accent-secondary)] bg-[var(--accent-secondary-soft)] shadow-[0_16px_32px_rgba(40,94,240,0.12)]"
+                  : "border-[var(--stroke-soft)] bg-[var(--surface)] hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
               }`}
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-semibold text-[var(--ink)]">{themeOption.label}</span>
                 <span
-                  className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${
+                  className={`inline-flex h-5 w-5 items-center justify-center border ${
                     isSelected
-                      ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                      ? "border-[var(--accent-secondary)] bg-[var(--accent-secondary)] text-white"
                       : "border-[var(--stroke)] bg-[var(--surface-weak)]"
                   }`}
                 >
                   <span
-                    className={`h-2 w-2 rounded-full ${isSelected ? "bg-white" : "bg-transparent"}`}
+                    className={`h-2 w-2 rounded-[2px] ${isSelected ? "bg-white" : "bg-transparent"}`}
                   />
                 </span>
               </div>

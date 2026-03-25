@@ -69,10 +69,10 @@ export default function HouseholdMembersView({
         title="Roster controls"
       >
         <div className="flex flex-wrap gap-3 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
-          <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface)] px-3 py-1.5">
+          <span className="rounded-[0.7rem] border border-[var(--stroke-soft)] bg-[var(--accent-secondary-soft)] px-3 py-1.5 text-[var(--ink)]">
             {activeMembersCount} active
           </span>
-          <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface)] px-3 py-1.5">
+          <span className="rounded-[0.7rem] border border-[var(--stroke-soft)] bg-[var(--accent-gold-soft)] px-3 py-1.5 text-[var(--ink)]">
             {pendingInvitesCount} pending
           </span>
         </div>

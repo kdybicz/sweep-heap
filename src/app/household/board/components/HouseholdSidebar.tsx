@@ -39,10 +39,11 @@ export default function HouseholdSidebar({
 
   return (
     <aside className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 rounded-[1.9rem] border border-[var(--stroke)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]">
+      <div className="flex flex-col gap-4 overflow-hidden border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_84%,white_16%)] p-5 shadow-[var(--shadow)]">
+        <div className="-mx-5 -mt-5 h-2 bg-[linear-gradient(90deg,var(--accent),var(--accent-secondary),var(--accent-tertiary))]" />
         <div className="flex items-start gap-4">
           <div>
-            <span className="text-[0.68rem] font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+            <span className="text-[0.68rem] font-semibold uppercase tracking-[0.3em] text-[var(--accent-secondary)]">
               The Sweep Heap
             </span>
             <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">Weekly board</h1>
@@ -53,33 +54,33 @@ export default function HouseholdSidebar({
         </p>
       </div>
 
-      <div className="rounded-[1.75rem] border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
+      <div className="border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">Week progress</span>
           <span className="text-xs text-[var(--muted)]">
             {doneChores}/{totalChores} done
           </span>
         </div>
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-strong)]">
+        <div className="mt-3 h-2 w-full overflow-hidden bg-[var(--surface-strong)]">
           <div
-            className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
+            className="h-full bg-[linear-gradient(90deg,var(--accent),var(--accent-secondary),var(--accent-tertiary))] transition-[width] duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2 py-3">
+          <div className="border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2 py-3">
             <div className="text-lg font-semibold">{totalChores}</div>
             <div className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--muted)]">
               Total
             </div>
           </div>
-          <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2 py-3">
+          <div className="border border-[var(--stroke-soft)] bg-[var(--accent-gold-soft)] px-2 py-3">
             <div className="text-lg font-semibold">{openChores}</div>
             <div className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--muted)]">
               Open
             </div>
           </div>
-          <div className="rounded-2xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2 py-3">
+          <div className="border border-[var(--stroke-soft)] bg-[var(--accent-tertiary-soft)] px-2 py-3">
             <div className="text-lg font-semibold">{progress}%</div>
             <div className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--muted)]">
               Done
@@ -88,7 +89,7 @@ export default function HouseholdSidebar({
         </div>
       </div>
 
-      <div className="rounded-[1.75rem] border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
+      <div className="border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">Today</span>
           <span className="text-xs text-[var(--muted)]">{today.toFormat("ccc, LLL d")}</span>
@@ -101,7 +102,7 @@ export default function HouseholdSidebar({
               {sidebarTodayChores.slice(0, 3).map((chore) => (
                 <div
                   key={`${chore.id}-${chore.occurrence_start_date}-${chore.occurrence_date}-today`}
-                  className="flex items-center justify-between rounded-xl border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-3 py-2 text-xs font-semibold"
+                  className="flex items-center justify-between border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-3 py-2 text-xs font-semibold"
                 >
                   <div className="flex flex-col gap-1">
                     <span

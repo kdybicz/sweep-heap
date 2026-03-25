@@ -26,13 +26,13 @@ describe("LandingPage", () => {
     redirectSignedInUserToAppMock.mockResolvedValue(undefined);
   });
 
-  it("renders the simplified hero and primary sign-in paths", async () => {
+  it("renders the redesigned hero and primary sign-in paths", async () => {
     const markup = renderToStaticMarkup(await LandingPage());
 
     expect(redirectSignedInUserToAppMock).toHaveBeenCalledOnce();
-    expect(markup).toContain("A calm weekly board for the people who keep home running.");
+    expect(markup).toContain("A brighter weekly board for every household.");
     expect(markup).toContain('href="/auth"');
-    expect(markup).toContain('href="#how-it-works"');
+    expect(markup).toContain('href="#workflow"');
     expect(markup).toContain("Continue with email");
     expect(markup).not.toContain("Request a tour");
   });

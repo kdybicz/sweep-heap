@@ -32,10 +32,10 @@ describe("AuthForm", () => {
     searchParamsGetMock.mockReturnValue(null);
   });
 
-  it("renders the refreshed email sign-in section", () => {
+  it("renders the focused email sign-in form", () => {
     const markup = renderToStaticMarkup(<AuthForm />);
 
-    expect(markup).toContain("Email sign-in");
+    expect(markup).toContain("Email address");
     expect(markup).toContain("Send magic link");
     expect(markup).toContain('id="auth-email"');
     expect(markup).toContain('type="email"');

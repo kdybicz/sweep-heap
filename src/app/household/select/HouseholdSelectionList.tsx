@@ -72,13 +72,13 @@ export default function HouseholdSelectionList({ households }: { households: Hou
             return (
               <button
                 key={household.id}
-                className="flex w-full items-center justify-between rounded-[1.4rem] border border-[var(--stroke-soft)] bg-[var(--surface)] px-5 py-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--surface-weak)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center justify-between border border-[var(--stroke-soft)] bg-[var(--surface)] px-5 py-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)] disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={activeHouseholdId !== null}
                 onClick={() => handleSelect(household.id)}
                 type="button"
               >
                 <span className="flex min-w-0 items-center gap-4">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-[1rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] text-xl">
+                  <span className="flex h-12 w-12 items-center justify-center border border-[var(--stroke-soft)] bg-[var(--accent-secondary-soft)] text-xl">
                     {household.icon?.trim() || "H"}
                   </span>
                   <span className="flex min-w-0 flex-col gap-1">
@@ -92,7 +92,7 @@ export default function HouseholdSelectionList({ households }: { households: Hou
                     </span>
                   </span>
                 </span>
-                <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">
+                <span className="border border-[var(--stroke-soft)] bg-[var(--accent-soft)] px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-[var(--ink)]">
                   {isLoading ? "Switching..." : "Open"}
                 </span>
               </button>

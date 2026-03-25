@@ -35,7 +35,7 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
         return (
           <div
             key={`${toast.choreId}-${toast.occurrenceStartDate}`}
-            className="flex flex-col gap-3 rounded-2xl border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-xs font-semibold text-[var(--ink)] shadow-[var(--shadow)]"
+            className="flex flex-col gap-3 rounded-[1rem] border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--card)_88%,white_12%)] px-4 py-3 text-xs font-semibold text-[var(--ink)] shadow-[var(--shadow)]"
           >
             <div className="flex items-center justify-between gap-4">
               <div className="flex flex-col gap-1">
@@ -53,16 +53,16 @@ export default function UndoToastStack({ undoToasts, nowMs, onUndo }: UndoToastS
                 <span>{toast.title}</span>
               </div>
               <button
-                className="rounded-full border border-[var(--stroke)] px-3 py-2 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+                className="rounded-[0.7rem] border border-[var(--stroke)] bg-[var(--surface)] px-3 py-2 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-strong)]"
                 onClick={() => onUndo(toast.choreId, toast.occurrenceStartDate)}
                 type="button"
               >
                 Undo
               </button>
             </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--surface-strong)]">
+            <div className="h-1 w-full overflow-hidden rounded-[0.4rem] bg-[var(--surface-strong)]">
               <div
-                className="undo-progress-bar h-full rounded-full bg-[var(--accent)]"
+                className="undo-progress-bar h-full rounded-[0.4rem] bg-[linear-gradient(90deg,var(--accent),var(--accent-secondary))]"
                 style={{
                   animationDelay: `-${elapsedMs}ms`,
                   animationDuration: `${animationDurationMs}ms`,

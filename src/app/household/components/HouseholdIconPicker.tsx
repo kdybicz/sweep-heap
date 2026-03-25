@@ -86,7 +86,7 @@ export default function HouseholdIconPicker({
           <div
             aria-labelledby={titleId}
             aria-modal="true"
-            className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
+            className="relative w-full max-w-md overflow-hidden rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
             ref={dialogRef}
             role="dialog"
             tabIndex={-1}
@@ -106,7 +106,7 @@ export default function HouseholdIconPicker({
               <div className="grid grid-cols-6 gap-2">
                 {householdIcons.map((icon) => (
                   <button
-                    className="rounded-xl border border-[var(--stroke-soft)] bg-[var(--card)] px-2 py-2 text-xl leading-none transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--surface)]"
+                    className="rounded-[0.75rem] border border-[var(--stroke-soft)] bg-[var(--card)] px-2 py-2 text-xl leading-none transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface)]"
                     key={icon}
                     onClick={() => {
                       onChange(icon);

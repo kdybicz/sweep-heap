@@ -4,8 +4,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import {
-  AppFormField,
-  AppFormSection,
   appDangerMessageClass,
   appInputClass,
   appPrimaryButtonClass,
@@ -60,31 +58,33 @@ export default function AuthForm() {
   };
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      <AppFormSection
-        description="Use the email address you want this sign-in link sent to."
-        title="Email sign-in"
-      >
-        <AppFormField
-          description="We only send a magic link. No password is required."
+    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+      <div className="grid gap-3">
+        <label
+          className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[var(--accent-secondary)]"
           htmlFor="auth-email"
-          label="Email"
         >
-          <input
-            className={appInputClass}
-            id="auth-email"
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            required
-            type="email"
-            value={email}
-          />
-        </AppFormField>
-        {error ? <div className={appDangerMessageClass}>{error}</div> : null}
-        <button className={appPrimaryButtonClass} disabled={loading} type="submit">
-          {loading ? "Sending link..." : "Send magic link"}
-        </button>
-      </AppFormSection>
+          Email address
+        </label>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          We send the sign-in link here. No password is required.
+        </p>
+        <input
+          autoComplete="email"
+          className={`${appInputClass} h-14 text-lg`}
+          id="auth-email"
+          inputMode="email"
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="you@example.com"
+          required
+          type="email"
+          value={email}
+        />
+      </div>
+      {error ? <div className={appDangerMessageClass}>{error}</div> : null}
+      <button className={`${appPrimaryButtonClass} w-full`} disabled={loading} type="submit">
+        {loading ? "Sending link..." : "Send magic link"}
+      </button>
     </form>
   );
 }

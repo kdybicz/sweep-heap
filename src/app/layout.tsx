@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Oxanium } from "next/font/google";
+import { Geist_Mono, Space_Grotesk } from "next/font/google";
 import { cookies } from "next/headers";
 import Script from "next/script";
 
@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const oxanium = Oxanium({
-  variable: "--font-oxanium",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
 });
 
@@ -53,7 +53,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" data-theme={initialTheme} suppressHydrationWarning>
-      <body className={`${oxanium.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${spaceGrotesk.variable} ${geistMono.variable} antialiased`}>
         <Script id="theme-preference" strategy="beforeInteractive">
           {themePreferenceScript}
         </Script>

@@ -30,13 +30,13 @@ describe("AuthPage", () => {
     redirectSignedInUserToAppMock.mockResolvedValue(undefined);
   });
 
-  it("renders the updated sign-in framing and next-step copy", async () => {
+  it("renders the simplified sign-in framing with the email-focused action", async () => {
     const markup = renderToStaticMarkup(await AuthPage());
 
     expect(redirectSignedInUserToAppMock).toHaveBeenCalledOnce();
     expect(markup).toContain('data-testid="auth-form"');
-    expect(markup).toContain("Sign in and we will route you to the right next step.");
-    expect(markup).toContain("Open your existing board");
+    expect(markup).toContain("Continue with email.");
+    expect(markup).toContain("Enter your email");
     expect(markup).toContain('href="/"');
   });
 });

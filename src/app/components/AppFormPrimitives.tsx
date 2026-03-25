@@ -14,34 +14,34 @@ type AppFormFieldProps = {
 };
 
 export const appInputClass =
-  "w-full rounded-[1.1rem] border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-sm font-medium text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)]";
+  "w-full rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-sm font-medium text-[var(--ink)] outline-none transition focus:border-[var(--accent-secondary)] focus:ring-2 focus:ring-[var(--accent-secondary-soft)]";
 
 export const appReadOnlyClass =
-  "w-full rounded-[1.1rem] border border-[var(--stroke-soft)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-[var(--ink)] opacity-90";
+  "w-full rounded-[0.75rem] border border-[var(--stroke-soft)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-[var(--ink)] opacity-90";
 
 export const appInputButtonClass =
-  "flex w-full items-center justify-between rounded-[1.1rem] border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-left text-sm font-medium text-[var(--ink)] outline-none transition hover:border-[var(--accent)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)]";
+  "flex w-full items-center justify-between rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--card)] px-4 py-3 text-left text-sm font-medium text-[var(--ink)] outline-none transition hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)] focus:border-[var(--accent-secondary)] focus:ring-2 focus:ring-[var(--accent-secondary-soft)]";
 
 export const appSectionClass =
-  "rounded-[1.5rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-5 sm:p-6";
+  "rounded-[0.95rem] border border-[var(--stroke-soft)] bg-[color-mix(in_srgb,var(--surface-weak)_84%,white_16%)] p-5 shadow-[var(--shadow-soft)] sm:p-6";
 
 export const appPrimaryButtonClass =
-  "rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60";
+  "rounded-[0.75rem] border border-transparent bg-[linear-gradient(135deg,var(--accent),var(--accent-secondary))] px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-[0_14px_28px_rgba(40,94,240,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_32px_rgba(40,94,240,0.24)] disabled:cursor-not-allowed disabled:opacity-60";
 
 export const appSecondaryButtonClass =
-  "rounded-full border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]";
+  "rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--card)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]";
 
 export const appDangerButtonClass =
-  "rounded-full border border-[var(--danger)] bg-[var(--danger)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--danger-ink)] disabled:cursor-not-allowed disabled:opacity-60";
+  "rounded-[0.75rem] border border-[var(--danger)] bg-[var(--danger)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white transition hover:-translate-y-0.5 hover:bg-[var(--danger-ink)] disabled:cursor-not-allowed disabled:opacity-60";
 
 export const appInfoMessageClass =
-  "rounded-[1.1rem] border border-[var(--stroke-soft)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--ink)]";
+  "rounded-[0.75rem] border border-[var(--stroke-soft)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--ink)]";
 
 export const appDangerMessageClass =
-  "rounded-[1.1rem] border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-sm font-medium leading-6 text-[var(--danger-ink)]";
+  "rounded-[0.75rem] border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-sm font-medium leading-6 text-[var(--danger-ink)]";
 
 export const appToggleCardClass =
-  "flex items-start gap-3 rounded-[1.25rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-4 text-left";
+  "flex items-start gap-3 rounded-[0.85rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-4 text-left";
 
 export function AppFormSection({ title, description, children }: AppFormSectionProps) {
   return (

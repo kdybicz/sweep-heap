@@ -89,7 +89,7 @@ const ActionsMenuTrigger = ({
   <button
     aria-expanded={ariaExpanded}
     aria-label={ariaLabel}
-    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stroke)] bg-[var(--surface)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+    className="inline-flex h-9 w-9 items-center justify-center rounded-[0.7rem] border border-[var(--stroke)] bg-[var(--surface)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
     disabled={disabled}
     onClick={() => onToggle(menuId)}
     ref={setActionsMenuButtonRef(menuId)}
@@ -97,9 +97,9 @@ const ActionsMenuTrigger = ({
   >
     <span className="sr-only">{ariaLabel}</span>
     <span className="flex items-center gap-0.5 text-[var(--muted)]">
-      <span className="h-1 w-1 rounded-full bg-current" />
-      <span className="h-1 w-1 rounded-full bg-current" />
-      <span className="h-1 w-1 rounded-full bg-current" />
+      <span className="h-1 w-1 rounded-[2px] bg-current" />
+      <span className="h-1 w-1 rounded-[2px] bg-current" />
+      <span className="h-1 w-1 rounded-[2px] bg-current" />
     </span>
   </button>
 );
@@ -131,12 +131,12 @@ const HouseholdInviteRow = ({
       <td className="px-4 py-4 font-semibold text-[var(--muted)]">Pending invite</td>
       <td className="px-4 py-4 text-[var(--muted)]">{invite.email}</td>
       <td className="px-4 py-3">
-        <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+        <span className="border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
           {toRoleLabel(invite.role)}
         </span>
       </td>
       <td className="px-4 py-3">
-        <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+        <span className="border border-[var(--stroke-soft)] bg-[var(--accent-gold-soft)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
           Pending
         </span>
       </td>
@@ -153,10 +153,10 @@ const HouseholdInviteRow = ({
           />
           {renderActionsMenu(
             actionsMenuId,
-            "min-w-44 rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
+            "min-w-44 rounded-[0.8rem] border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
             <>
               <button
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-between rounded-[0.65rem] px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={disableResend}
                 onClick={() => onResendInvite(invite)}
                 type="button"
@@ -165,7 +165,7 @@ const HouseholdInviteRow = ({
                 <span>{isResending ? "..." : null}</span>
               </button>
               <button
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-between rounded-[0.65rem] px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={disableRevoke}
                 onClick={() => onRevokeInvite(invite)}
                 type="button"
@@ -237,7 +237,7 @@ const HouseholdMemberRow = ({
       <td className="px-4 py-4 font-semibold">
         {member.name?.trim() || "No name"}
         {isViewer ? (
-          <span className="ml-2 rounded-full border border-[var(--stroke-soft)] bg-[var(--surface)] px-2 py-0.5 text-[0.58rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+          <span className="ml-2 border border-[var(--stroke-soft)] bg-[var(--surface)] px-2 py-0.5 text-[0.58rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
             You
           </span>
         ) : null}
@@ -246,7 +246,7 @@ const HouseholdMemberRow = ({
       <td className="px-4 py-4">
         {canEditMemberRole ? (
           <select
-            className="rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--card)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink)] outline-none transition focus:border-[var(--accent-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
             value={member.role}
             onChange={(event) =>
               onRoleChange({
@@ -261,13 +261,13 @@ const HouseholdMemberRow = ({
             {viewerIsOwner ? <option value="owner">Owner</option> : null}
           </select>
         ) : (
-          <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+          <span className="border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
             {toRoleLabel(member.role)}
           </span>
         )}
       </td>
       <td className="px-4 py-4">
-        <span className="rounded-full border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+        <span className="border border-[var(--stroke-soft)] bg-[var(--accent-tertiary-soft)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
           Active
         </span>
       </td>
@@ -284,10 +284,10 @@ const HouseholdMemberRow = ({
           />
           {renderActionsMenu(
             actionsMenuId,
-            "min-w-48 rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
+            "min-w-48 rounded-[0.8rem] border border-[var(--stroke)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]",
             <>
               <button
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-between rounded-[0.65rem] px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={disableTransferOwnership}
                 onClick={() => onTransferOwnership(member)}
                 type="button"
@@ -296,7 +296,7 @@ const HouseholdMemberRow = ({
                 <span>{isTransferringOwner ? "..." : null}</span>
               </button>
               <button
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-between rounded-[0.65rem] px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={disableRemove}
                 onClick={() => onRemove(member)}
                 type="button"
@@ -306,7 +306,7 @@ const HouseholdMemberRow = ({
               </button>
               {canLeaveHousehold ? (
                 <button
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-between rounded-[0.65rem] px-3 py-2 text-left text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={disableLeaveHousehold}
                   onClick={onLeaveHousehold}
                   type="button"
@@ -346,9 +346,9 @@ export default function HouseholdMembersTable({
   onTransferOwnership,
 }: HouseholdMembersTableProps) {
   return (
-    <div className="overflow-hidden rounded-[1.6rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="overflow-hidden rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow-soft)]">
       <div className="border-b border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-4 py-4">
-        <div className="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">
+        <div className="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-[var(--accent-secondary)]">
           Members and invites
         </div>
       </div>

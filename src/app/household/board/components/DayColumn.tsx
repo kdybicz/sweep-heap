@@ -20,7 +20,7 @@ export default function DayColumn({
       </div>
       {canManageChores ? (
         <button
-          className="pointer-events-auto rounded-xl border border-[var(--stroke)] bg-[var(--card)] px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="pointer-events-auto rounded-[0.72rem] border border-[var(--stroke)] bg-[var(--card)] px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)] disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => onAddChoreForDate(dayKey)}
           type="button"
         >

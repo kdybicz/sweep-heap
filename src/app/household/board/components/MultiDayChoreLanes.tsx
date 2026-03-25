@@ -7,8 +7,8 @@ type MultiDayChoreLanesProps = {
 };
 
 const getShapeClasses = (span: MultiDaySpan) => {
-  const leftShape = span.continuesBefore ? "rounded-l-none border-l-0" : "rounded-l-lg";
-  const rightShape = span.continuesAfter ? "rounded-r-none border-r-0" : "rounded-r-lg";
+  const leftShape = span.continuesBefore ? "rounded-l-none border-l-0" : "rounded-l-[0.72rem]";
+  const rightShape = span.continuesAfter ? "rounded-r-none border-r-0" : "rounded-r-[0.72rem]";
 
   return `${leftShape} ${rightShape}`;
 };

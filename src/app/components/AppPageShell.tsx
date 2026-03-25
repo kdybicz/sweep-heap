@@ -37,19 +37,20 @@ const cardPadding: Record<NonNullable<AppPageCardProps["padding"]>, string> = {
 };
 
 const cardTone: Record<NonNullable<AppPageCardProps["tone"]>, string> = {
-  default: "border-[var(--stroke)] bg-[var(--surface)]",
-  danger: "border-[var(--danger-stroke)] bg-[var(--surface)]",
+  default: "border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_88%,white_12%)]",
+  danger: "border-[var(--danger-stroke)] bg-[color-mix(in_srgb,var(--surface)_88%,white_12%)]",
 };
 
 const joinClasses = (...values: Array<string | undefined>) => values.filter(Boolean).join(" ");
 
 export function AppPageShell({ children, size = "form" }: AppPageShellProps) {
   return (
-    <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.72),transparent_30%),radial-gradient(circle_at_82%_14%,rgba(42,91,215,0.16),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))] dark:bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.05),transparent_28%),radial-gradient(circle_at_82%_14%,rgba(110,160,255,0.12),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))]" />
+    <main className="relative min-h-screen overflow-hidden bg-[var(--bg)] text-[var(--ink)]">
+      <div className="ambient-drift absolute inset-0 -z-20 bg-[radial-gradient(circle_at_18%_16%,var(--glow-1),transparent_30%),radial-gradient(circle_at_84%_10%,var(--glow-2),transparent_26%),linear-gradient(180deg,var(--bg),var(--surface))]" />
+      <div className="editorial-grid absolute inset-0 -z-10 opacity-40" />
       <div
         className={joinClasses(
-          "mx-auto flex w-full flex-col gap-8 px-4 pb-20 pt-8 sm:pt-10 lg:gap-10 lg:pb-24",
+          "mx-auto flex w-full flex-col gap-8 px-4 pb-20 pt-10 sm:pt-12 lg:gap-10 lg:pb-24",
           shellWidths[size],
         )}
       >
@@ -61,9 +62,9 @@ export function AppPageShell({ children, size = "form" }: AppPageShellProps) {
 
 export function AppPageHeader({ eyebrow, title, description, aside }: AppPageHeaderProps) {
   return (
-    <header className="landing-reveal flex flex-col gap-6 border-b border-[var(--stroke-soft)] pb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
+    <header className="landing-reveal section-divider flex flex-col gap-6 border-b border-[var(--stroke-soft)] pb-6 pt-4 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
       <div className="max-w-xl space-y-3">
-        <div className="text-[0.68rem] font-semibold uppercase tracking-[0.32em] text-[var(--muted)]">
+        <div className="text-[0.68rem] font-semibold uppercase tracking-[0.32em] text-[var(--accent-secondary)]">
           {eyebrow}
         </div>
         <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{title}</h1>
@@ -87,7 +88,7 @@ export function AppPageCard({
   return (
     <div
       className={joinClasses(
-        "landing-reveal landing-reveal-delay-1 rounded-[2rem] border shadow-[var(--shadow)]",
+        "landing-reveal landing-reveal-delay-1 rounded-[1.1rem] border shadow-[var(--shadow)]",
         cardTone[tone],
         cardPadding[padding],
         className,
@@ -101,7 +102,7 @@ export function AppPageCard({
 export function AppPageBackLink({ href, label }: AppPageBackLinkProps) {
   return (
     <Link
-      className="inline-flex w-fit rounded-full border border-[var(--stroke)] bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)]"
+      className="inline-flex w-fit rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
       href={href}
     >
       {label}

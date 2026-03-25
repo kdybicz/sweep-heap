@@ -170,9 +170,10 @@ function HouseholdBoardContent() {
   );
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_12%_12%,rgba(255,255,255,0.72),transparent_28%),radial-gradient(circle_at_82%_10%,rgba(42,91,215,0.14),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))] dark:bg-[radial-gradient(circle_at_12%_12%,rgba(255,255,255,0.05),transparent_28%),radial-gradient(circle_at_82%_10%,rgba(110,160,255,0.12),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))]" />
-      <main className="mx-auto grid w-full max-w-[1460px] grid-cols-1 gap-5 px-4 pb-12 pt-6 lg:grid-cols-[280px_1fr] lg:gap-6 lg:pt-8">
+    <div className="relative min-h-screen overflow-hidden bg-[var(--bg)] text-[var(--ink)]">
+      <div className="ambient-drift absolute inset-0 -z-20 bg-[radial-gradient(circle_at_12%_12%,var(--glow-1),transparent_28%),radial-gradient(circle_at_84%_10%,var(--glow-2),transparent_30%),linear-gradient(180deg,var(--bg),var(--surface))]" />
+      <div className="editorial-grid absolute inset-0 -z-10 opacity-35" />
+      <main className="mx-auto grid w-full max-w-[1480px] grid-cols-1 gap-5 px-4 pb-12 pt-6 lg:grid-cols-[292px_1fr] lg:gap-6 lg:px-6 lg:pt-8">
         <HouseholdSidebar
           doneChores={board.sidebar.doneChores}
           loadingToday={board.sidebar.loadingToday}

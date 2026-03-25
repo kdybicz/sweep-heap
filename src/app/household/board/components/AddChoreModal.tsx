@@ -103,7 +103,7 @@ export default function AddChoreModal({
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
+        className="relative w-full max-w-2xl overflow-hidden rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
         ref={dialogRef}
         role="dialog"
         tabIndex={-1}
@@ -121,7 +121,7 @@ export default function AddChoreModal({
         <form className="flex flex-col gap-5 px-6 py-5" onSubmit={onSubmit}>
           {submitError ? <div className={appDangerMessageClass}>{submitError}</div> : null}
 
-          <section className="rounded-[1.5rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-5 sm:p-6">
+          <section className="rounded-[0.9rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-5 sm:p-6">
             <div className="flex flex-col gap-4">
               <div className="space-y-2">
                 <h4 className="text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
@@ -161,7 +161,7 @@ export default function AddChoreModal({
                 </span>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label
-                    className={`cursor-pointer rounded-[1.25rem] border px-4 py-4 text-left transition ${
+                    className={`cursor-pointer rounded-[0.8rem] border px-4 py-4 text-left transition ${
                       newType === "close_on_done"
                         ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_14px_28px_rgba(42,91,215,0.12)]"
                         : "border-[var(--stroke-soft)] bg-[var(--surface)] hover:border-[var(--accent)]"
@@ -183,7 +183,7 @@ export default function AddChoreModal({
                     </div>
                   </label>
                   <label
-                    className={`cursor-pointer rounded-[1.25rem] border px-4 py-4 text-left transition ${
+                    className={`cursor-pointer rounded-[0.8rem] border px-4 py-4 text-left transition ${
                       newType === "stay_open"
                         ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_14px_28px_rgba(42,91,215,0.12)]"
                         : "border-[var(--stroke-soft)] bg-[var(--surface)] hover:border-[var(--accent)]"
@@ -214,7 +214,7 @@ export default function AddChoreModal({
             </div>
           </section>
 
-          <section className="rounded-[1.5rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-5 sm:p-6">
+          <section className="rounded-[0.9rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-5 sm:p-6">
             <div className="flex flex-col gap-4">
               <div className="space-y-2">
                 <h4 className="text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
@@ -333,7 +333,7 @@ export default function AddChoreModal({
             </div>
           </section>
 
-          <section className="rounded-[1.5rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-5 sm:p-6">
+          <section className="rounded-[0.9rem] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] p-5 sm:p-6">
             <div className="flex flex-col gap-4">
               <div className="space-y-2">
                 <h4 className="text-lg font-semibold tracking-[-0.02em] text-[var(--ink)]">
