@@ -4,16 +4,20 @@ import EmailLayout from "@/lib/email/EmailLayout";
 import { emailColors } from "@/lib/email/email-theme";
 import { renderEmailTemplate } from "@/lib/email/render-email-template";
 
-export const renderDeleteAccountEmail = async ({
-  confirmationUrl,
-  expiresInMinutes,
-  host,
-}: {
+export type DeleteAccountEmailProps = {
   confirmationUrl: string;
   expiresInMinutes: number;
   host: string;
-}) =>
-  renderEmailTemplate(
+};
+
+const deleteAccountPreviewProps = {
+  confirmationUrl: "https://example.com/delete?token=preview",
+  expiresInMinutes: 30,
+  host: "example.com",
+} satisfies DeleteAccountEmailProps;
+
+function DeleteAccountEmail({ confirmationUrl, expiresInMinutes, host }: DeleteAccountEmailProps) {
+  return (
     <EmailLayout
       accentColor={emailColors.danger}
       actionHint="Only continue if you want to permanently remove your account from The Sweep Heap."
@@ -61,5 +65,15 @@ export const renderDeleteAccountEmail = async ({
           too.
         </Text>
       </Section>
-    </EmailLayout>,
+    </EmailLayout>
   );
+}
+
+const DeleteAccountEmailPreview = Object.assign(DeleteAccountEmail, {
+  PreviewProps: deleteAccountPreviewProps,
+});
+
+export default DeleteAccountEmailPreview;
+
+export const renderDeleteAccountEmail = async (props: DeleteAccountEmailProps) =>
+  renderEmailTemplate(<DeleteAccountEmail {...props} />);

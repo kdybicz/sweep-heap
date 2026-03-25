@@ -4,16 +4,20 @@ import EmailLayout from "@/lib/email/EmailLayout";
 import { emailColors } from "@/lib/email/email-theme";
 import { renderEmailTemplate } from "@/lib/email/render-email-template";
 
-export const renderMagicLinkEmail = async ({
-  email,
-  host,
-  url,
-}: {
+export type MagicLinkEmailProps = {
   email: string;
   host: string;
   url: string;
-}) =>
-  renderEmailTemplate(
+};
+
+const magicLinkPreviewProps = {
+  email: "alex@example.com",
+  host: "example.com",
+  url: "https://example.com/auth/callback?token=preview",
+} satisfies MagicLinkEmailProps;
+
+function MagicLinkEmail({ email, host, url }: MagicLinkEmailProps) {
+  return (
     <EmailLayout
       accentColor={emailColors.blue}
       actionHint="For the smoothest handoff, open it on the same device where you requested it."
@@ -49,5 +53,15 @@ export const renderMagicLinkEmail = async ({
           This link is meant for the email address that received it.
         </Text>
       </Section>
-    </EmailLayout>,
+    </EmailLayout>
   );
+}
+
+const MagicLinkEmailPreview = Object.assign(MagicLinkEmail, {
+  PreviewProps: magicLinkPreviewProps,
+});
+
+export default MagicLinkEmailPreview;
+
+export const renderMagicLinkEmail = async (props: MagicLinkEmailProps) =>
+  renderEmailTemplate(<MagicLinkEmail {...props} />);

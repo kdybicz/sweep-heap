@@ -4,18 +4,27 @@ import EmailLayout from "@/lib/email/EmailLayout";
 import { emailColors } from "@/lib/email/email-theme";
 import { renderEmailTemplate } from "@/lib/email/render-email-template";
 
-export const renderHouseholdInviteEmail = async ({
-  host,
-  householdName,
-  inviteUrl,
-  inviterName,
-}: {
+export type HouseholdInviteEmailProps = {
   host: string;
   householdName: string;
   inviteUrl: string;
   inviterName: string;
-}) =>
-  renderEmailTemplate(
+};
+
+const householdInvitePreviewProps = {
+  host: "example.com",
+  householdName: "Sunday House",
+  inviteUrl: "https://example.com/invite?token=preview",
+  inviterName: "Alex",
+} satisfies HouseholdInviteEmailProps;
+
+function HouseholdInviteEmail({
+  host,
+  householdName,
+  inviteUrl,
+  inviterName,
+}: HouseholdInviteEmailProps) {
+  return (
     <EmailLayout
       accentColor={emailColors.coral}
       actionHint="If you need to sign in first, use the same email address that received this invite."
@@ -51,5 +60,15 @@ export const renderHouseholdInviteEmail = async ({
           Accept the invite when you are ready to join this household.
         </Text>
       </Section>
-    </EmailLayout>,
+    </EmailLayout>
   );
+}
+
+const HouseholdInviteEmailPreview = Object.assign(HouseholdInviteEmail, {
+  PreviewProps: householdInvitePreviewProps,
+});
+
+export default HouseholdInviteEmailPreview;
+
+export const renderHouseholdInviteEmail = async (props: HouseholdInviteEmailProps) =>
+  renderEmailTemplate(<HouseholdInviteEmail {...props} />);

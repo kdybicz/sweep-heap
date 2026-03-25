@@ -21,13 +21,14 @@ fi; \
 $(1)'
 endef
 
-.PHONY: help install dev db-generate db-migrate db-reset seed-chores db-studio typecheck test build lint lint-fix format format-write dev-check dev-fix
+.PHONY: help install dev email-dev db-generate db-migrate db-reset seed-chores db-studio typecheck test build lint lint-fix format format-write dev-check dev-fix
 
 help:
 	@printf '%s\n' \
 	  'Available targets:' \
 	  '  install      Install dependencies' \
 	  '  dev          Run Next.js dev server' \
+	  '  email-dev    Run React Email preview server' \
 	  '  db-generate  Generate Drizzle migrations' \
 	  '  db-migrate   Apply Drizzle migrations' \
 	  '  db-reset     Reset DB schemas and migrate' \
@@ -44,6 +45,9 @@ install:
 
 dev:
 	$(call run,yarn dev)
+
+email-dev:
+	$(call run,yarn email:dev)
 
 db-migrate:
 	$(call run,yarn db:migrate)

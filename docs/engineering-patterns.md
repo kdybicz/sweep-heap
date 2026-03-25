@@ -37,6 +37,7 @@ Template standard:
 - Use shared React Email templates under `src/lib/email/templates/*` instead of hand-built HTML strings.
 - Reuse the shared layout/theme in `src/lib/email/EmailLayout.tsx` so transactional emails keep one visual system and one maintenance surface.
 - Render both `html` and `text` from the same template source via `@react-email/render` to reduce copy drift between MIME parts.
+- Keep each previewable template file default-exported and attach `PreviewProps` so `make email-dev` can render it locally.
 
 Rules for `secure`:
 
