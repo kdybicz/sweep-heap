@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+env:
+  AUTH_SECRET: ci-auth-secret
+  AUTH_URL: http://localhost:3000
+  DATABASE_URL: postgresql://chores:chores@localhost:5432/chores
+  SMTP_FROM: The Sweep Heap <no-reply@example.com>
+  SMTP_HOST: localhost
+  YARN_CACHE_FOLDER: .yarn/cache
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # actions/checkout@v6.0.2
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up CI
+        uses: ./.github/actions/setup-ci
+
+      - name: Run lint
+        run: make lint
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # actions/checkout@v6.0.2
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up CI
+        uses: ./.github/actions/setup-ci
+
+      - name: Run tests
+        run: make test
+
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # actions/checkout@v6.0.2
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up CI
+        uses: ./.github/actions/setup-ci
+
+      - name: Run typecheck
+        run: make typecheck

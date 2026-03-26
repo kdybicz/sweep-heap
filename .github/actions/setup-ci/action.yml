@@ -1,0 +1,30 @@
+name: Setup CI
+description: Set up Node, restore Yarn cache, and install dependencies
+
+runs:
+  using: composite
+  steps:
+    # actions/setup-node@v6.3.0
+    - name: Set up Node.js
+      uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+      with:
+        node-version-file: .nvmrc
+
+    - name: Enable Corepack and Yarn
+      shell: bash
+      run: corepack enable && corepack prepare yarn@4.12.0 --activate
+
+    # actions/cache@v5.0.4
+    - name: Restore Yarn cache
+      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
+      with:
+        path: |
+          .yarn/cache
+          .yarn/install-state.gz
+        key: ${{ runner.os }}-node-${{ hashFiles('.nvmrc') }}-yarn-${{ hashFiles('yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-node-${{ hashFiles('.nvmrc') }}-yarn-
+
+    - name: Install dependencies
+      shell: bash
+      run: make install
