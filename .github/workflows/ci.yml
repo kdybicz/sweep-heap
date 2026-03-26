@@ -13,6 +13,7 @@ env:
   DATABASE_URL: postgresql://chores:chores@localhost:5432/chores
   SMTP_FROM: The Sweep Heap <no-reply@example.com>
   SMTP_HOST: localhost
+  YARN_CACHE_FOLDER: .yarn/cache
 
 jobs:
   lint:
@@ -24,17 +25,8 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      # actions/setup-node@v6.3.0
-      - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
-        with:
-          node-version-file: .nvmrc
-
-      - name: Enable Corepack and Yarn
-        run: corepack enable && corepack prepare yarn@4.12.0 --activate
-
-      - name: Install dependencies
-        run: make install
+      - name: Set up CI
+        uses: ./.github/actions/setup-ci
 
       - name: Run lint
         run: make lint
@@ -48,17 +40,23 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      # actions/setup-node@v6.3.0
-      - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
-        with:
-          node-version-file: .nvmrc
-
-      - name: Enable Corepack and Yarn
-        run: corepack enable && corepack prepare yarn@4.12.0 --activate
-
-      - name: Install dependencies
-        run: make install
+      - name: Set up CI
+        uses: ./.github/actions/setup-ci
 
       - name: Run tests
         run: make test
+
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # actions/checkout@v6.0.2
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up CI
+        uses: ./.github/actions/setup-ci
+
+      - name: Run typecheck
+        run: make typecheck

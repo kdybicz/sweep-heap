@@ -95,7 +95,7 @@ make dev
 ## Useful Commands
 
 - Prefer `make` targets first (especially in agent/container environments); use direct `yarn` only when an equivalent `make` target is missing.
-- GitHub Actions CI runs `make lint` and `make test` as separate jobs on pushes and pull requests.
+- `make install` uses Yarn's `--immutable` mode, and GitHub Actions runs separate `make lint`, `make test`, and `make typecheck` jobs with a shared setup action and Yarn cache.
 - `make dev-check` - runs format check, lint, tests, and typecheck
 - `make dev-fix` - auto-writes format/lint fixes, then runs tests and typecheck
 - `make db-generate` - generates migration files from `src/lib/drizzle/schema.ts`
