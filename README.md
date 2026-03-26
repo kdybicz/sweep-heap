@@ -2,8 +2,13 @@
 
 This is a Next.js 16 app for shared household chores, backed by PostgreSQL and Better Auth magic-link sign-in.
 
+<p align="center">
+  <img src="docs/images/weekly-board.png" alt="Weekly household chore board with progress sidebar and day columns" width="100%" />
+</p>
+
 ## Project Docs
 
+- `docs/product-tour.md` - visual walkthrough of the main product flows.
 - `docs/requirements.md` - product requirements and behavior.
 - `docs/requirements-quick-reference.md` - condensed product rules.
 - `docs/engineering-patterns.md` - canonical implementation patterns and contracts.
