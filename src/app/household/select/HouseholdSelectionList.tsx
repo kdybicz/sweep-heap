@@ -72,27 +72,27 @@ export default function HouseholdSelectionList({ households }: { households: Hou
             return (
               <button
                 key={household.id}
-                className="flex w-full items-center justify-between border border-[var(--stroke-soft)] bg-[var(--surface)] px-5 py-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center justify-between rounded-[var(--radius-md)] border border-[var(--stroke-soft)] bg-[var(--surface)] px-5 py-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)] disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={activeHouseholdId !== null}
                 onClick={() => handleSelect(household.id)}
                 type="button"
               >
                 <span className="flex min-w-0 items-center gap-4">
-                  <span className="flex h-12 w-12 items-center justify-center border border-[var(--stroke-soft)] bg-[var(--accent-secondary-soft)] text-xl">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--accent-secondary-soft)] text-xl">
                     {household.icon?.trim() || "H"}
                   </span>
                   <span className="flex min-w-0 flex-col gap-1">
                     <span className="truncate text-sm font-semibold text-[var(--ink)]">
                       {household.name.trim() || "Untitled household"}
                     </span>
-                    <span className="flex flex-wrap gap-2 text-[0.7rem] uppercase tracking-[0.18em] text-[var(--muted)]">
+                    <span className="flex flex-wrap gap-2 text-[0.7rem] uppercase tracking-[0.08em] text-[var(--muted)]">
                       <span>{household.role}</span>
                       <span aria-hidden="true">-</span>
                       <span>{household.timeZone}</span>
                     </span>
                   </span>
                 </span>
-                <span className="border border-[var(--stroke-soft)] bg-[var(--accent-soft)] px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-[var(--ink)]">
+                <span className="rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--accent-soft)] px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--ink)]">
                   {isLoading ? "Switching..." : "Open"}
                 </span>
               </button>

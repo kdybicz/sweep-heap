@@ -41,7 +41,7 @@ export default function BoardChoreButton({
 
   return (
     <button
-      className={`flex min-w-0 items-center justify-between gap-2 border px-2.5 py-2 text-left text-[0.7rem] font-semibold transition ${shapeClassName ?? "rounded-[0.72rem]"} ${getChoreClasses(chore)} ${className ?? ""}`}
+      className={`flex min-w-0 items-center justify-between gap-2 border px-2.5 py-2 text-left text-[0.7rem] font-semibold transition ${shapeClassName ?? "rounded-[var(--radius-md)]"} ${getChoreClasses(chore)} ${className ?? ""}`}
       data-chore-preview-date={chore.occurrence_date}
       data-chore-preview-id={chore.id}
       data-chore-preview-start={chore.occurrence_start_date}
@@ -51,7 +51,7 @@ export default function BoardChoreButton({
     >
       <div className="flex min-w-0 flex-col gap-1">
         <span className={`truncate ${showLineThrough ? "line-through" : ""}`}>{chore.title}</span>
-        <div className="flex flex-wrap items-center gap-2 text-[0.55rem] uppercase tracking-[0.12em] text-[var(--muted)]">
+        <div className="flex flex-wrap items-center gap-2 text-[0.55rem] uppercase tracking-[0.08em] text-[var(--muted)]">
           <span className="inline-flex items-center gap-1">
             <StateIcon className="h-3 w-3" chore={chore} />
             {getChoreStateLabel(chore)}

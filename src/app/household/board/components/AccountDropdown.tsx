@@ -24,10 +24,10 @@ const getInitials = (value: string) => {
 };
 
 const triggerClassName =
-  "flex cursor-pointer list-none items-center gap-2 rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--card)] px-2 py-1 pr-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)] [&::-webkit-details-marker]:hidden";
+  "flex cursor-pointer list-none items-center gap-2 rounded-[var(--radius-md)] border border-[var(--stroke)] bg-[var(--card)] px-2 py-1 pr-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)] [&::-webkit-details-marker]:hidden";
 
 const itemClassName =
-  "block rounded-[0.65rem] px-3 py-2 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-strong)]";
+  "block rounded-[var(--radius-sm)] px-3 py-2 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-strong)]";
 
 export default function AccountDropdown({ dropdownGroupName, userName }: AccountDropdownProps) {
   const detailsRef = useDetailsDropdown();
@@ -39,7 +39,7 @@ export default function AccountDropdown({ dropdownGroupName, userName }: Account
   return (
     <details {...detailsGroupProps} className="relative z-40" ref={detailsRef}>
       <summary className={triggerClassName}>
-        <span className="inline-flex h-6 w-6 items-center justify-center rounded-[0.45rem] border border-[var(--stroke-soft)] bg-[var(--accent-secondary-soft)] text-[0.62rem] font-bold uppercase tracking-[0.08em]">
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--accent-secondary-soft)] text-[0.62rem] font-bold uppercase tracking-[0.08em]">
           {initials}
         </span>
         <span className="hidden max-w-28 truncate text-xs font-semibold normal-case tracking-normal text-[var(--muted)] lg:inline">
@@ -50,8 +50,8 @@ export default function AccountDropdown({ dropdownGroupName, userName }: Account
         </span>
       </summary>
 
-      <div className="absolute right-0 z-50 mt-2 min-w-52 rounded-[0.9rem] border border-[var(--stroke)] bg-[var(--surface)] py-1 shadow-[var(--shadow-soft)]">
-        <div className="border-b border-[var(--stroke-soft)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+      <div className="absolute right-0 z-50 mt-2 min-w-52 rounded-[var(--radius-lg)] border border-[var(--stroke)] bg-[var(--surface)] py-1 shadow-[var(--shadow-soft)]">
+        <div className="border-b border-[var(--stroke-soft)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
           {label}
         </div>
         {shortcuts.map((shortcut) =>
