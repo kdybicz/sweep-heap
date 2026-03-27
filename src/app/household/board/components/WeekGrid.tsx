@@ -40,28 +40,30 @@ export default function WeekGrid({
   );
 
   return (
-    <div className="overflow-hidden rounded-[1.05rem] border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_86%,white_14%)] p-3 shadow-[var(--shadow)] sm:p-4">
-      <div className="overflow-hidden border border-[var(--stroke-soft)] bg-[var(--card)]">
+    <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_86%,white_14%)] p-3 shadow-[var(--shadow)] sm:p-4">
+      <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--stroke-soft)] bg-[var(--card)]">
         <div className="overflow-x-auto">
           <div className="min-w-[980px]">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--stroke-soft)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent-secondary-soft)_70%,white_30%),color-mix(in_srgb,var(--surface)_82%,white_18%))] px-4 py-4">
               <div>
-                <div className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent-secondary)]">
+                <div className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[var(--accent-secondary)]">
                   Weekly board
                 </div>
-                <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em]">{rangeLabel}</h2>
+                <h2 className="font-display mt-1 text-2xl font-semibold tracking-[-0.04em]">
+                  {rangeLabel}
+                </h2>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   aria-label="Previous week"
-                  className="rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
+                  className="rounded-[var(--radius-md)] border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
                   onClick={onPreviousWeek}
                   type="button"
                 >
                   {"<"}
                 </button>
                 <button
-                  className="rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
+                  className="rounded-[var(--radius-md)] border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
                   onClick={onResetWeek}
                   type="button"
                 >
@@ -69,7 +71,7 @@ export default function WeekGrid({
                 </button>
                 <button
                   aria-label="Next week"
-                  className="rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
+                  className="rounded-[var(--radius-md)] border border-[var(--stroke)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
                   onClick={onNextWeek}
                   type="button"
                 >
@@ -99,9 +101,9 @@ export default function WeekGrid({
                       <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
                         <span>{day.toFormat("ccc")}</span>
                         <span
-                          className={`inline-flex h-8 w-8 items-center justify-center border text-xs font-semibold ${
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-full)] border text-xs font-semibold ${
                             isToday
-                              ? "border-transparent bg-[linear-gradient(135deg,var(--accent),var(--accent-secondary))] text-white"
+                              ? "border-transparent bg-[var(--accent)] text-white"
                               : "border-transparent text-[var(--ink)]"
                           }`}
                         >

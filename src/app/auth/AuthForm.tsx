@@ -61,7 +61,7 @@ export default function AuthForm() {
     <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
       <div className="grid gap-3">
         <label
-          className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[var(--accent-secondary)]"
+          className="text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--accent-secondary)]"
           htmlFor="auth-email"
         >
           Email address

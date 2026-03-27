@@ -126,7 +126,7 @@ export default async function HouseholdInvitePage({
               </p>
             )}
             {initialError ? (
-              <div className="rounded-2xl border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
+              <div className="rounded-[var(--radius-lg)] border border-[var(--danger-stroke)] bg-[var(--danger-bg)] px-4 py-3 text-xs font-semibold text-[var(--danger-ink)]">
                 {initialError}
               </div>
             ) : null}
@@ -138,7 +138,7 @@ export default async function HouseholdInvitePage({
                 value={switchAccountFailureRedirectTo}
               />
               <button
-                className="inline-flex w-fit rounded-[0.75rem] border border-transparent bg-[linear-gradient(135deg,var(--accent),var(--accent-secondary))] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_18px_28px_rgba(40,94,240,0.22)]"
+                className="inline-flex w-fit rounded-[var(--radius-md)] border border-transparent bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(217,90,58,0.2)]"
                 type="submit"
               >
                 Sign out and continue

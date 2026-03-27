@@ -8,10 +8,10 @@ This is a Next.js 16 app for shared household chores, backed by PostgreSQL and B
 
 ## Project Docs
 
-- `docs/product-tour.md` - visual walkthrough of the main product flows.
-- `docs/requirements.md` - product requirements and behavior.
-- `docs/requirements-quick-reference.md` - condensed product rules.
-- `docs/engineering-patterns.md` - canonical implementation patterns and contracts.
+- [`docs/product-tour.md`](docs/product-tour.md) - visual walkthrough of the main product flows.
+- [`docs/requirements.md`](docs/requirements.md) - product requirements and behavior.
+- [`docs/requirements-quick-reference.md`](docs/requirements-quick-reference.md) - condensed product rules.
+- [`docs/engineering-patterns.md`](docs/engineering-patterns.md) - canonical implementation patterns and contracts.
 
 ## Local Environment Requirements
 

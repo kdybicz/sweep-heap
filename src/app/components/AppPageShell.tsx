@@ -64,10 +64,12 @@ export function AppPageHeader({ eyebrow, title, description, aside }: AppPageHea
   return (
     <header className="landing-reveal section-divider flex flex-col gap-6 border-b border-[var(--stroke-soft)] pb-6 pt-4 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
       <div className="max-w-xl space-y-3">
-        <div className="text-[0.68rem] font-semibold uppercase tracking-[0.32em] text-[var(--accent-secondary)]">
+        <div className="text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--accent-secondary)]">
           {eyebrow}
         </div>
-        <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{title}</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+          {title}
+        </h1>
         {description ? (
           <p className="max-w-lg text-sm leading-7 text-[var(--muted)] sm:text-base">
             {description}
@@ -88,7 +90,7 @@ export function AppPageCard({
   return (
     <div
       className={joinClasses(
-        "landing-reveal landing-reveal-delay-1 rounded-[1.1rem] border shadow-[var(--shadow)]",
+        "landing-reveal landing-reveal-delay-1 rounded-[var(--radius-lg)] border shadow-[var(--shadow)]",
         cardTone[tone],
         cardPadding[padding],
         className,
@@ -102,7 +104,7 @@ export function AppPageCard({
 export function AppPageBackLink({ href, label }: AppPageBackLinkProps) {
   return (
     <Link
-      className="inline-flex w-fit rounded-[0.75rem] border border-[var(--stroke)] bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
+      className="inline-flex w-fit rounded-[var(--radius-md)] border border-[var(--stroke)] bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface-weak)]"
       href={href}
     >
       {label}

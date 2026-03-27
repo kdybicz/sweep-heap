@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Space_Grotesk } from "next/font/google";
+import { DM_Sans, Fraunces, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import Script from "next/script";
 
@@ -7,13 +7,18 @@ import { THEME_PREFERENCE_COOKIE_KEY, THEME_PREFERENCE_STORAGE_KEY } from "@/lib
 
 import "./globals.css";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
 });
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
@@ -53,7 +58,9 @@ export default async function RootLayout({
 
   return (
     <html lang="en" data-theme={initialTheme} suppressHydrationWarning>
-      <body className={`${spaceGrotesk.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${dmSans.variable} ${fraunces.variable} ${jetbrainsMono.variable} antialiased`}
+      >
         <Script id="theme-preference" strategy="beforeInteractive">
           {themePreferenceScript}
         </Script>

@@ -70,7 +70,7 @@ export default function HouseholdIconPicker({
             ) : null}
             <span>{selectedIcon ? "Selected icon" : "Choose an icon"}</span>
           </span>
-          <span className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--muted)]">
+          <span className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
             Pick
           </span>
         </button>
@@ -86,14 +86,14 @@ export default function HouseholdIconPicker({
           <div
             aria-labelledby={titleId}
             aria-modal="true"
-            className="relative w-full max-w-md overflow-hidden rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
+            className="relative w-full max-w-md overflow-hidden rounded-[var(--radius-lg)] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow)]"
             ref={dialogRef}
             role="dialog"
             tabIndex={-1}
           >
             <div className="border-b border-[var(--stroke-soft)] px-6 py-5">
               <h3
-                className="text-xl font-semibold tracking-[-0.02em] text-[var(--ink)]"
+                className="font-display text-xl font-semibold tracking-[-0.02em] text-[var(--ink)]"
                 id={titleId}
               >
                 Choose an icon
@@ -106,7 +106,7 @@ export default function HouseholdIconPicker({
               <div className="grid grid-cols-6 gap-2">
                 {householdIcons.map((icon) => (
                   <button
-                    className="rounded-[0.75rem] border border-[var(--stroke-soft)] bg-[var(--card)] px-2 py-2 text-xl leading-none transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface)]"
+                    className="rounded-[var(--radius-md)] border border-[var(--stroke-soft)] bg-[var(--card)] px-2 py-2 text-xl leading-none transition hover:-translate-y-0.5 hover:border-[var(--accent-secondary)] hover:bg-[var(--surface)]"
                     key={icon}
                     onClick={() => {
                       onChange(icon);

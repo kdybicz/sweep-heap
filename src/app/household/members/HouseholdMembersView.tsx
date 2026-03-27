@@ -68,11 +68,11 @@ export default function HouseholdMembersView({
         description="Search the current roster, send a fresh invite, or review what is still pending."
         title="Roster controls"
       >
-        <div className="flex flex-wrap gap-3 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
-          <span className="rounded-[0.7rem] border border-[var(--stroke-soft)] bg-[var(--accent-secondary-soft)] px-3 py-1.5 text-[var(--ink)]">
+        <div className="flex flex-wrap gap-3 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+          <span className="rounded-[var(--radius-md)] border border-[var(--stroke-soft)] bg-[var(--accent-secondary-soft)] px-3 py-1.5 text-[var(--ink)]">
             {activeMembersCount} active
           </span>
-          <span className="rounded-[0.7rem] border border-[var(--stroke-soft)] bg-[var(--accent-gold-soft)] px-3 py-1.5 text-[var(--ink)]">
+          <span className="rounded-[var(--radius-md)] border border-[var(--stroke-soft)] bg-[var(--accent-gold-soft)] px-3 py-1.5 text-[var(--ink)]">
             {pendingInvitesCount} pending
           </span>
         </div>

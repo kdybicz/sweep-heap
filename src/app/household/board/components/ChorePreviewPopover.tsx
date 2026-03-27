@@ -1602,7 +1602,7 @@ export default function ChorePreviewPopover({
     <>
       <div
         aria-label="Chore preview"
-        className="fixed z-30 max-w-[calc(100vw-2rem)] rounded-[1rem] border border-[var(--stroke)] bg-[var(--surface)] shadow-[0_16px_36px_-24px_rgba(23,32,72,0.42)]"
+        className="fixed z-30 max-w-[calc(100vw-2rem)] rounded-[var(--radius-lg)] border border-[var(--stroke)] bg-[var(--surface)] shadow-[var(--shadow-lifted)]"
         onMouseDownCapture={(event) => {
           if (
             isEditingTitle &&
@@ -1747,17 +1747,17 @@ export default function ChorePreviewPopover({
                   {getChorePreviewDateLabel(chore)}
                 </div>
                 <div className="pt-2">
-                  <span className="inline-flex items-center gap-1 rounded-[0.65rem] border border-[var(--stroke-soft)] bg-[var(--surface-strong)]/45 px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                  <span className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--surface-strong)]/45 px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
                     <StateIcon chore={chore} className="h-3 w-3" />
                     {statusLabel}
                   </span>
                 </div>
                 {repeatLabel ? (
                   <div className="pt-1.5">
-                    <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
+                    <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
                       <span
                         aria-hidden="true"
-                        className="h-1.5 w-1.5 rounded-[2px] bg-[var(--accent)]/70"
+                        className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]/70"
                       />
                       {repeatLabel}
                     </span>
@@ -1772,17 +1772,17 @@ export default function ChorePreviewPopover({
                   {getChorePreviewDateLabel(chore)}
                 </div>
                 <div className="pt-2">
-                  <span className="inline-flex items-center gap-1 rounded-[0.65rem] border border-[var(--stroke-soft)] bg-[var(--surface-strong)]/45 px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                  <span className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--surface-strong)]/45 px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
                     <StateIcon chore={chore} className="h-3 w-3" />
                     {statusLabel}
                   </span>
                 </div>
                 {repeatLabel ? (
                   <div className="pt-1.5">
-                    <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
+                    <span className="inline-flex items-center gap-2 text-[0.72rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
                       <span
                         aria-hidden="true"
-                        className="h-1.5 w-1.5 rounded-[2px] bg-[var(--accent)]/70"
+                        className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]/70"
                       />
                       {repeatLabel}
                     </span>
@@ -1910,7 +1910,7 @@ export default function ChorePreviewPopover({
         <div className="border-t border-[var(--stroke-soft)] px-4 py-3" ref={notesEditorRef}>
           {canManageChores && isEditingNotes ? (
             <textarea
-              className="min-h-[110px] w-full resize-none rounded-[1.1rem] border border-[var(--stroke)] bg-[var(--surface)] px-4 py-3 text-sm leading-7 text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:shadow-[0_0_0_1px_var(--accent)]"
+              className="min-h-[110px] w-full resize-none rounded-[var(--radius-lg)] border border-[var(--stroke)] bg-[var(--surface)] px-4 py-3 text-sm leading-7 text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:shadow-[0_0_0_1px_var(--accent)]"
               disabled={isInteractionLocked}
               onBlur={(event) => {
                 if (discardOnBlurRef.current) {
@@ -1932,7 +1932,7 @@ export default function ChorePreviewPopover({
             />
           ) : canManageChores ? (
             <button
-              className={`block w-full rounded-[1rem] whitespace-pre-wrap text-left text-sm leading-7 transition hover:bg-[var(--surface-strong)]/30 ${
+              className={`block w-full rounded-[var(--radius-lg)] whitespace-pre-wrap text-left text-sm leading-7 transition hover:bg-[var(--surface-strong)]/30 ${
                 trimmedNotesDraft
                   ? "px-0 text-[var(--muted)]"
                   : "px-0 italic text-[var(--muted)]/70"
@@ -1977,7 +1977,7 @@ export default function ChorePreviewPopover({
           {canManageChores ? (
             <button
               aria-label="Delete chore"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-[0.75rem] border border-[var(--danger-stroke)] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--danger-stroke)] text-[var(--danger-ink)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
               data-preview-post-action="delete"
               disabled={isInteractionLocked}
               onClick={() => {
@@ -1997,11 +1997,11 @@ export default function ChorePreviewPopover({
       </div>
       {scopePopupMode ? (
         <div
-          className="fixed z-40 w-[min(18rem,calc(100vw-2rem))] rounded-[0.9rem] border border-[var(--stroke)] bg-[var(--surface)] px-4 py-4 shadow-[0_22px_38px_-24px_rgba(23,32,72,0.52)]"
+          className="fixed z-40 w-[min(18rem,calc(100vw-2rem))] rounded-[var(--radius-md)] border border-[var(--stroke)] bg-[var(--surface)] px-4 py-4 shadow-[var(--shadow-lifted)]"
           ref={scopePopupRef}
           style={{ left: scopePopupLeft, top: scopePopupTop, width: scopePopupWidth }}
         >
-          <div className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+          <div className="text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
             {scopePopupMode === "date"
               ? "Apply date changes"
               : scopePopupMode === "titleType"
