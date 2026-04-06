@@ -24,9 +24,9 @@
 - `docs/requirements.md` is the stable source for current behavior, constraints, and known gaps.
 - GitHub Issues are the execution backlog and sequencing plan.
 - Active backlog:
-  - #8: integration and end-to-end coverage hardening.
-  - #9: API rate limiting and abuse protections.
-  - #10: stricter DB constraints with a staged migration rollout.
+  - [#8](https://github.com/kdybicz/sweep-heap/issues/8): integration and end-to-end coverage hardening.
+  - [#9](https://github.com/kdybicz/sweep-heap/issues/9): API rate limiting and abuse protections.
+  - [#10](https://github.com/kdybicz/sweep-heap/issues/10): stricter DB constraints with a staged migration rollout.
 - Workflow rule: when completing an issue tracked here, update this file in the same change if behavior, constraints, or caveats changed.
 
 ## Tech and Architecture Baseline
@@ -253,7 +253,7 @@
 - Current baseline:
   - No dedicated app-level API rate limiting middleware is implemented.
   - Protection mainly relies on authentication checks and route-level validation.
-- Planned hardening (#9):
+- Planned hardening ([#9](https://github.com/kdybicz/sweep-heap/issues/9)):
   - Add shared rate limiting for sensitive routes (magic link auth, household invite create/resend, account deletion request/confirm).
   - Optionally complement with edge/WAF protections.
 
@@ -283,7 +283,7 @@
 - Colocate tests with the source they validate (for example `route.ts` with `route.test.ts`).
 - Mock repositories in service tests; avoid DB in unit tests.
 - Project default gate for code changes: `make dev-fix` (format, lint fix, tests, typecheck).
-- Coverage expansion is tracked in #8 (Postgres-backed integration tests plus minimal auth/chore/account-deletion E2E flow).
+- Coverage expansion is tracked in [#8](https://github.com/kdybicz/sweep-heap/issues/8) (Postgres-backed integration tests plus minimal auth/chore/account-deletion E2E flow).
 
 ## Known Gaps and Implementation Caveats
 - Concurrency conflict semantics are not implemented as explicit retryable conflicts; current writes are effectively last-write-wins for exception upserts.
@@ -292,7 +292,7 @@
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
 - Cancel actions are available from the board chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
 - Server-enforced completion undo is currently disabled; `UndoToastStack` remains in the codebase but is not wired into the board UI.
-- Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in #10.
+- Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in [#10](https://github.com/kdybicz/sweep-heap/issues/10).
 
 ## Decision Notes for Future Work
 - If recurrence behavior is changed, update both `src/lib/occurrences.ts` and the overlap prefilters in `src/lib/repositories/chore-repository.ts`, then align tests plus API/UI assumptions.
