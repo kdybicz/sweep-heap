@@ -1,5 +1,8 @@
 # The Sweep Heap
 
+> [!WARNING]
+> This repo is a vibecode testing ground. Expect ambitious ideas, questionable decisions, and occasional acts of frontend chaos. Proceed at your own risk.
+
 This is a Next.js 16 app for shared household chores, backed by PostgreSQL and Better Auth magic-link sign-in.
 
 <p align="center">
