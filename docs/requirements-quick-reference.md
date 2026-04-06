@@ -113,8 +113,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Board UI exposes cancel actions from the chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
 
 ## Backlog Links
-- Active execution backlog: `docs/todo.md`.
-- Stable IDs in use: `TODO-1`, `TODO-2`, `TODO-3`.
+- Active execution backlog: GitHub Issues #8, #9, and #10.
+- `docs/todo.md` is a pointer to the issue backlog, not a separate source of backlog truth.
 
 ## Change Checklist
 - Keep route handlers thin and transport-focused.
