@@ -29,23 +29,23 @@
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.1",
-    "@react-email/components": "1.0.11",
-    "@react-email/render": "2.0.5",
-    "@tanstack/react-query": "5.96.2",
-    "better-auth": "1.5.6",
+    "@react-email/components": "1.0.12",
+    "@react-email/render": "2.0.8",
+    "@tanstack/react-query": "5.100.9",
+    "better-auth": "1.6.9",
     "drizzle-orm": "0.45.2",
     "luxon": "3.7.2",
-    "next": "16.2.2",
-    "nodemailer": "8.0.4",
+    "next": "16.2.4",
+    "nodemailer": "8.0.7",
     "pg": "8.20.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "zod": "4.3.6"
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "zod": "4.4.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.10",
-    "@react-email/preview-server": "5.2.10",
-    "@tailwindcss/postcss": "4.2.2",
+    "@biomejs/biome": "2.4.14",
+    "@react-email/preview-server": "5.2.11",
+    "@tailwindcss/postcss": "4.2.4",
     "@types/luxon": "3.7.1",
     "@types/node": "24.12.2",
     "@types/nodemailer": "7.0.11",
@@ -53,14 +53,13 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "drizzle-kit": "0.31.10",
-    "jsdom": "29.0.1",
-    "react-email": "5.2.10",
-    "tailwindcss": "4.2.2",
-    "typescript": "6.0.2",
-    "vitest": "4.1.2"
+    "jsdom": "29.1.1",
+    "react-email": "5.2.11",
+    "tailwindcss": "4.2.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
   },
   "resolutions": {
-    "defu": "6.1.6",
-    "esbuild": "0.27.3"
+    "vite": "8.0.5"
   }
 }
