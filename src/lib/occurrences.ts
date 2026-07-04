@@ -23,7 +23,10 @@ const toDate = (value: string, timeZone: string) =>
 const spanDaysFromDates = (start: DateTime, end: DateTime) =>
   Math.max(Math.round(end.diff(start, "days").days), 1);
 
-const advance = (value: DateTime, repeatRule: RepeatRule) => {
+const advance = <IsValid extends boolean>(
+  value: DateTime<IsValid>,
+  repeatRule: RepeatRule,
+): DateTime<IsValid> => {
   if (repeatRule === "day") {
     return value.plus({ days: 1 });
   }
