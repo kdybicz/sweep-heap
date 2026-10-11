@@ -16,6 +16,8 @@ This is a Next.js 16 app for shared household chores, backed by PostgreSQL and B
 - [`docs/requirements-quick-reference.md`](docs/requirements-quick-reference.md) - condensed product rules.
 - [`docs/engineering-patterns.md`](docs/engineering-patterns.md) - canonical implementation patterns and contracts.
 - [`docs/security-updates.md`](docs/security-updates.md) - dependency audits, remediation, and approved package age-gate exceptions.
+- [`docs/e2e-testing.md`](docs/e2e-testing.md) - repeatable live API/browser tests, Docker setup, cleanup, and reports.
+- [`docs/reviews/2026-10-11.md`](docs/reviews/2026-10-11.md) - whole-project review evidence and GitHub issue links.
 
 ## Local Environment Requirements
 

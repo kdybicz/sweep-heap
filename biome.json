@@ -25,6 +25,6 @@
     "lineWidth": 100
   },
   "files": {
-    "includes": ["**", "!.next", "!out", "!build", "!node_modules"]
+    "includes": ["**", "!.next", "!.next-e2e", "!.e2e", "!out", "!build", "!node_modules"]
   }
 }

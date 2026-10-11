@@ -166,7 +166,8 @@ For `PATCH /api/chores`:
 For household invite creation:
 
 - Keep email normalization (`trim().toLowerCase()`) before persistence.
-- Enforce one pending invite per `(household, email)` with a partial unique DB index and handle race conflicts by returning the already-pending invite response.
+- Enforce one pending invite per `(household, email)` with a partial unique DB index. Better Auth duplicate-active-invite errors currently return `409 USER_ALREADY_INVITED`, including the existing invitation when available.
+- Expired pending rows and raw PostgreSQL `23505` conflicts are not recovered yet; see [#21](https://github.com/kdybicz/sweep-heap/issues/21). Do not assume that the unique index itself provides a successful deduplication response.
 
 ## 13) Invite Acceptance Handoff
 

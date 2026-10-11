@@ -8,7 +8,10 @@ ifneq ($(strip $(AGENT)),)
 export DATABASE_URL ?= postgresql://chores:chores@host.docker.internal:5432/chores
 export AUTH_URL ?= http://host.docker.internal:3000
 export SMTP_HOST ?= host.docker.internal
+export E2E_MAILPIT_URL ?= http://host.docker.internal:8025
 endif
+
+export PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/.e2e/browsers
 
 define run
 @bash -lc 'set -eo pipefail; \
@@ -21,7 +24,7 @@ fi; \
 $(1)'
 endef
 
-.PHONY: help install dev email-dev db-generate db-migrate db-reset seed-chores db-studio typecheck test build lint lint-fix format format-write dev-check dev-fix
+.PHONY: help install dev email-dev db-generate db-migrate db-reset seed-chores db-studio typecheck test test/e2e test/e2e/regressions test/e2e/contention e2e/install build lint lint-fix format format-write dev-check dev-fix
 
 help:
 	@printf '%s\n' \
@@ -36,6 +39,11 @@ help:
 	  '  db-studio    Open Drizzle Studio' \
 	  '  dev-check    Format, lint, test, typecheck' \
 	  '  dev-fix      Auto-fix format/lint then test/typecheck'
+	@printf '%s\n' \
+	  '  e2e/install             Download Chromium into .e2e/browsers' \
+	  '  test/e2e                Run live smoke tests with a managed app' \
+	  '  test/e2e/regressions    Run issue-linked expected-failure regressions' \
+	  '  test/e2e/contention     Run isolated database-pool contention regression'
 
 db-generate:
 	$(call run,yarn db:generate)
@@ -66,6 +74,21 @@ typecheck:
 
 test:
 	$(call run,yarn test)
+
+# manual — requires local PostgreSQL, Mailpit and Chromium; see docs/e2e-testing.md
+test/e2e:
+	$(call run,yarn test:e2e)
+
+# manual — requires the live local stack
+test/e2e/regressions:
+	$(call run,yarn test:e2e:regressions)
+
+# manual — intentionally saturates only the managed test app pool
+test/e2e/contention:
+	$(call run,yarn test:e2e:contention)
+
+e2e/install:
+	$(call run,yarn e2e:install)
 
 build:
 	$(call run,yarn build)

@@ -113,7 +113,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Board UI exposes cancel actions from the chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
 
 ## Backlog Links
-- Active execution backlog: GitHub Issues [#8](https://github.com/kdybicz/sweep-heap/issues/8), [#9](https://github.com/kdybicz/sweep-heap/issues/9), and [#10](https://github.com/kdybicz/sweep-heap/issues/10).
+- Execution backlog lives in [GitHub Issues](https://github.com/kdybicz/sweep-heap/issues). Cross-cutting work includes [#8](https://github.com/kdybicz/sweep-heap/issues/8), [#9](https://github.com/kdybicz/sweep-heap/issues/9), and [#10](https://github.com/kdybicz/sweep-heap/issues/10).
+- The [2026-10-11 review snapshot](reviews/2026-10-11.md) links each reviewed defect and optimization to its issue. [E2E testing](e2e-testing.md) documents the reusable live harness.
 - `docs/todo.md` is a pointer to the issue backlog, not a separate source of backlog truth.
 
 ## Change Checklist

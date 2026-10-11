@@ -1,0 +1,301 @@
+{
+  "run": "review-1791752317815",
+  "reports": [
+    {
+      "name": "Normal magic-link sign-in and secret-based invite acceptance",
+      "evidence": {
+        "ownerId": 12,
+        "memberId": 13,
+        "householdId": 7,
+        "memberships": [
+          {
+            "householdId": 7,
+            "role": "member",
+            "status": "active"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Direct auth invitation grants admin and accepts without secret",
+      "evidence": {
+        "guardedRoleChange": 403,
+        "directInvite": 200,
+        "requestedRole": "admin",
+        "directAccept": 200,
+        "actualRole": "admin"
+      }
+    },
+    {
+      "name": "Direct auth deletion bypasses other-member protection",
+      "evidence": {
+        "guardedStatus": 409,
+        "guardedCode": "HOUSEHOLD_HAS_OTHER_MEMBERS",
+        "directStatus": 200,
+        "remainingRows": 0
+      }
+    },
+    {
+      "name": "Expired pending invitation blocks recreate and resend",
+      "evidence": {
+        "expiredId": 12,
+        "visibleInMembers": false,
+        "recreateStatus": 500,
+        "recreateBody": {
+          "ok": false,
+          "code": "INTERNAL_SERVER_ERROR",
+          "error": "Failed to create household invite"
+        },
+        "resendStatus": 500
+      }
+    },
+    {
+      "name": "Notes-only edit resets stay-open type",
+      "evidence": {
+        "status": 200,
+        "actualType": "close_on_done"
+      }
+    },
+    {
+      "name": "Failed replacement leaves original canceled",
+      "evidence": {
+        "status": 500,
+        "body": {
+          "ok": false,
+          "code": "INTERNAL_SERVER_ERROR",
+          "error": "Failed to update chore"
+        },
+        "originalVisibleRows": 0,
+        "exceptions": [
+          {
+            "kind": "canceled",
+            "status": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "Following edit drops later canceled/completed exceptions",
+      "evidence": {
+        "before": [
+          {
+            "date": "2026-10-19",
+            "status": "closed"
+          }
+        ],
+        "after": [
+          {
+            "date": "2026-10-12",
+            "status": "open"
+          },
+          {
+            "date": "2026-10-19",
+            "status": "open"
+          }
+        ],
+        "responseTopLevelId": 36,
+        "responseNestedData": null
+      }
+    },
+    {
+      "name": "Whole-series shift only preserves selected completion",
+      "evidence": {
+        "shiftedOccurrences": [
+          {
+            "date": "2026-09-29",
+            "status": "closed"
+          },
+          {
+            "date": "2026-10-06",
+            "status": "open"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Browser progress counts multi-day occurrence rows",
+      "evidence": {
+        "renderedCards": 2,
+        "progress": "7/8 done",
+        "percentage": "88%"
+      }
+    },
+    {
+      "name": "Browser extending later occurrence resets series anchor",
+      "evidence": {
+        "originalSeriesStart": "2026-09-28",
+        "selectedOccurrence": "2026-10-05",
+        "patchPayload": {
+          "action": "edit",
+          "choreId": 40,
+          "occurrenceStartDate": "2026-10-05",
+          "scope": "all",
+          "startDate": "2026-10-05",
+          "endDate": "2026-10-07"
+        },
+        "resultingRow": {
+          "id": 40,
+          "title": "E2E whole-series date UI",
+          "type": "close_on_done",
+          "start_date": "2026-10-05",
+          "end_date": "2026-10-07",
+          "series_end_date": null,
+          "repeat_rule": "week"
+        }
+      }
+    },
+    {
+      "name": "Browser single edit fails to rebind preview",
+      "evidence": {
+        "status": 200,
+        "createdChoreId": 42,
+        "replacementVisible": 1,
+        "previewVisible": 0
+      }
+    },
+    {
+      "name": "Browser date remains stale across midnight",
+      "evidence": {
+        "beforeToday": ["", "Sun, Oct 11", "E2E completed seven-day chore"],
+        "afterToday": ["", "Sun, Oct 11", "E2E completed seven-day chore"],
+        "browserNow": "2026-10-12T00:01:01.236Z"
+      }
+    },
+    {
+      "name": "Browser uncaught errors",
+      "evidence": {
+        "errors": []
+      }
+    },
+    {
+      "name": "Live pool exhaustion under ten household mutations",
+      "evidence": {
+        "queuedLockConnections": 10,
+        "healthStatus": "timeout",
+        "backendStates": [
+          {
+            "pid": 175,
+            "state": "idle",
+            "wait_event_type": "Client",
+            "wait_event": "ClientRead"
+          },
+          {
+            "pid": 173,
+            "state": "active",
+            "wait_event_type": "Lock",
+            "wait_event": "advisory"
+          },
+          {
+            "pid": 177,
+            "state": "active",
+            "wait_event_type": "Lock",
+            "wait_event": "advisory"
+          },
+          {
+            "pid": 178,
+            "state": "active",
+            "wait_event_type": "Lock",
+            "wait_event": "advisory"
+          },
+          {
+            "pid": 179,
+            "state": "active",
+            "wait_event_type": "Lock",
+            "wait_event": "advisory"
+          },
+          {
+            "pid": 180,
+            "state": "active",
+            "wait_event_type": "Lock",
+            "wait_event": "advisory"
+          },
+          {
+            "pid": 183,
+            "state": "active",
+            "wait_event_type": "Lock",
+            "wait_event": "advisory"
+          },
+          {
+            "pid": 184,
+            "state": "active",
+            "wait_event_type": "Lock",
+            "wait_event": "advisory"
+          },
+          {
+            "pid": 185,
+            "state": "active",
+            "wait_event_type": "Lock",
+            "wait_event": "advisory"
+          },
+          {
+            "pid": 186,
+            "state": "active",
+            "wait_event_type": "Lock",
+            "wait_event": "advisory"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Concurrent requests after releasing stuck test connections",
+      "evidence": {
+        "results": [
+          {
+            "status": 500,
+            "code": "INTERNAL_SERVER_ERROR"
+          },
+          {
+            "error": "apiRequestContext.fetch: Timeout 25000ms exceeded."
+          },
+          {
+            "status": 500,
+            "code": "INTERNAL_SERVER_ERROR"
+          },
+          {
+            "status": 500,
+            "code": "INTERNAL_SERVER_ERROR"
+          },
+          {
+            "status": 500,
+            "code": "INTERNAL_SERVER_ERROR"
+          },
+          {
+            "status": 500,
+            "code": "INTERNAL_SERVER_ERROR"
+          },
+          {
+            "status": 500,
+            "code": "INTERNAL_SERVER_ERROR"
+          },
+          {
+            "status": 500,
+            "code": "INTERNAL_SERVER_ERROR"
+          },
+          {
+            "status": 500,
+            "code": "INTERNAL_SERVER_ERROR"
+          },
+          {
+            "status": 500,
+            "code": "INTERNAL_SERVER_ERROR"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Mailpit cleanup",
+      "evidence": {
+        "status": 200,
+        "removedTestMessageCount": 7
+      }
+    },
+    {
+      "name": "Database cleanup",
+      "evidence": {
+        "deletedHouseholdIds": [7, 9],
+        "deletedUserIds": [12, 13, 14],
+        "remainingTestUsers": 0
+      }
+    }
+  ]
+}

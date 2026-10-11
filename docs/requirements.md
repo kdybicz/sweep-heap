@@ -7,7 +7,7 @@
 - For a compact day-to-day version, use `docs/requirements-quick-reference.md`.
 
 ## Status
-- Last reviewed against code: 2026-03-13.
+- Last reviewed against code: 2026-10-11. See [the review evidence](reviews/2026-10-11.md) for confirmed defects and linked GitHub Issues.
 - Product phase: MVP with active iteration.
 - Current scope includes auth, households, members/invites, chores board UI, and account settings.
 
@@ -23,11 +23,12 @@
 ## Requirements and Issue Integration
 - `docs/requirements.md` is the stable source for current behavior, constraints, and known gaps.
 - GitHub Issues are the execution backlog and sequencing plan.
-- Active backlog:
+- Cross-cutting backlog areas:
   - [#8](https://github.com/kdybicz/sweep-heap/issues/8): integration and end-to-end coverage hardening.
   - [#9](https://github.com/kdybicz/sweep-heap/issues/9): API rate limiting and abuse protections.
   - [#10](https://github.com/kdybicz/sweep-heap/issues/10): stricter DB constraints with a staged migration rollout.
 - Workflow rule: when completing an issue tracked here, update this file in the same change if behavior, constraints, or caveats changed.
+- The [2026-10-11 review snapshot](reviews/2026-10-11.md) links the reviewed defects and optimizations to their GitHub Issues; current execution status remains in GitHub.
 
 ## Tech and Architecture Baseline
 - Frontend: Next.js 16 App Router, React 19, TypeScript, Tailwind CSS v4.
@@ -276,7 +277,7 @@
 - Keep route handlers transport-focused (auth, parsing, response mapping).
 - Keep SQL/data access in `src/lib/repositories/*-repository.ts`.
 - Keep reusable domain logic in `src/lib/services/*-service.ts`; household member/invite orchestration now lives primarily in `src/lib/services/household-members-service.ts` and chore mutation rules live in `src/lib/services/chore-service.ts`.
-- Use barrel exports from `src/lib/repositories/index.ts` and `src/lib/services/index.ts`.
+- Use the `src/lib/repositories/index.ts` barrel for repositories and specific `src/lib/services/*-service.ts` imports for services. There is no service barrel.
 
 ## Testing and Quality Gates
 - Prefer focused unit tests for service and route behavior.
@@ -284,6 +285,7 @@
 - Mock repositories in service tests; avoid DB in unit tests.
 - Project default gate for code changes: `make dev-fix` (format, lint fix, tests, typecheck).
 - Coverage expansion is tracked in [#8](https://github.com/kdybicz/sweep-heap/issues/8) (Postgres-backed integration tests plus minimal auth/chore/account-deletion E2E flow).
+- Live smoke, issue-linked browser/API regressions, and isolated pool contention tests are available through the commands in [E2E testing](e2e-testing.md). These require the local stack and are separate from the default Vitest gate.
 
 ## Known Gaps and Implementation Caveats
 - Concurrency conflict semantics are not implemented as explicit retryable conflicts; current writes are effectively last-write-wins for exception upserts.
@@ -291,7 +293,7 @@
 - `closed_reason = schedule_end` lifecycle is not currently persisted by background process; closure is mostly represented by derived listing behavior.
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
 - Cancel actions are available from the board chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
-- Server-enforced completion undo is currently disabled; `UndoToastStack` remains in the codebase but is not wired into the board UI.
+- Completion undo UI is currently disabled; `UndoToastStack` is not wired into the board. The API still accepts `action=set` with `status=open` and removes the stored completion exception.
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in [#10](https://github.com/kdybicz/sweep-heap/issues/10).
 
 ## Decision Notes for Future Work
