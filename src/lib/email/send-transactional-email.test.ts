@@ -11,13 +11,22 @@ vi.mock("nodemailer", () => ({
 
 import { sendTransactionalEmail } from "@/lib/email/send-transactional-email";
 
-const smtpEnvKeys = ["SMTP_HOST", "SMTP_FROM", "SMTP_PORT", "SMTP_SECURE"] as const;
+const smtpEnvKeys = [
+  "SMTP_HOST",
+  "SMTP_FROM",
+  "SMTP_PORT",
+  "SMTP_SECURE",
+  "SMTP_USER",
+  "SMTP_PASS",
+] as const;
 
 const originalSmtpEnv = {
   SMTP_HOST: process.env.SMTP_HOST,
   SMTP_FROM: process.env.SMTP_FROM,
   SMTP_PORT: process.env.SMTP_PORT,
   SMTP_SECURE: process.env.SMTP_SECURE,
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_PASS: process.env.SMTP_PASS,
 };
 
 afterEach(() => {
@@ -39,6 +48,8 @@ describe("sendTransactionalEmail", () => {
     process.env.SMTP_FROM = "The Sweep Heap <no-reply@example.com>";
     process.env.SMTP_PORT = "1125";
     process.env.SMTP_SECURE = "false";
+    delete process.env.SMTP_USER;
+    delete process.env.SMTP_PASS;
     createTransport.mockReturnValue({ sendMail });
 
     await sendTransactionalEmail({
