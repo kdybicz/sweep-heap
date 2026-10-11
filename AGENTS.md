@@ -4,6 +4,7 @@ surprises you, please alert the developer working with you and indicate that thi
 in the AGENTS.md file to help prevent future agents from having the same issue.
 
 - Command precedence in this repo: prefer `make` targets first, and use direct `yarn` only when an equivalent `make` target is missing.
+- For dependency security updates, follow `docs/security-updates.md`. Keep `npmMinimalAgeGate: 3d` and `enableScripts: false`; if an age-gate bypass is the only way to patch a vulnerability, ask the user before adding an exact package/version exception.
 - After code changes, run `make dev-fix` and report the results. For docs-only updates, skip this unless explicitly requested. (This repo uses Yarn under the hood, not npm or pnpm.)
 - After code changes, review the related documentation and tests for the touched behavior and update them when needed.
 - Actively watch for documentation/code drift, misleading names or comments, hidden assumptions, inconsistent patterns, and surprising behavior that could confuse future contributors or coding agents. Fix small, low-risk issues when clearly correct; otherwise report them with exact file references, why they are misleading or risky, and the recommended follow-up.

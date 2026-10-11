@@ -35,8 +35,8 @@
     "better-auth": "1.6.26",
     "drizzle-orm": "0.45.2",
     "luxon": "3.7.2",
-    "next": "16.3.0",
-    "nodemailer": "9.0.3",
+    "next": "16.3.8",
+    "nodemailer": "10.0.9",
     "pg": "8.22.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -57,18 +57,23 @@
     "react-email": "5.2.11",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   },
   "resolutions": {
-    "brace-expansion": "5.0.9",
-    "engine.io": "6.6.9",
-    "ip-address": "10.4.0",
-    "nanoid": "3.3.17",
-    "next": "16.3.0",
+    "baseline-browser-mapping": "2.11.0",
+    "brace-expansion": "5.0.12",
+    "engine.io": "6.6.10",
+    "fast-uri": "3.1.8",
+    "http-cache-semantics": "4.3.0",
+    "ip-address": "10.7.3",
+    "nanoid": "3.3.18",
+    "next": "16.3.8",
     "postcss": "8.5.25",
-    "sharp": "0.35.3",
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2",
     "socket.io-parser": "4.2.7",
     "tar": "7.5.22",
+    "undici": "7.29.1",
     "ws": "8.21.0"
   }
 }
