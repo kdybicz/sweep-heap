@@ -14,6 +14,6 @@ export default defineConfig({
       AUTH_URL: "http://localhost:3000",
       SMTP_HOST: "localhost",
     },
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "e2e/**/*.test.mjs"],
   },
 });

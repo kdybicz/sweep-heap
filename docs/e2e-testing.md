@@ -37,6 +37,8 @@ household's PostgreSQL advisory lock. It cancels only backends identified by tha
 free the managed app's pool. It never calls `pg_terminate_backend`, never reuses another app server,
 and does not belong in the default Vitest gate.
 It is registered only when the dedicated contention command sets `E2E_SUITE=contention`.
+The queue must reach ten connections before the health probe; incomplete fixture setup fails normally
+instead of being interpreted as a fixed product bug.
 
 ## Docker and agent environments
 
@@ -82,7 +84,7 @@ The config loads dotenv values through `@next/env`. Exported Make/environment va
 
 | Variable | Default / purpose |
 | --- | --- |
-| `E2E_BASE_URL` | `http://127.0.0.1:3100`; managed local HTTP origin and port |
+| `E2E_BASE_URL` | `http://127.0.0.1:3100`; managed local HTTP origin and port; an optional root trailing slash is normalized away |
 | `E2E_DATABASE_URL` | Falls back to `DATABASE_URL`; used by both the app and fixture queries |
 | `E2E_MAILPIT_URL` | `http://localhost:8025`, or the host override under `AGENT` |
 | `PLAYWRIGHT_BROWSERS_PATH` | Make defaults to workspace `.e2e/browsers`; may point to a preinstalled browser directory |
@@ -91,6 +93,8 @@ The app subprocess overrides `AUTH_URL` to the test origin. SMTP settings and `A
 the usual environment. `E2E_BASE_URL` must use `localhost` or `127.0.0.1` so these suites always manage
 their own local server. Tests run with one worker and no retries to keep session/household mutations
 deterministic.
+Credentials, non-root paths, query strings and fragments in `E2E_BASE_URL` are rejected. Pure URL
+configuration tests run in the default Vitest gate and do not require the live stack.
 
 ## Fixtures, cleanup and artifacts
 

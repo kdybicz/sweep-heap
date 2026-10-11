@@ -31,6 +31,10 @@ test("#20 a full queue of household mutations does not deadlock the app pool", a
       if (backendIds.length >= 10) break;
       await sleep(100);
     }
+    expect(
+      backendIds,
+      "The fixture must queue ten lock connections before checking pool health",
+    ).toHaveLength(10);
     await fixtureConnection.query("select pg_advisory_unlock($1)", [household]);
     await sleep(1000);
     let status = "timeout";
