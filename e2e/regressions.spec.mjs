@@ -377,8 +377,151 @@ test("#22 notes-only edits preserve stay-open behavior", async ({ live }) => {
   expect(response.status).toBe(200);
   const stored = await live.choreRow(id);
   expect(stored).toBeDefined();
-  knownFailure(22);
   expect(stored.type).toBe("stay_open");
+});
+
+test("#22 partial edits preserve completion behavior across every scope", async ({ live }) => {
+  const start = day(monday(), -7);
+  const selected = monday();
+  for (const scope of ["single", "following", "all"]) {
+    for (const [field, changes] of [
+      ["notes", { notes: "Updated notes" }],
+      ["dates", { startDate: day(selected, 1), endDate: day(selected, 2) }],
+      ["recurrence", { repeatRule: "biweek" }],
+    ]) {
+      const id = await live.chore({
+        title: `${scope} ${field} type fixture`,
+        type: "stay_open",
+        startDate: start,
+        endDate: day(start, 1),
+        repeatRule: "week",
+      });
+      const edited = await live.mutate({
+        action: "edit",
+        scope,
+        choreId: id,
+        occurrenceStartDate: selected,
+        ...changes,
+      });
+      expect(edited.status, `${scope} ${field}`).toBe(200);
+      const targetId = edited.body.createdChoreId ?? id;
+      expect((await live.choreRow(targetId)).type).toBe("stay_open");
+      const instance = (await live.list(start, day(selected, 28))).find(
+        (row) => row.id === targetId,
+      );
+      expect(instance).toBeDefined();
+      const completed = await live.mutate({
+        action: "set",
+        choreId: targetId,
+        occurrenceStartDate: instance.occurrence_start_date,
+        status: "closed",
+      });
+      expect(completed.status).toBe(200);
+      expect(completed.body).toMatchObject({
+        type: "stay_open",
+        status: "open",
+        closed_reason: "done",
+      });
+    }
+  }
+});
+
+test("#22 explicit type changes retain their intended completion semantics", async ({ live }) => {
+  const start = day(monday(), -7);
+  for (const scope of ["single", "following", "all"]) {
+    for (const type of ["stay_open", "close_on_done"]) {
+      const id = await live.chore({
+        title: "Explicit type fixture",
+        type: type === "stay_open" ? "close_on_done" : "stay_open",
+        startDate: start,
+        endDate: day(start, 1),
+        repeatRule: "week",
+      });
+      const edited = await live.mutate({
+        action: "edit",
+        scope,
+        choreId: id,
+        occurrenceStartDate: monday(),
+        type: ` ${type.toUpperCase()} `,
+      });
+      expect(edited.status).toBe(200);
+      const targetId = edited.body.createdChoreId ?? id;
+      expect((await live.choreRow(targetId)).type).toBe(type);
+      const instance = (await live.list(start, day(monday(), 14))).find(
+        (row) => row.id === targetId,
+      );
+      const completed = await live.mutate({
+        action: "set",
+        choreId: targetId,
+        occurrenceStartDate: instance.occurrence_start_date,
+        status: "closed",
+      });
+      expect(completed.body.status).toBe(type === "stay_open" ? "open" : "closed");
+    }
+  }
+});
+
+test("#22 creation defaults only omitted types and invalid edit types do not mutate storage", async ({
+  live,
+}) => {
+  const created = await live.mutate({
+    action: "create",
+    title: "Default type fixture",
+    startDate: today(),
+    endDate: day(today(), 1),
+    repeatRule: "none",
+  });
+  expect(created.status).toBe(200);
+  expect((await live.choreRow(created.body.choreId)).type).toBe("close_on_done");
+  const id = await live.chore({
+    title: "Invalid type fixture",
+    type: "stay_open",
+    startDate: day(monday(), -7),
+    endDate: day(monday(), -6),
+    repeatRule: "week",
+  });
+  for (const scope of ["single", "following", "all"]) {
+    for (const type of ["invalid", "", null, 12]) {
+      const response = await live.mutate({
+        action: "edit",
+        scope,
+        choreId: id,
+        occurrenceStartDate: monday(),
+        type,
+      });
+      expect(response.status).toBe(400);
+      expect(response.body.fieldErrors.type).toBe("Invalid chore type");
+    }
+  }
+  expect((await live.choreRow(id)).type).toBe("stay_open");
+  expect((await live.list(monday())).filter((row) => row.id === id)).toHaveLength(1);
+});
+
+test("#22 inline notes editor keeps a stay-open chore open after logging", async ({ live }) => {
+  const id = await live.chore({
+    title: "Inline notes type fixture",
+    type: "stay_open",
+    startDate: today(),
+    endDate: day(today(), 1),
+  });
+  const page = await live.board();
+  await page.locator(`[data-chore-preview-id="${id}"]`).click();
+  const preview = page.getByRole("dialog", { name: "Chore preview" });
+  await preview.getByRole("button", { name: "Add Notes", exact: true }).click();
+  const textarea = preview.getByPlaceholder("Add Notes");
+  await textarea.fill("Only inline notes changed");
+  const saved = page.waitForResponse(
+    (response) => response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+  );
+  await textarea.evaluate((element) => element.blur());
+  expect((await saved).status()).toBe(200);
+  expect((await live.choreRow(id)).type).toBe("stay_open");
+  await page.locator(`[data-chore-preview-id="${id}"]`).click();
+  await page.getByRole("button", { name: "Log completion", exact: true }).click();
+  await expect
+    .poll(async () => (await live.list(today())).find((row) => row.id === id)?.closed_reason)
+    .toBe("done");
+  expect((await live.list(today())).find((row) => row.id === id).status).toBe("open");
 });
 
 test("#24 failed replacement insertion preserves the original occurrence", async ({

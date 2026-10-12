@@ -120,6 +120,102 @@ describe("mutateChore", () => {
     expect(insertChoreMock).not.toHaveBeenCalled();
   });
 
+  describe.each(["single", "following", "all"] as const)("edit scope %s type handling", (scope) => {
+    it.each([
+      ["notes", { notes: "Updated notes" }],
+      ["dates", { startDate: "2026-01-13", endDate: "2026-01-14" }],
+      ["recurrence", { repeatRule: "biweek" }],
+    ])("preserves the stored type when editing only %s", async (_field, changes) => {
+      getChoreInHouseholdMock.mockResolvedValue({
+        id: 3,
+        title: "Plants",
+        type: "stay_open",
+        start_date: "2026-01-05",
+        end_date: "2026-01-06",
+        series_end_date: null,
+        repeat_rule: "week",
+        notes: null,
+      });
+      insertChoreMock.mockResolvedValue(44);
+      const result = await mutateChore({
+        householdId: 11,
+        payload: {
+          action: "edit",
+          scope,
+          choreId: 3,
+          occurrenceStartDate: "2026-01-12",
+          ...changes,
+        },
+      });
+      expect(result.ok).toBe(true);
+      const write = scope === "all" ? updateChoreSeriesMock : insertChoreMock;
+      expect(write).toHaveBeenCalledWith(expect.objectContaining({ type: "stay_open" }));
+    });
+
+    it.each(["stay_open", "close_on_done"])("applies an explicit %s type change", async (type) => {
+      getChoreInHouseholdMock.mockResolvedValue({
+        id: 3,
+        title: "Plants",
+        type: type === "stay_open" ? "close_on_done" : "stay_open",
+        start_date: "2026-01-05",
+        end_date: "2026-01-06",
+        series_end_date: null,
+        repeat_rule: "week",
+        notes: null,
+      });
+      insertChoreMock.mockResolvedValue(44);
+      expect(
+        (
+          await mutateChore({
+            householdId: 11,
+            payload: {
+              action: "edit",
+              scope,
+              choreId: 3,
+              occurrenceStartDate: "2026-01-12",
+              type: ` ${type.toUpperCase()} `,
+            },
+          })
+        ).ok,
+      ).toBe(true);
+      expect(scope === "all" ? updateChoreSeriesMock : insertChoreMock).toHaveBeenCalledWith(
+        expect.objectContaining({ type }),
+      );
+    });
+
+    it.each(["invalid", "", null, 12, {}])(
+      "rejects an explicitly invalid type %j without changing storage",
+      async (type) => {
+        const actual =
+          await vi.importActual<typeof import("@/lib/chore-validation")>("@/lib/chore-validation");
+        validateChoreCreateMock.mockImplementation(actual.validateChoreCreate);
+        getChoreInHouseholdMock.mockResolvedValue({
+          id: 3,
+          title: "Plants",
+          type: "stay_open",
+          start_date: "2026-01-05",
+          end_date: "2026-01-06",
+          series_end_date: null,
+          repeat_rule: "week",
+          notes: null,
+        });
+        const result = await mutateChore({
+          householdId: 11,
+          payload: { action: "edit", scope, choreId: 3, occurrenceStartDate: "2026-01-12", type },
+        });
+        expect(result).toMatchObject({
+          ok: false,
+          code: "VALIDATION_FAILED",
+          fieldErrors: { type: "Invalid chore type" },
+        });
+        expect(updateChoreSeriesMock).not.toHaveBeenCalled();
+        expect(insertChoreMock).not.toHaveBeenCalled();
+        expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
+        expect(updateChoreSeriesEndDateMock).not.toHaveBeenCalled();
+      },
+    );
+  });
+
   it("creates chore when create action is valid", async () => {
     insertChoreMock.mockResolvedValue(91);
 

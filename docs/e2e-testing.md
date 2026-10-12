@@ -36,6 +36,8 @@ verify blocked public auth routes have no database side effects while guarded me
 ownership-transfer and household workflows continue to work.
 The #21 invitation-recovery cases also pass normally: expired-row visibility, replacement and resend,
 old-secret rejection, concurrent normalized-email creation and raw unique-index rollback/recovery.
+The #22 cases pass normally and verify omitted/explicit types across all edit scopes, validation before
+storage changes, actual completion behavior, and an inline notes edit in Chromium.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

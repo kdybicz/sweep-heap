@@ -247,7 +247,11 @@ export const mutateChore = async ({
   const status = rawStatus === "closed" ? "closed" : "open";
   const title = typeof input.title === "string" ? input.title.trim() : "";
   const inputType =
-    typeof input.type === "string" ? input.type.trim().toLowerCase() : "close_on_done";
+    input.type === undefined
+      ? undefined
+      : typeof input.type === "string"
+        ? input.type.trim().toLowerCase()
+        : "";
   let startDate = normalizeDate(input.startDate, "UTC");
   let exclusiveEndDate = normalizeDate(input.endDate, "UTC");
   let seriesEndDate = normalizeDate(input.seriesEndDate, "UTC");
@@ -257,6 +261,7 @@ export const mutateChore = async ({
   const scope = rawScope as ChoreMutationScope | null;
 
   if (action === "create") {
+    const createType = inputType ?? "close_on_done";
     const timeZone = await getHouseholdTimeZoneById(householdId);
     const startDateLocal = normalizeDate(input.startDate, timeZone);
     const exclusiveEndDateLocal = normalizeDate(input.endDate, timeZone);
@@ -267,7 +272,7 @@ export const mutateChore = async ({
 
     const fieldErrors = validateChoreCreate({
       title,
-      type: inputType,
+      type: createType,
       startDate: startDateLocal,
       exclusiveEndDate: exclusiveEndDateLocal,
       repeatRule,
@@ -282,7 +287,7 @@ export const mutateChore = async ({
       });
     }
 
-    const type = inputType === "stay_open" ? "stay_open" : "close_on_done";
+    const type = createType === "stay_open" ? "stay_open" : "close_on_done";
 
     const choreIdCreated = await insertChore({
       householdId,
@@ -394,8 +399,7 @@ export const mutateChore = async ({
             : (normalizeDate(input.seriesEndDate, timeZone) ?? chore.series_end_date)
           : chore.series_end_date;
     const nextTitle = title || chore.title;
-    const nextType =
-      inputType === "stay_open" || inputType === "close_on_done" ? inputType : choreType;
+    const nextType = inputType ?? choreType;
     const nextNotes = typeof input.notes === "string" ? notes : (chore.notes ?? null);
 
     const fieldErrors = validateChoreCreate({

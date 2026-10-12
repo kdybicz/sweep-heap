@@ -50,6 +50,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - If the wrong account is signed in, the invite page should offer an explicit sign-out-and-continue path that preserves the invite callback.
 
 ### Chores
+- Missing `type` defaults to `close_on_done` only on create. Partial edits preserve the stored type in all scopes; explicit invalid types fail validation before writes.
 - Series fields: `title`, `type`, `startDate`, `endDate`, `repeatRule`, optional `seriesEndDate`, `notes`.
 - API/storage `endDate` is exclusive (next day for an all-day single occurrence).
 - The create/edit modal shows an inclusive end date and converts it to the exclusive API/storage value on submit.
