@@ -13,6 +13,8 @@ const {
   updateChoreStatusMock,
   upsertChoreOccurrenceExceptionMock,
   getHouseholdTimeZoneByIdMock,
+  getHouseholdSummaryForUserMock,
+  withHouseholdMutationLockMock,
   normalizeRepeatRuleMock,
   validateChoreCreateMock,
   toISODateOrThrowMock,
@@ -28,6 +30,10 @@ const {
   updateChoreStatusMock: vi.fn(),
   upsertChoreOccurrenceExceptionMock: vi.fn(),
   getHouseholdTimeZoneByIdMock: vi.fn(),
+  getHouseholdSummaryForUserMock: vi.fn(),
+  withHouseholdMutationLockMock: vi.fn(async ({ task }: { task: () => Promise<unknown> }) =>
+    task(),
+  ),
   normalizeRepeatRuleMock: vi.fn(),
   validateChoreCreateMock: vi.fn(),
   toISODateOrThrowMock: vi.fn(),
@@ -45,6 +51,10 @@ vi.mock("@/lib/repositories", () => ({
   updateChoreStatus: updateChoreStatusMock,
   upsertChoreOccurrenceException: upsertChoreOccurrenceExceptionMock,
   getHouseholdTimeZoneById: getHouseholdTimeZoneByIdMock,
+  getHouseholdSummaryForUser: getHouseholdSummaryForUserMock,
+}));
+vi.mock("@/lib/household-mutation-lock", () => ({
+  withHouseholdMutationLock: withHouseholdMutationLockMock,
 }));
 
 vi.mock("@/lib/chore-validation", () => ({
@@ -85,6 +95,8 @@ describe("mutateChore", () => {
     updateChoreStatusMock.mockReset();
     upsertChoreOccurrenceExceptionMock.mockReset();
     getHouseholdTimeZoneByIdMock.mockReset();
+    getHouseholdSummaryForUserMock.mockReset();
+    withHouseholdMutationLockMock.mockClear();
     normalizeRepeatRuleMock.mockReset();
     validateChoreCreateMock.mockReset();
     toISODateOrThrowMock.mockReset();
@@ -118,6 +130,92 @@ describe("mutateChore", () => {
       fieldErrors: { title: "Title is required" },
     });
     expect(insertChoreMock).not.toHaveBeenCalled();
+  });
+
+  it("performs reads and writes only inside the shared household transaction", async () => {
+    let inTransaction = false;
+    withHouseholdMutationLockMock.mockImplementationOnce(async ({ task }) => {
+      inTransaction = true;
+      try {
+        return await task();
+      } finally {
+        inTransaction = false;
+      }
+    });
+    getChoreInHouseholdMock.mockImplementationOnce(async () => {
+      expect(inTransaction).toBe(true);
+      return {
+        id: 3,
+        title: "Atomic fixture",
+        type: "close_on_done",
+        ...scheduledSingleDaySeries,
+        notes: null,
+      };
+    });
+    insertChoreMock.mockImplementationOnce(async () => {
+      expect(inTransaction).toBe(true);
+      return 44;
+    });
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "single",
+        choreId: 3,
+        occurrenceStartDate: "2026-01-03",
+        title: "Changed",
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(withHouseholdMutationLockMock).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 11 }),
+    );
+  });
+
+  it("rejects access lost while queued without changing chores", async () => {
+    getHouseholdSummaryForUserMock.mockResolvedValue(null);
+    const result = await mutateChore({
+      householdId: 11,
+      actorUserId: 7,
+      payload: { action: "edit", scope: "single", choreId: 3, occurrenceStartDate: "2026-01-03" },
+    });
+    expect(result).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(getChoreInHouseholdMock).not.toHaveBeenCalled();
+    expect(insertChoreMock).not.toHaveBeenCalled();
+  });
+
+  it("rechecks management permissions after acquiring the transaction", async () => {
+    getHouseholdSummaryForUserMock.mockResolvedValue({
+      role: "member",
+      membersCanManageChores: false,
+    });
+    const result = await mutateChore({
+      householdId: 11,
+      actorUserId: 7,
+      payload: { action: "cancel", scope: "all", choreId: 3, occurrenceStartDate: "2026-01-03" },
+    });
+    expect(result).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(updateChoreStatusMock).not.toHaveBeenCalled();
+  });
+
+  it("still allows completion for active members with management disabled", async () => {
+    getHouseholdSummaryForUserMock.mockResolvedValue({
+      role: "member",
+      membersCanManageChores: false,
+    });
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Complete fixture",
+      type: "stay_open",
+      ...scheduledSingleDaySeries,
+      notes: null,
+    });
+    const result = await mutateChore({
+      householdId: 11,
+      actorUserId: 7,
+      payload: { action: "set", choreId: 3, occurrenceStartDate: "2026-01-03", status: "closed" },
+    });
+    expect(result).toMatchObject({ ok: true, data: { status: "open", closed_reason: "done" } });
   });
 
   describe("occurrence-relative whole-series date edits", () => {

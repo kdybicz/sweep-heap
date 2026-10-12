@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ERROR_CODE } from "@/lib/api-error";
+import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
 import { HouseholdNotFoundError } from "@/lib/repositories";
 
 const {
@@ -216,10 +217,12 @@ describe("PATCH /api/chores", () => {
     expect(mutateChoreMock).toHaveBeenCalledTimes(2);
     expect(mutateChoreMock).toHaveBeenNthCalledWith(1, {
       householdId: 11,
+      actorUserId: 21,
       payload,
     });
     expect(mutateChoreMock).toHaveBeenNthCalledWith(2, {
       householdId: 11,
+      actorUserId: 21,
       payload,
     });
   });
@@ -253,6 +256,67 @@ describe("PATCH /api/chores", () => {
     expect(mutateChoreMock).not.toHaveBeenCalled();
   });
 
+  it("preserves reconciliation cookies on a retryable mutation-lock conflict", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11, role: "owner" },
+    });
+    reconcileActiveHouseholdSessionMock.mockResolvedValue(
+      new Headers({ "set-cookie": "session=healed" }),
+    );
+    mutateChoreMock.mockRejectedValueOnce(new HouseholdMutationBusyError());
+    const response = await PATCH(
+      new Request("http://localhost/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "edit",
+          scope: "single",
+          choreId: 3,
+          occurrenceStartDate: "2026-01-03",
+        }),
+      }),
+    );
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("HOUSEHOLD_MUTATION_BUSY");
+    expect(response.headers.get("set-cookie")).toBe("session=healed");
+  });
+
+  it("returns forbidden when transaction-time permission revalidation rejects the edit", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11, role: "owner" },
+    });
+    mutateChoreMock.mockResolvedValueOnce({
+      ok: false,
+      code: "FORBIDDEN",
+      error: "Household chore access changed. Please reload.",
+    });
+    const response = await PATCH(
+      new Request("http://localhost/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "edit",
+          scope: "single",
+          choreId: 3,
+          occurrenceStartDate: "2026-01-03",
+        }),
+      }),
+    );
+    expect(response.status).toBe(403);
+  });
+
   it("forwards edit payloads with following scope to the service", async () => {
     getSessionMock.mockResolvedValue({
       user: { id: "21" },
@@ -284,7 +348,7 @@ describe("PATCH /api/chores", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, payload });
+    expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, actorUserId: 21, payload });
   });
 
   it("rejects chore edit mutations for members when household settings disable them", async () => {
@@ -389,7 +453,7 @@ describe("PATCH /api/chores", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, payload });
+    expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, actorUserId: 21, payload });
   });
 
   it("rejects missing status for set-style mutations before service mutation", async () => {

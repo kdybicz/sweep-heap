@@ -1,5 +1,5 @@
 import { requireApiHousehold } from "@/lib/api-access";
-import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
+import { API_ERROR_CODE, householdMutationBusyResponse, jsonError } from "@/lib/api-error";
 import { validateChorePatchPayload } from "@/lib/api-payload-validation";
 import { canManageHouseholdChores } from "@/lib/household-roles";
 import { parseJsonObjectBody } from "@/lib/http";
@@ -21,6 +21,8 @@ const statusForChoreMutationCode = (code: string) => {
       return 400;
     case API_ERROR_CODE.CHORE_NOT_FOUND:
       return 404;
+    case API_ERROR_CODE.FORBIDDEN:
+      return 403;
     case API_ERROR_CODE.OCCURRENCE_OUTSIDE_SCHEDULE:
     case API_ERROR_CODE.OCCURRENCE_CANCELED:
     case API_ERROR_CODE.CANCEL_SCOPE_INVALID:
@@ -141,6 +143,7 @@ export async function PATCH(request: Request) {
 
     const result = await mutateChore({
       householdId: householdAccess.household.id,
+      actorUserId: householdAccess.sessionContext.userId,
       payload: payloadValidation.data,
     });
     if (!result.ok) {
@@ -166,6 +169,8 @@ export async function PATCH(request: Request) {
       });
     }
 
+    const busyResponse = householdMutationBusyResponse(error, responseHeaders);
+    if (busyResponse) return busyResponse;
     console.error("Failed to update chore", error);
     return jsonError({
       headers: responseHeaders,

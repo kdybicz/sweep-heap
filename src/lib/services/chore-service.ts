@@ -4,12 +4,15 @@ import { type ChorePatchPayload, validateChorePatchIntent } from "@/lib/api-payl
 import { getStoredChoreDurationDays } from "@/lib/chore-date-range";
 import { translateOccurrenceSeriesDates } from "@/lib/chore-edit-dates";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
+import { withHouseholdMutationLock } from "@/lib/household-mutation-lock";
+import { canManageHouseholdChores } from "@/lib/household-roles";
 import type { RepeatRule } from "@/lib/occurrences";
 import { generateOccurrenceDayEntries } from "@/lib/occurrences";
 import {
   deleteChoreOccurrenceException,
   getChoreInHousehold,
   getChoreOccurrenceException,
+  getHouseholdSummaryForUser,
   getHouseholdTimeZoneById,
   insertChore,
   listActiveChoreSeriesByHousehold,
@@ -218,13 +221,17 @@ export const listChores = async ({
   };
 };
 
-export const mutateChore = async ({
-  householdId,
-  payload,
-}: {
+type ChoreMutationInput = {
   householdId: number;
   payload: ChorePatchPayload;
-}): Promise<ChoreMutationSuccess | ChoreMutationFailure> => {
+  actorUserId?: number;
+};
+
+const mutateChoreInTransaction = async ({
+  householdId,
+  payload,
+  actorUserId,
+}: ChoreMutationInput): Promise<ChoreMutationSuccess | ChoreMutationFailure> => {
   const input = payload;
   const intentValidationError = validateChorePatchIntent(input);
   if (intentValidationError) {
@@ -240,6 +247,15 @@ export const mutateChore = async ({
   }
 
   const action = input.action ?? "set";
+  if (actorUserId !== undefined) {
+    const access = await getHouseholdSummaryForUser({ householdId, userId: actorUserId });
+    if (!access || (action !== "set" && !canManageHouseholdChores(access))) {
+      return choreMutationFailure({
+        code: API_ERROR_CODE.FORBIDDEN,
+        error: "Household chore access changed. Please reload.",
+      });
+    }
+  }
   const rawStatus = input.status ?? null;
   const rawScope = input.scope ?? null;
 
@@ -631,3 +647,12 @@ export const mutateChore = async ({
     },
   };
 };
+
+/** All writers share one household transaction so edits cannot interleave with completion/cancellation. */
+export const mutateChore = (
+  input: ChoreMutationInput,
+): Promise<ChoreMutationSuccess | ChoreMutationFailure> =>
+  withHouseholdMutationLock({
+    householdId: input.householdId,
+    task: () => mutateChoreInTransaction(input),
+  });

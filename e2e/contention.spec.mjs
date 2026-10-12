@@ -1,5 +1,5 @@
 import { baseURL } from "./config.mjs";
-import { expect, sleep, test } from "./support.mjs";
+import { day, expect, sleep, test, today } from "./support.mjs";
 
 test("#20 a full queue of household mutations does not deadlock the app pool", async ({
   live,
@@ -366,4 +366,53 @@ test("#20 user-row locking fences membership creation before the deletion snapsh
       )
     ).rows[0].role,
   ).toBe("owner");
+});
+
+test("#24 queued chore edits recheck permissions and do not use stale authorization", async ({
+  live,
+  household,
+}) => {
+  await live.join();
+  const id = await live.chore({
+    title: "Queued permission source",
+    startDate: today(),
+    endDate: day(today(), 1),
+  });
+  const client = await live.db.connect();
+  let pending;
+  try {
+    await client.query("select pg_advisory_lock($1)", [household]);
+    pending = live.api(live.member, "/api/chores", "PATCH", {
+      action: "edit",
+      scope: "single",
+      choreId: id,
+      occurrenceStartDate: today(),
+      title: "Must not change",
+    });
+    let queued = false;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const waiters = await live.db.query(
+        "select pid from pg_locks where locktype='advisory' and classid=0 and objid=$1 and objsubid=1 and not granted",
+        [household],
+      );
+      if (waiters.rowCount) {
+        queued = true;
+        break;
+      }
+      await sleep(100);
+    }
+    expect(queued).toBe(true);
+    await live.db.query("update households set metadata=$2 where id=$1", [
+      household,
+      JSON.stringify({ membersCanManageChores: false }),
+    ]);
+    await client.query("select pg_advisory_unlock_all()");
+    expect((await pending).status).toBe(403);
+    expect((await live.choreRow(id)).title).toBe("Queued permission source");
+    expect((await live.list(today())).find((row) => row.id === id)).toBeDefined();
+  } finally {
+    await client.query("select pg_advisory_unlock_all()");
+    client.release();
+    if (pending) await pending.catch(() => {});
+  }
 });

@@ -552,11 +552,204 @@ test("#24 failed replacement insertion preserves the original occurrence", async
     });
     expect(response.status).toBe(500);
     const visible = (await live.list(today())).filter((chore) => chore.id === id);
-    knownFailure(24);
     expect(visible).toHaveLength(1);
   } finally {
     await live.db.query(`drop trigger if exists ${functionName} on chores`);
     await live.db.query(`drop function if exists ${functionName}()`);
+  }
+  const retry = await live.mutate({
+    action: "edit",
+    scope: "single",
+    choreId: id,
+    occurrenceStartDate: today(),
+    title: replacementTitle,
+  });
+  expect(retry.status).toBe(200);
+  expect((await live.choreRow(retry.body.createdChoreId)).title).toBe(replacementTitle);
+});
+
+test("#24 a suppressed insertion without a returned id cannot commit cancellation", async ({
+  live,
+  household,
+}) => {
+  const id = await live.chore({
+    title: "Suppressed insert source",
+    startDate: today(),
+    endDate: day(today(), 1),
+  });
+  const title = `${live.prefix} suppressed replacement`;
+  const name = `e2e_suppressed_${household}`;
+  await live.db.query(
+    `create function ${name}() returns trigger language plpgsql as $$ begin if NEW.household_id=${household} and NEW.title='${title}' then return null; end if; return NEW; end $$`,
+  );
+  try {
+    await live.db.query(
+      `create trigger ${name} before insert on chores for each row execute function ${name}()`,
+    );
+    expect(
+      (
+        await live.mutate({
+          action: "edit",
+          scope: "single",
+          choreId: id,
+          occurrenceStartDate: today(),
+          title,
+        })
+      ).status,
+    ).toBe(500);
+    expect((await live.list(today())).filter((row) => row.id === id)).toHaveLength(1);
+  } finally {
+    await live.db.query(`drop trigger if exists ${name} on chores`);
+    await live.db.query(`drop function if exists ${name}()`);
+  }
+});
+
+test("#24 failed single/following inserts preserve the source bounds and completion state", async ({
+  live,
+  household,
+}) => {
+  const start = day(monday(), -7);
+  for (const scope of ["single", "following"]) {
+    const id = await live.chore({
+      title: "Atomic completed source",
+      startDate: start,
+      endDate: day(start, 1),
+      seriesEndDate: day(monday(), 21),
+      repeatRule: "week",
+    });
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: monday(),
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const before = (await live.db.query("select * from chores where id=$1", [id])).rows[0];
+    const title = `${live.prefix} fail ${scope}`;
+    const name = `e2e_atomic_insert_${household}_${scope}`;
+    await live.db.query(
+      `create function ${name}() returns trigger language plpgsql as $$ begin if NEW.household_id=${household} and NEW.title='${title}' then raise exception 'E2E atomic insert failure'; end if; return NEW; end $$`,
+    );
+    try {
+      await live.db.query(
+        `create trigger ${name} before insert on chores for each row execute function ${name}()`,
+      );
+      const response = await live.mutate({
+        action: "edit",
+        scope,
+        choreId: id,
+        occurrenceStartDate: monday(),
+        title,
+      });
+      expect(response.status).toBe(500);
+      expect((await live.db.query("select * from chores where id=$1", [id])).rows[0]).toEqual(
+        before,
+      );
+      expect(
+        (
+          await live.db.query(
+            "select kind,status,closed_reason from chore_occurrence_exceptions where chore_id=$1 and occurrence_start_date=$2",
+            [id, monday()],
+          )
+        ).rows[0],
+      ).toEqual({ kind: "state", status: "closed", closed_reason: "done" });
+      expect(
+        (
+          await live.db.query("select id from chores where household_id=$1 and title=$2", [
+            household,
+            title,
+          ])
+        ).rowCount,
+      ).toBe(0);
+    } finally {
+      await live.db.query(`drop trigger if exists ${name} on chores`);
+      await live.db.query(`drop function if exists ${name}()`);
+    }
+    const retry = await live.mutate({
+      action: "edit",
+      scope,
+      choreId: id,
+      occurrenceStartDate: monday(),
+      title,
+    });
+    expect(retry.status).toBe(200);
+    expect(
+      (await live.list(monday())).find((row) => row.id === retry.body.createdChoreId),
+    ).toMatchObject({ status: "closed", closed_reason: "done" });
+  }
+});
+
+test("#24 completion-copy failures roll back replacement creation and original edits", async ({
+  live,
+  household,
+}) => {
+  const start = day(monday(), -7);
+  for (const scope of ["single", "following", "all"]) {
+    const id = await live.chore({
+      title: "Atomic state source",
+      startDate: start,
+      endDate: day(start, 1),
+      repeatRule: "week",
+    });
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: monday(),
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const before = (await live.db.query("select * from chores where id=$1", [id])).rows[0];
+    const title = `${live.prefix} state ${scope}`;
+    const name = `e2e_atomic_state_${household}_${scope}`;
+    await live.db.query(
+      `create function ${name}() returns trigger language plpgsql as $$ begin if NEW.kind='state' and exists(select 1 from chores where id=NEW.chore_id and household_id=${household} and title='${title}') then raise exception 'E2E atomic state failure'; end if; return NEW; end $$`,
+    );
+    try {
+      await live.db.query(
+        `create trigger ${name} before insert on chore_occurrence_exceptions for each row execute function ${name}()`,
+      );
+      const dates =
+        scope === "all"
+          ? { dateBasis: "occurrence", startDate: day(monday(), 1), endDate: day(monday(), 2) }
+          : {};
+      const response = await live.mutate({
+        action: "edit",
+        scope,
+        choreId: id,
+        occurrenceStartDate: monday(),
+        title,
+        ...dates,
+      });
+      expect(response.status).toBe(500);
+      expect((await live.db.query("select * from chores where id=$1", [id])).rows[0]).toEqual(
+        before,
+      );
+      expect(
+        (
+          await live.db.query(
+            "select kind,status,closed_reason from chore_occurrence_exceptions where chore_id=$1 and occurrence_start_date=$2",
+            [id, monday()],
+          )
+        ).rows[0],
+      ).toEqual({ kind: "state", status: "closed", closed_reason: "done" });
+      expect(
+        (
+          await live.db.query("select id from chores where household_id=$1 and title=$2", [
+            household,
+            title,
+          ])
+        ).rowCount,
+      ).toBe(0);
+    } finally {
+      await live.db.query(`drop trigger if exists ${name} on chore_occurrence_exceptions`);
+      await live.db.query(`drop function if exists ${name}()`);
+    }
   }
 });
 

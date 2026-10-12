@@ -173,6 +173,7 @@
 - Mutation payloads use `occurrenceStartDate` (not `occurrenceDate`).
 
 ### Edit behavior
+- Chore mutation reads and writes share one household transaction, coordinated with completion and cancellation writers. Failed single/following replacement creation or completion copying leaves the source schedule and exceptions unchanged, and retry remains possible. API permissions are rechecked after lock acquisition; lock contention returns `409 HOUSEHOLD_MUTATION_BUSY`.
 - `action=edit` requires `scope=single|following|all`.
 - `scope=single` creates a detached one-off chore row and marks the targeted original occurrence canceled.
 - `scope=following` is allowed only for repeating chores, truncates the original series at the day before the targeted occurrence, and creates a new future series row.

@@ -40,6 +40,9 @@ The #22 cases pass normally and verify omitted/explicit types across all edit sc
 storage changes, actual completion behavior, and an inline notes edit in Chromium.
 The #23 cases pass normally and cover browser duration changes from later instances, forward/backward
 series shifts, absolute-date compatibility and scope boundaries.
+The #24 cases pass normally. Scoped PostgreSQL failures exercise replacement insertion and completion
+copying across edit scopes, verifying source bounds/state and absence of partial replacements, with
+successful retry. The contention suite also checks queued chore permission revalidation.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,
