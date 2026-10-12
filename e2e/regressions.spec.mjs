@@ -223,11 +223,22 @@ test("#21 expired pending invitations stay visible and can be replaced", async (
   await expect(row).toContainText("Expired invite");
   await row.getByRole("button", { name: "Open invite actions" }).click();
   await expect(page.getByRole("button", { name: "Resend invite", exact: true })).toBeEnabled();
-  const recreate = await live.api(live.owner, "/api/households/members", "POST", {
-    email: ` ${email.toUpperCase()} `,
-  });
-  expect(recreate.status).toBe(200);
+  await page.getByRole("button", { name: "Invite member", exact: true }).click();
+  await page.getByLabel("Invite by email").fill(email.toUpperCase());
+  const createdResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/households/members") && response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Send invite", exact: true }).click();
+  const response = await createdResponse;
+  expect(response.status()).toBe(200);
+  const recreate = { body: await response.json() };
   expect(recreate.body.invite.id).not.toBe(invite.body.invite.id);
+  await expect(page.getByRole("row").filter({ hasText: email })).toHaveCount(1);
+  await expect(page.getByRole("row").filter({ hasText: email })).toContainText("Pending invite");
+  await expect(page.getByRole("row").filter({ hasText: email })).not.toContainText(
+    "Expired invite",
+  );
   expect(
     (
       await live.db.query(

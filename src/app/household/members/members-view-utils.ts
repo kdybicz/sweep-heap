@@ -46,6 +46,19 @@ export const sortPendingInvites = (invites: HouseholdPendingInvite[]) =>
     return a.email.toLowerCase().localeCompare(b.email.toLowerCase());
   });
 
+export const mergePendingInvite = (
+  previous: HouseholdPendingInvite[],
+  next: HouseholdPendingInvite,
+) =>
+  sortPendingInvites([
+    ...previous.filter(
+      (invite) =>
+        invite.id !== next.id &&
+        invite.email.trim().toLowerCase() !== next.email.trim().toLowerCase(),
+    ),
+    next,
+  ]);
+
 export const toHouseholdMemberRole = (role: unknown): HouseholdMemberRole =>
   typeof role === "string" ? normalizeHouseholdRole(role) : "member";
 

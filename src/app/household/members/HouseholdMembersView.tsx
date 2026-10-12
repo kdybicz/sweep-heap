@@ -108,7 +108,7 @@ export default function HouseholdMembersView({
       {inviteOpen ? (
         <form className="contents" onSubmit={handleInvite}>
           <AppFormSection
-            description="New invites stay visible in the list below until they are accepted, revoked, or expire."
+            description="Invites stay visible until accepted or revoked. Expired invites can be resent from the list below."
             title="Send an invite"
           >
             <AppFormField
