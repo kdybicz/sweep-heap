@@ -161,6 +161,29 @@ For household member/invite role-management routes:
 - Enforce owner-role protections at the API boundary (`403`): non-owners cannot manage owner memberships or owner-role invites.
 - Translate Better Auth business-rule conflicts (for example last-owner) to consistent `409` responses.
 
+## Household mutation locking
+
+Household membership, invitation and deletion guards use `withHouseholdMutationLock`. Its separate
+`householdLockPool` has at most ten connections and a five-second connection-acquisition timeout.
+Callbacks use the normal query pool, so queued advisory-lock clients cannot consume callback capacity.
+The query pool also bounds connection acquisition to five seconds.
+
+The lock client holds a transaction-scoped single-key advisory lock for the entire callback. PostgreSQL
+`lock_timeout` is five seconds; acquisition timeout returns `409 HOUSEHOLD_MUTATION_BUSY`. Commit/rollback
+releases the lock. Cleanup failures discard the client rather than returning a possibly locked connection
+to the pool. Connection failures retain the normal internal-error response.
+The lock transaction contains no business writes: it serializes callbacks but does not make their
+separate query-pool writes atomic.
+
+Account deletion takes the same household locks with `pg_try_advisory_xact_lock` on its existing data
+transaction and returns the same retryable conflict immediately when busy. It must not wait for household
+locks while holding query-pool connections. Delete-token replacement uses a separate two-key user-lock
+namespace so a user id cannot collide with a household id.
+
+Persist invitation state and its secret hash inside the household lock, then send SMTP outside it.
+Delivery remains best-effort, reported by `inviteEmailSent`. A subsequent resend rotates the prior secret;
+email delivery is not a transaction with membership state.
+
 ## 11) Chore Mutation Contract
 
 For `PATCH /api/chores`:

@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { DateTime } from "luxon";
 import { auth } from "@/auth";
 import { requireApiHousehold, requireApiHouseholdAdmin, requireApiSession } from "@/lib/api-access";
-import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
+import { API_ERROR_CODE, householdMutationBusyResponse, jsonError } from "@/lib/api-error";
 import { appendSetCookieHeaders, assertOkResponse } from "@/lib/auth-response";
 import { parseJsonObjectBody } from "@/lib/http";
 import { createHouseholdWithOwner, updateHouseholdById } from "@/lib/repositories";
@@ -94,6 +94,8 @@ const handleUnexpectedError = (
   responseHeaders: Headers,
   error: unknown,
 ) => {
+  const busyResponse = householdMutationBusyResponse(error, responseHeaders);
+  if (busyResponse) return busyResponse;
   const message =
     action === "load"
       ? "Failed to load household"

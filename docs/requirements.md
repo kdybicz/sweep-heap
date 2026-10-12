@@ -17,7 +17,7 @@
 - Important deltas to keep visible:
   - Recurrence can drift in some month/year edge cases.
   - There is no append-only chore event history yet.
-  - Concurrency is not surfaced as explicit retryable conflict responses.
+  - Chore-write conflicts are not surfaced as explicit retryable responses; household lock contention returns `HOUSEHOLD_MUTATION_BUSY`.
 - Working rule for contributors: preserve current behavior unless a change is intentional, tested, and documented here.
 
 ## Requirements and Issue Integration
@@ -115,6 +115,7 @@
 ## Invite Rules
 - Household invite links require Better Auth `invitationId + secret` and pending-status expiry checks (7 days).
 - Invite create/resend delivery is best-effort: APIs return `ok: true` even when SMTP send fails, with `inviteEmailSent: false` in the response.
+- Invitation rows and secret hashes are persisted under a household mutation lock; SMTP delivery runs after releasing that lock.
 - Accepting invite with active session:
   - Succeeds only when signed-in email matches invite email.
   - Can add the user to another household and switch active context to the accepted household.
@@ -270,6 +271,8 @@
   - Any households that become empty (no active memberships) are also removed.
 
 ## Ownership and Deletion Reconciliation (Current)
+- Household mutation locks use a separate bounded connection pool so queued locks cannot starve business queries. Connection acquisition is bounded to five seconds, then PostgreSQL lock waits to five seconds before `409 HOUSEHOLD_MUTATION_BUSY`; callbacks retain the lock until they finish.
+- Account deletion fails immediately with the same code if an owned-household lock is busy, rolling back token consumption. Token replacement uses a separate user-lock namespace.
 - Deleting a user's last household leaves the user in onboarding with no active household; they may create a new household afterward.
 - When an active household is deleted or the user's membership in it ends through self-leave, `active_household_id` is cleared or re-resolved when possible before the client continues; if Better Auth session healing fails, later household-scoped API requests with real request headers can finish healing the stale selection, while pages may still resolve fallback state for navigation.
 - Multi-household support treats `active_household_id` as the acting context; membership list and ownership checks are evaluated against the targeted household, not inferred by latest membership.
@@ -289,7 +292,7 @@
 - Live smoke, issue-linked browser/API regressions, and isolated pool contention tests are available through the commands in [E2E testing](e2e-testing.md). These require the local stack and are separate from the default Vitest gate.
 
 ## Known Gaps and Implementation Caveats
-- Concurrency conflict semantics are not implemented as explicit retryable conflicts; current writes are effectively last-write-wins for exception upserts.
+- Chore concurrency conflicts are not implemented as explicit retryable conflicts; exception upserts remain last-write-wins. Household lock contention has a retryable `409 HOUSEHOLD_MUTATION_BUSY` response.
 - No dedicated event/audit history table exists for chore state transitions; only latest exception state is stored.
 - `closed_reason = schedule_end` lifecycle is not currently persisted by background process; closure is mostly represented by derived listing behavior.
 - Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).

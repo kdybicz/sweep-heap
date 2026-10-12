@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
 
 const { connectMock, queryMock } = vi.hoisted(() => ({
   connectMock: vi.fn(),
@@ -71,6 +72,28 @@ describe("deleteUserById", () => {
     connectMock.mockReset();
   });
 
+  it("rolls back token consumption and fails fast when a household lock is busy", async () => {
+    const client = { query: vi.fn(), release: vi.fn() };
+    connectMock.mockResolvedValue(client);
+    client.query
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ identifier: "delete-account:9:nonce" }] })
+      .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
+      .mockResolvedValueOnce({ rows: [{ locked: false }] })
+      .mockResolvedValueOnce({});
+    await expect(
+      deleteUserById({
+        userId: 9,
+        deleteAccountToken: { identifier: "delete-account:9:nonce", tokenHash: "hash" },
+      }),
+    ).rejects.toBeInstanceOf(HouseholdMutationBusyError);
+    expect(client.query).toHaveBeenLastCalledWith("rollback");
+    expect(client.release).toHaveBeenCalledOnce();
+    expect(client.query.mock.calls.some((call) => call[0].startsWith("delete from users"))).toBe(
+      false,
+    );
+  });
+
   it("deletes user and prunes now-empty households", async () => {
     const client = {
       query: vi.fn(),
@@ -81,7 +104,7 @@ describe("deleteUserById", () => {
     client.query
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
-      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ locked: true }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [{ householdId: 2 }, { householdId: 5 }],
@@ -102,7 +125,7 @@ describe("deleteUserById", () => {
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
     );
     expect(client.query.mock.calls[1]?.[1]).toEqual([9]);
-    expect(client.query.mock.calls[2]?.[0]).toBe("select pg_advisory_xact_lock($1)");
+    expect(client.query.mock.calls[2]?.[0]).toBe("select pg_try_advisory_xact_lock($1) as locked");
     expect(client.query.mock.calls[2]?.[1]).toEqual([2]);
     expect(client.query.mock.calls[3]?.[0]).toBe(
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
@@ -132,7 +155,7 @@ describe("deleteUserById", () => {
     client.query
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
-      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ locked: true }] })
       .mockResolvedValueOnce({
         rows: [
           {
@@ -160,7 +183,7 @@ describe("deleteUserById", () => {
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
-      "select pg_advisory_xact_lock($1)",
+      "select pg_try_advisory_xact_lock($1) as locked",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
       "rollback",
     ]);
@@ -205,7 +228,7 @@ describe("deleteUserById", () => {
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ identifier: "delete-account:9:nonce" }] })
       .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
-      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ locked: true }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
       .mockResolvedValueOnce({ rows: [{ id: 9 }] })
@@ -233,7 +256,10 @@ describe("deleteUserById", () => {
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
       [9],
     ]);
-    expect(client.query.mock.calls[3]).toEqual(["select pg_advisory_xact_lock($1)", [2]]);
+    expect(client.query.mock.calls[3]).toEqual([
+      "select pg_try_advisory_xact_lock($1) as locked",
+      [2],
+    ]);
   });
 
   it("returns null and rolls back when user does not exist", async () => {
@@ -343,7 +369,7 @@ describe("createDeleteAccountToken", () => {
     });
 
     expect(client.query).toHaveBeenNthCalledWith(1, "begin");
-    expect(client.query).toHaveBeenNthCalledWith(2, "select pg_advisory_xact_lock($1)", [9]);
+    expect(client.query).toHaveBeenNthCalledWith(2, "select pg_advisory_xact_lock($1, $2)", [1, 9]);
     expect(client.query).toHaveBeenNthCalledWith(
       3,
       "delete from delete_account_tokens where user_id = $1",

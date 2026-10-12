@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
 
 const deleteAccountTokenPrefix = "delete-account";
 
@@ -92,7 +93,11 @@ export const deleteUserById = async ({
       [userId],
     );
     for (const row of ownedHouseholdIdsResult.rows) {
-      await client.query("select pg_advisory_xact_lock($1)", [row.householdId]);
+      const lock = await client.query<{ locked: boolean }>(
+        "select pg_try_advisory_xact_lock($1) as locked",
+        [row.householdId],
+      );
+      if (!lock.rows[0]?.locked) throw new HouseholdMutationBusyError();
     }
 
     const blockingHouseholdsResult = await client.query<BlockedOwnedHousehold>(
@@ -164,7 +169,8 @@ export const createDeleteAccountToken = async ({
   const client = await pool.connect();
   try {
     await client.query("begin");
-    await client.query("select pg_advisory_xact_lock($1)", [userId]);
+    // Two-key locks do not collide with single-key household locks, even when ids match.
+    await client.query("select pg_advisory_xact_lock($1, $2)", [1, userId]);
     await client.query("delete from delete_account_tokens where user_id = $1", [userId]);
     await client.query(
       "insert into delete_account_tokens (user_id, identifier, token_hash, expires_at) values ($1, $2, $3, $4)",

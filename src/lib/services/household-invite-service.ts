@@ -116,7 +116,7 @@ export const acceptHouseholdInvite = async ({
   }
 };
 
-export const sendHouseholdInvite = async ({
+export const prepareHouseholdInvite = async ({
   householdId,
   householdName,
   invite,
@@ -153,13 +153,31 @@ export const sendHouseholdInvite = async ({
     appOrigin,
   );
 
+  return {
+    householdId,
+    householdName,
+    inviteId,
+    inviteUrl: inviteUrl.toString(),
+    inviterName,
+    to: invite.email,
+  };
+};
+
+export const sendHouseholdInvite = async ({
+  householdId,
+  householdName,
+  inviteId,
+  inviteUrl,
+  inviterName,
+  to,
+}: Awaited<ReturnType<typeof prepareHouseholdInvite>>) => {
   let inviteEmailSent = false;
   try {
     await sendHouseholdInviteEmail({
       householdName,
-      inviteUrl: inviteUrl.toString(),
+      inviteUrl,
       inviterName,
-      to: invite.email,
+      to,
     });
     inviteEmailSent = true;
   } catch (error) {

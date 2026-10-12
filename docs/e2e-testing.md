@@ -36,9 +36,12 @@ verify blocked public auth routes have no database side effects while guarded me
 ownership-transfer and household workflows continue to work.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
-household's PostgreSQL advisory lock. It cancels only backends identified by that fixture lock to
-free the managed app's pool. It never calls `pg_terminate_backend`, never reuses another app server,
-and does not belong in the default Vitest gate.
+household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,
+health remains responsive during saturation, and all ten requests finish after release. These are passing
+regressions without `test.fail()` markers. Additional cases check bounded busy responses, recovery and
+account-deletion token preservation and user-lock namespace isolation.
+Failure cleanup cancels only backends identified by the fixture lock; it never calls
+`pg_terminate_backend`, never reuses another app server, and does not belong in the default Vitest gate.
 It is registered only when the dedicated contention command sets `E2E_SUITE=contention`.
 The queue must reach ten connections before the health probe; incomplete fixture setup fails normally
 instead of being interpreted as a fixed product bug.

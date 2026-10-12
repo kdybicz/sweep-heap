@@ -1,5 +1,10 @@
 import { requireApiHousehold, requireApiHouseholdAdmin } from "@/lib/api-access";
-import { API_ERROR_CODE, type ApiErrorCode, jsonError } from "@/lib/api-error";
+import {
+  API_ERROR_CODE,
+  type ApiErrorCode,
+  householdMutationBusyResponse,
+  jsonError,
+} from "@/lib/api-error";
 import {
   validateHouseholdInvitePayload,
   validateHouseholdMemberRemovePayload,
@@ -21,6 +26,8 @@ const handleUnexpectedError = (
   responseHeaders: Headers,
   error: unknown,
 ) => {
+  const busyResponse = householdMutationBusyResponse(error, responseHeaders);
+  if (busyResponse) return busyResponse;
   const message =
     action === "list"
       ? "Failed to load household members"

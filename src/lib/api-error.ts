@@ -1,3 +1,5 @@
+import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
+
 export const API_ERROR_CODE = {
   ACTION_INVALID: "ACTION_INVALID",
   ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP: "ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP",
@@ -7,6 +9,7 @@ export const API_ERROR_CODE = {
   EMAIL_REQUIRED: "EMAIL_REQUIRED",
   FORBIDDEN: "FORBIDDEN",
   HOUSEHOLD_HAS_OTHER_MEMBERS: "HOUSEHOLD_HAS_OTHER_MEMBERS",
+  HOUSEHOLD_MUTATION_BUSY: "HOUSEHOLD_MUTATION_BUSY",
   HOUSEHOLD_NAME_REQUIRED: "HOUSEHOLD_NAME_REQUIRED",
   HOUSEHOLD_NOT_FOUND: "HOUSEHOLD_NOT_FOUND",
   HOUSEHOLD_REQUIRED: "HOUSEHOLD_REQUIRED",
@@ -42,6 +45,16 @@ type ApiErrorPayload = {
   code: ApiErrorCode;
   error: string;
 };
+
+export const householdMutationBusyResponse = (error: unknown, headers?: HeadersInit) =>
+  error instanceof HouseholdMutationBusyError
+    ? jsonError({
+        headers,
+        status: 409,
+        code: API_ERROR_CODE.HOUSEHOLD_MUTATION_BUSY,
+        error: error.message,
+      })
+    : null;
 
 export const apiErrorBody = <T extends Record<string, unknown>>(payload: ApiErrorPayload & T) => {
   return {

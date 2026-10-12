@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { requireApiHousehold } from "@/lib/api-access";
-import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
+import { API_ERROR_CODE, householdMutationBusyResponse, jsonError } from "@/lib/api-error";
 import { appendSetCookieHeaders, assertOkResponse } from "@/lib/auth-response";
 import { isLastOwnerError, toAuthApiError } from "@/lib/organization-api";
 import { reconcileActiveHouseholdAfterMembershipMutation } from "@/lib/services/active-household-service";
@@ -9,6 +9,8 @@ import { withHouseholdMutationLock } from "@/lib/services/ownership-guard-servic
 export const dynamic = "force-dynamic";
 
 const handleUnexpectedError = (responseHeaders: Headers, error: unknown) => {
+  const busyResponse = householdMutationBusyResponse(error, responseHeaders);
+  if (busyResponse) return busyResponse;
   console.error("Failed to leave household", error);
   return jsonError({
     headers: responseHeaders,
