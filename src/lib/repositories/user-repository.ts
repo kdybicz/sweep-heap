@@ -88,11 +88,11 @@ export const deleteUserById = async ({
       }
     }
 
-    const ownedHouseholdIdsResult = await client.query<{ householdId: number }>(
-      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
+    const householdIdsResult = await client.query<{ householdId: number }>(
+      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       [userId],
     );
-    for (const row of ownedHouseholdIdsResult.rows) {
+    for (const row of householdIdsResult.rows) {
       const lock = await client.query<{ locked: boolean }>(
         "select pg_try_advisory_xact_lock($1) as locked",
         [row.householdId],

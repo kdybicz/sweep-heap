@@ -99,4 +99,16 @@ describe("household mutation lock", () => {
     expect(task).not.toHaveBeenCalled();
     expect(release).toHaveBeenCalledWith(failure);
   });
+
+  it("maps checkout saturation timeout without hiding real connection errors", async () => {
+    connect.mockRejectedValueOnce(new Error("timeout exceeded when trying to connect"));
+    await expect(
+      withHouseholdMutationLock({ householdId: 42, task: vi.fn() }),
+    ).rejects.toBeInstanceOf(HouseholdMutationBusyError);
+    const unavailable = Object.assign(new Error("database unavailable"), { code: "ECONNREFUSED" });
+    connect.mockRejectedValueOnce(unavailable);
+    await expect(withHouseholdMutationLock({ householdId: 42, task: vi.fn() })).rejects.toBe(
+      unavailable,
+    );
+  });
 });

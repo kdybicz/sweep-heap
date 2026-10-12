@@ -216,3 +216,91 @@ test("#20 invite acceptance and post-sign-in completion preserve contention and 
       .rows[0].status,
   ).toBe("accepted");
 });
+
+test("#20 losing the lock connection rolls back in-flight guarded writes", async ({
+  live,
+  household,
+}) => {
+  const name = `e2e_pause_${household}`;
+  const email = `${live.prefix}-lock-loss@example.com`;
+  await live.db.query(
+    `create function ${name}() returns trigger language plpgsql as $$ begin if NEW.household_id=${household} and NEW.email='${email}' then perform pg_sleep(8); end if; return NEW; end $$`,
+  );
+  let pending;
+  try {
+    await live.db.query(
+      `create trigger ${name} after insert on household_member_invites for each row execute function ${name}()`,
+    );
+    pending = live.api(live.owner, "/api/households/members", "POST", { email });
+    let pid;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const paused = await live.db.query(
+        "select a.pid from pg_stat_activity a join pg_locks l on l.pid=a.pid where a.application_name='sweep-heap-household-locks' and a.wait_event='PgSleep' and l.locktype='advisory' and l.classid=0 and l.objid=$1 and l.objsubid=1 and l.granted",
+        [household],
+      );
+      pid = paused.rows[0]?.pid;
+      if (pid) break;
+      await sleep(100);
+    }
+    expect(pid, "fixture must observe its own paused mutation backend").toBeDefined();
+    await live.db.query("select pg_terminate_backend($1)", [pid]);
+    expect((await pending).status).toBe(500);
+    expect(
+      (
+        await live.db.query(
+          "select id from household_member_invites where household_id=$1 and email=$2",
+          [household, email],
+        )
+      ).rowCount,
+    ).toBe(0);
+  } finally {
+    if (pending) await pending.catch(() => {});
+    await live.db.query(`drop trigger if exists ${name} on household_member_invites`);
+    await live.db.query(`drop function if exists ${name}()`);
+  }
+  expect((await fetch(`${baseURL}/api/health`, { signal: AbortSignal.timeout(3000) })).status).toBe(
+    200,
+  );
+  expect((await live.api(live.owner, "/api/households/members", "POST", { email })).status).toBe(
+    200,
+  );
+});
+
+test("#20 deletion locks regular memberships before ownership can change", async ({
+  live,
+  household,
+}) => {
+  await live.join();
+  expect((await live.api(live.member, "/api/me/delete-request", "POST")).status).toBe(200);
+  const link = new URL(await live.emailLink(live.member.email, "/user/delete/confirm?"));
+  const payload = {
+    identifier: link.searchParams.get("identifier"),
+    token: link.searchParams.get("token"),
+  };
+  const client = await live.db.connect();
+  let transfer;
+  try {
+    await client.query("select pg_advisory_lock($1)", [household]);
+    transfer = live.api(live.owner, "/api/households/members/owner-transfer", "POST", {
+      userId: live.member.id,
+    });
+    const deletion = await live.api(live.member, "/api/me/delete-confirm", "POST", payload, 4000);
+    expect(deletion.status).toBe(409);
+    expect(deletion.body.code).toBe("HOUSEHOLD_MUTATION_BUSY");
+  } finally {
+    await client.query("select pg_advisory_unlock_all()");
+    client.release();
+  }
+  expect((await transfer).status).toBe(200);
+  const deletion = await live.api(live.member, "/api/me/delete-confirm", "POST", payload);
+  expect(deletion.status).toBe(409);
+  expect(deletion.body.code).toBe("ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP");
+  expect(
+    (
+      await live.db.query(
+        "select role from household_memberships where household_id=$1 and user_id=$2",
+        [household, live.member.id],
+      )
+    ).rows[0].role,
+  ).toBe("owner");
+});

@@ -1,5 +1,7 @@
+import type { PoolClient } from "pg";
 import { householdLockPool } from "@/lib/db";
 import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
+import { runMutationTransaction } from "@/lib/mutation-transaction";
 
 export const withHouseholdMutationLock = async <T>({
   householdId,
@@ -8,7 +10,16 @@ export const withHouseholdMutationLock = async <T>({
   householdId: number;
   task: () => Promise<T>;
 }): Promise<T> => {
-  const client = await householdLockPool.connect();
+  let client: PoolClient;
+  try {
+    client = await householdLockPool.connect();
+  } catch (error) {
+    // pg-pool's queue timeout has no SQLSTATE; distinguish its specific checkout error.
+    if (error instanceof Error && error.message === "timeout exceeded when trying to connect") {
+      throw new HouseholdMutationBusyError();
+    }
+    throw error;
+  }
   let connectionError: Error | undefined;
   const onError = (error: Error) => {
     connectionError = error;
@@ -24,7 +35,7 @@ export const withHouseholdMutationLock = async <T>({
       throw error;
     }
     if (connectionError) throw connectionError;
-    const result = await task();
+    const result = await runMutationTransaction(client, task, () => connectionError);
     if (connectionError) throw connectionError;
     await client.query("commit");
     return result;

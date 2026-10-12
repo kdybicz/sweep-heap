@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { transactionAwarePool } from "@/lib/mutation-transaction";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -6,10 +7,11 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL is not set");
 }
 
-export const pool = new Pool({
+const queryPool = new Pool({
   connectionString: databaseUrl,
   connectionTimeoutMillis: 5000,
 });
+export const pool = transactionAwarePool(queryPool);
 
 // Lock callbacks use the query pool above. Never queue their locks in that same pool.
 export const householdLockPool = new Pool({

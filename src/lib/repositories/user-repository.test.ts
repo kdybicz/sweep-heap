@@ -122,7 +122,7 @@ describe("deleteUserById", () => {
     });
     expect(client.query.mock.calls[0]?.[0]).toBe("begin");
     expect(client.query.mock.calls[1]?.[0]).toBe(
-      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
+      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
     );
     expect(client.query.mock.calls[1]?.[1]).toEqual([9]);
     expect(client.query.mock.calls[2]?.[0]).toBe("select pg_try_advisory_xact_lock($1) as locked");
@@ -182,7 +182,7 @@ describe("deleteUserById", () => {
     });
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
-      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
+      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       "select pg_try_advisory_xact_lock($1) as locked",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
       "rollback",
@@ -253,7 +253,7 @@ describe("deleteUserById", () => {
       ["delete-account:9:nonce", "hash"],
     ]);
     expect(client.query.mock.calls[2]).toEqual([
-      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
+      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       [9],
     ]);
     expect(client.query.mock.calls[3]).toEqual([
@@ -282,7 +282,7 @@ describe("deleteUserById", () => {
     expect(result).toEqual({ ok: false, reason: "not-found" });
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
-      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
+      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active'",
       "delete from users where id = $1 returning id",
@@ -310,7 +310,7 @@ describe("deleteUserById", () => {
 
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
-      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
+      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active'",
       "rollback",
