@@ -12,6 +12,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## Core Rules
 
 ### Household and roles
+- Better Auth organization HTTP routes return `404`; use guarded `/api/households/**` APIs. Server-side `auth.api` organization methods remain available to household services.
 - Any signed-in user can create a household, including users who already belong to another active household.
 - Active household comes from session `active_household_id`, with one-household bootstrap fallback when the session selection is missing or stale.
 - Owner/admin-only: edit household, revoke invites, change roles, remove members.

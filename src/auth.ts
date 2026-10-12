@@ -4,6 +4,7 @@ import { createAccessControl } from "better-auth/plugins/access";
 import { defaultStatements } from "better-auth/plugins/organization/access";
 import { headers } from "next/headers";
 
+import { getPluginHttpPaths } from "@/lib/auth-endpoint-policy";
 import { pool } from "@/lib/db";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional-email";
 import { renderMagicLinkEmail } from "@/lib/email/templates/magic-link-email";
@@ -37,11 +38,70 @@ const householdMemberRole = organizationAccessControl.newRole({
   ac: ["read"],
 });
 
+const householdOrganization = organization({
+  ac: organizationAccessControl,
+  creatorRole: "owner",
+  invitationExpiresIn: 7 * 24 * 60 * 60,
+  roles: {
+    admin: householdAdminRole,
+    owner: householdOwnerRole,
+    member: householdMemberRole,
+  },
+  allowUserToCreateOrganization: async (user) => parsePositiveInt(user.id) !== null,
+  schema: {
+    session: { fields: { activeOrganizationId: "active_household_id" } },
+    organization: {
+      modelName: "households",
+      fields: {
+        name: "name",
+        slug: "slug",
+        logo: "icon",
+        metadata: "metadata",
+        createdAt: "created_at",
+      },
+      additionalFields: {
+        timeZone: { type: "string", fieldName: "time_zone", required: true, defaultValue: "UTC" },
+      },
+    },
+    member: {
+      modelName: "household_memberships",
+      fields: {
+        organizationId: "household_id",
+        userId: "user_id",
+        role: "role",
+        createdAt: "joined_at",
+      },
+      additionalFields: {
+        status: {
+          type: "string",
+          fieldName: "status",
+          required: true,
+          input: false,
+          defaultValue: "active",
+        },
+      },
+    },
+    invitation: {
+      modelName: "household_member_invites",
+      fields: {
+        organizationId: "household_id",
+        email: "email",
+        role: "role",
+        status: "status",
+        expiresAt: "expires_at",
+        createdAt: "created_at",
+        inviterId: "invited_by_user_id",
+      },
+    },
+  },
+});
+
 export const auth = betterAuth({
   appName: "The Sweep Heap",
   baseURL: appUrl,
   trustedOrigins: appUrl ? [appUrl] : ["http://localhost:3000"],
   database: pool,
+  disabledPaths: getPluginHttpPaths(householdOrganization),
   advanced: {
     database: {
       generateId: "serial",
@@ -105,75 +165,7 @@ export const auth = betterAuth({
         });
       },
     }),
-    organization({
-      ac: organizationAccessControl,
-      creatorRole: "owner",
-      invitationExpiresIn: 7 * 24 * 60 * 60,
-      roles: {
-        admin: householdAdminRole,
-        owner: householdOwnerRole,
-        member: householdMemberRole,
-      },
-      allowUserToCreateOrganization: async (user) => {
-        const userId = parsePositiveInt(user.id);
-        return userId !== null;
-      },
-      schema: {
-        session: {
-          fields: {
-            activeOrganizationId: "active_household_id",
-          },
-        },
-        organization: {
-          modelName: "households",
-          fields: {
-            name: "name",
-            slug: "slug",
-            logo: "icon",
-            metadata: "metadata",
-            createdAt: "created_at",
-          },
-          additionalFields: {
-            timeZone: {
-              type: "string",
-              fieldName: "time_zone",
-              required: true,
-              defaultValue: "UTC",
-            },
-          },
-        },
-        member: {
-          modelName: "household_memberships",
-          fields: {
-            organizationId: "household_id",
-            userId: "user_id",
-            role: "role",
-            createdAt: "joined_at",
-          },
-          additionalFields: {
-            status: {
-              type: "string",
-              fieldName: "status",
-              required: true,
-              input: false,
-              defaultValue: "active",
-            },
-          },
-        },
-        invitation: {
-          modelName: "household_member_invites",
-          fields: {
-            organizationId: "household_id",
-            email: "email",
-            role: "role",
-            status: "status",
-            expiresAt: "expires_at",
-            createdAt: "created_at",
-            inviterId: "invited_by_user_id",
-          },
-        },
-      },
-    }),
+    householdOrganization,
   ],
 });
 

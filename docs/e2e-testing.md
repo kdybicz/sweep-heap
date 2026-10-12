@@ -31,6 +31,9 @@ The regression suite asserts intended behavior for the confirmed issues. Each cu
 an issue-linked `test.fail()` marker. A reproduced assertion failure is reported as expected;
 when a fix makes the test pass, Playwright reports an **unexpected pass** and exits nonzero until
 the marker is removed. Setup failures before the marker remain ordinary failures.
+The #19 organization-boundary cases are passing regressions without expected-failure markers. They
+verify blocked public auth routes have no database side effects while guarded member, invitation,
+ownership-transfer and household workflows continue to work.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It cancels only backends identified by that fixture lock to

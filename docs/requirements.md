@@ -192,6 +192,7 @@
 - Snapshot includes the app's business APIs plus the auth/session routes that drive sign-in callbacks and sign-out redirects.
 - `GET|POST /api/auth/[...auth]`
   - Better Auth handler for magic-link sign-in, callback completion, and session operations.
+  - Organization plugin HTTP routes, including reads, are disabled with native `404 Not Found` responses. Household operations use the guarded `/api/households/**` APIs; their services retain server-side Better Auth access.
 - `GET /api/health`
   - DB heartbeat check.
 - `GET /api/households`
