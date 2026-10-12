@@ -12,6 +12,8 @@ const {
   sendHouseholdInviteMock,
   updateMemberRoleMock,
   withHouseholdMutationLockMock,
+  retireExpiredInvitesMock,
+  refreshExpiredInviteMock,
 } = vi.hoisted(() => ({
   cancelInvitationMock: vi.fn(),
   createInvitationMock: vi.fn(),
@@ -24,6 +26,8 @@ const {
   withHouseholdMutationLockMock: vi.fn(async ({ task }: { task: () => Promise<unknown> }) =>
     task(),
   ),
+  retireExpiredInvitesMock: vi.fn(),
+  refreshExpiredInviteMock: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -46,6 +50,11 @@ vi.mock("@/lib/services/household-invite-service", () => ({
 
 vi.mock("@/lib/services/ownership-guard-service", () => ({
   withHouseholdMutationLock: withHouseholdMutationLockMock,
+}));
+
+vi.mock("@/lib/repositories/household-repository", () => ({
+  retireExpiredHouseholdInvitesForEmail: retireExpiredInvitesMock,
+  refreshExpiredPendingHouseholdInvite: refreshExpiredInviteMock,
 }));
 
 import {
@@ -79,6 +88,8 @@ describe("household-members-service", () => {
     sendHouseholdInviteMock.mockReset();
     updateMemberRoleMock.mockReset();
     withHouseholdMutationLockMock.mockClear();
+    retireExpiredInvitesMock.mockReset();
+    refreshExpiredInviteMock.mockReset();
 
     sendHouseholdInviteMock.mockResolvedValue({ inviteId: 12, inviteEmailSent: true });
   });
@@ -111,6 +122,75 @@ describe("household-members-service", () => {
       householdId: 11,
       task: expect.any(Function),
     });
+  });
+
+  it("retries a pending-index SQL conflict in a fresh lock transaction", async () => {
+    const conflict = { code: "23505", constraint: "household_member_invites_pending_email_unique" };
+    createInvitationMock
+      .mockRejectedValueOnce({ cause: conflict })
+      .mockResolvedValueOnce(pendingInvite());
+    const result = await createHouseholdMemberInvite({
+      email: " Pending@Example.com ",
+      householdId: 11,
+      householdName: "Home",
+      inviterName: "Alex",
+      request: new Request("http://localhost", { method: "POST" }),
+    });
+    expect(result.ok).toBe(true);
+    expect(withHouseholdMutationLockMock).toHaveBeenCalledTimes(2);
+    expect(retireExpiredInvitesMock).toHaveBeenCalledWith({
+      householdId: 11,
+      email: "pending@example.com",
+    });
+    expect(createInvitationMock.mock.calls[1][0].body.email).toBe("pending@example.com");
+    expect(sendHouseholdInviteMock).toHaveBeenCalledOnce();
+  });
+
+  it("bounds repeated SQL conflicts and returns a recoverable conflict without sending mail", async () => {
+    createInvitationMock.mockRejectedValue({
+      code: "23505",
+      constraint: "household_member_invites_pending_email_unique",
+    });
+    const result = await createHouseholdMemberInvite({
+      email: "pending@example.com",
+      householdId: 11,
+      householdName: "Home",
+      inviterName: "Alex",
+      request: new Request("http://localhost", { method: "POST" }),
+    });
+    expect(result).toMatchObject({ ok: false, status: 409, code: "USER_ALREADY_INVITED" });
+    expect(withHouseholdMutationLockMock).toHaveBeenCalledTimes(2);
+    expect(sendHouseholdInviteMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes an expired resend only after checking owner-role protections", async () => {
+    listInvitationsMock.mockResolvedValue([
+      pendingInvite({ role: "owner", expiresAt: new Date("2025-01-01") }),
+    ]);
+    const denied = await resendHouseholdInvite({
+      actorRole: "admin",
+      householdId: 11,
+      householdName: "Home",
+      inviteId: 12,
+      inviterName: "Alex",
+      request: new Request("http://localhost", { method: "POST" }),
+    });
+    expect(denied).toMatchObject({ ok: false, status: 403 });
+    expect(refreshExpiredInviteMock).not.toHaveBeenCalled();
+    createInvitationMock.mockResolvedValue(pendingInvite({ role: "owner" }));
+    const allowed = await resendHouseholdInvite({
+      actorRole: "owner",
+      householdId: 11,
+      householdName: "Home",
+      inviteId: 12,
+      inviterName: "Alex",
+      request: new Request("http://localhost", { method: "POST" }),
+    });
+    expect(allowed.ok).toBe(true);
+    expect(refreshExpiredInviteMock).toHaveBeenCalledWith({ householdId: 11, inviteId: 12 });
+    expect(createInvitationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ role: "owner", resend: true }) }),
+    );
   });
 
   it("persists invitation secrets under the lock and sends SMTP after release", async () => {

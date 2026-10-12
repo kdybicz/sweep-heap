@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { API_ERROR_CODE, type ApiErrorCode } from "@/lib/api-error";
+import { isPendingInviteUniqueConflict } from "@/lib/household-invite-policy";
 import { isHouseholdElevatedRole } from "@/lib/household-roles";
 import {
   type AuthApiError,
@@ -15,6 +16,10 @@ import {
   parsePositiveInt,
   toAuthApiError,
 } from "@/lib/organization-api";
+import {
+  refreshExpiredPendingHouseholdInvite,
+  retireExpiredHouseholdInvitesForEmail,
+} from "@/lib/repositories/household-repository";
 import {
   prepareHouseholdInvite,
   sendHouseholdInvite,
@@ -42,6 +47,30 @@ const serviceSuccess = <T>(data: T): HouseholdMembersServiceSuccess<T> => ({
   ok: true,
   data,
 });
+
+// A SQL uniqueness failure aborts the shared transaction. Retry only after rollback/release.
+const withInviteMutationRecovery = async <T>({
+  householdId,
+  task,
+}: {
+  householdId: number;
+  task: () => Promise<T>;
+}): Promise<T | HouseholdMembersServiceFailure> => {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await withHouseholdMutationLock({ householdId, task });
+    } catch (error) {
+      if (!isPendingInviteUniqueConflict(error)) throw error;
+      if (attempt === 1)
+        return serviceFailure({
+          status: 409,
+          code: API_ERROR_CODE.USER_ALREADY_INVITED,
+          error: "Invitation changed concurrently. Resend or revoke the existing invitation.",
+        });
+    }
+  }
+  throw new Error("Unreachable invitation retry state");
+};
 
 function serviceFailure(args: {
   status: number;
@@ -241,14 +270,16 @@ export const createHouseholdMemberInvite = async ({
     { existingInvite?: ReturnType<typeof mapOrganizationInvitation> }
   >
 > => {
-  const result = await withHouseholdMutationLock({
+  const normalizedEmail = email.trim().toLowerCase();
+  const result = await withInviteMutationRecovery({
     householdId,
     task: async () => {
+      await retireExpiredHouseholdInvitesForEmail({ householdId, email: normalizedEmail });
       let invite: OrganizationInvitationLike;
       try {
         invite = (await auth.api.createInvitation({
           body: {
-            email,
+            email: normalizedEmail,
             role: "member",
             organizationId: String(householdId),
           },
@@ -461,7 +492,7 @@ export const resendHouseholdInvite = async ({
     inviteEmailSent: boolean;
   }>
 > => {
-  const result = await withHouseholdMutationLock({
+  const result = await withInviteMutationRecovery({
     householdId,
     task: async () => {
       const invite = await findPendingInviteById({
@@ -485,6 +516,7 @@ export const resendHouseholdInvite = async ({
         return ownerRoleProtectionFailure;
       }
 
+      await refreshExpiredPendingHouseholdInvite({ householdId, inviteId });
       const inviteRole = isHouseholdElevatedRole(invite.role) ? invite.role : "member";
       const resentInvite = (await auth.api.createInvitation({
         body: {

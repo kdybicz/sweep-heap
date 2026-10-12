@@ -17,6 +17,7 @@ export type HouseholdMembersApiInvite = {
   role: string;
   createdAt: string;
   expiresAt: string;
+  expired?: boolean;
 };
 
 export type HouseholdMembersApiMember = {

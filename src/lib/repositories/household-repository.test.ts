@@ -18,9 +18,31 @@ import {
   getPendingHouseholdInviteByIdAndSecret,
   listActiveHouseholdsForUser,
   listOwnedHouseholdsWithOtherMembers,
+  refreshExpiredPendingHouseholdInvite,
+  retireExpiredHouseholdInvitesForEmail,
   setPendingHouseholdInviteSecretHash,
   updateHouseholdById,
 } from "@/lib/repositories/household-repository";
+
+describe("expired invitation persistence", () => {
+  it("retires only expired pending rows for a normalized household/email", async () => {
+    queryMock.mockReset();
+    queryMock.mockResolvedValue({ rows: [] });
+    await retireExpiredHouseholdInvitesForEmail({ householdId: 11, email: " User@Example.com " });
+    expect(queryMock.mock.calls[0][1]).toEqual([11, "user@example.com"]);
+    expect(queryMock.mock.calls[0][0]).toContain("status='pending'");
+    expect(queryMock.mock.calls[0][0]).toContain("expires_at<=clock_timestamp()");
+    expect(queryMock.mock.calls[0][0]).toContain("accept_secret_hash=null");
+  });
+  it("refreshes only the targeted expired pending invitation using the shared lifetime", async () => {
+    queryMock.mockReset();
+    queryMock.mockResolvedValue({ rows: [] });
+    await refreshExpiredPendingHouseholdInvite({ householdId: 11, inviteId: 12 });
+    expect(queryMock.mock.calls[0][1]).toEqual([11, 12, 604800]);
+    expect(queryMock.mock.calls[0][0]).toContain("household_id=$1 and id=$2");
+    expect(queryMock.mock.calls[0][0]).toContain("status='pending'");
+  });
+});
 
 describe("getPendingHouseholdInviteByIdAndSecret", () => {
   beforeEach(() => {

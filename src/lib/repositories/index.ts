@@ -20,6 +20,8 @@ export {
   HouseholdNotFoundError,
   listActiveHouseholdsForUser,
   listOwnedHouseholdsWithOtherMembers,
+  refreshExpiredPendingHouseholdInvite,
+  retireExpiredHouseholdInvitesForEmail,
   setPendingHouseholdInviteSecretHash,
   updateHouseholdById,
 } from "@/lib/repositories/household-repository";

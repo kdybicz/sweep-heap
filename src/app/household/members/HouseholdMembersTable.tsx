@@ -128,7 +128,9 @@ const HouseholdInviteRow = ({
 
   return (
     <tr className="border-b border-[var(--stroke-soft)] last:border-b-0 hover:bg-[var(--surface-weak)]/70">
-      <td className="px-4 py-4 font-semibold text-[var(--muted)]">Pending invite</td>
+      <td className="px-4 py-4 font-semibold text-[var(--muted)]">
+        {invite.expired ? "Expired invite" : "Pending invite"}
+      </td>
       <td className="px-4 py-4 text-[var(--muted)]">{invite.email}</td>
       <td className="px-4 py-3">
         <span className="border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
@@ -137,7 +139,7 @@ const HouseholdInviteRow = ({
       </td>
       <td className="px-4 py-3">
         <span className="border border-[var(--stroke-soft)] bg-[var(--accent-gold-soft)] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-          Pending
+          {invite.expired ? "Expired" : "Pending"}
         </span>
       </td>
       <td className="px-4 py-4 text-[var(--muted)]">{formatDate(invite.createdAt)}</td>
@@ -177,7 +179,7 @@ const HouseholdInviteRow = ({
           )}
         </div>
         <div className="mt-1 text-[0.62rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-          Expires {formatDate(invite.expiresAt)}
+          {invite.expired ? "Expired" : "Expires"} {formatDate(invite.expiresAt)}
         </div>
       </td>
     </tr>

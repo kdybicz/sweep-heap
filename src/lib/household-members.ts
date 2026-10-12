@@ -31,8 +31,10 @@ export const getHouseholdMembersSnapshot = async ({
   const pendingInvites = Array.isArray(fullOrganization?.invitations)
     ? fullOrganization.invitations
         .filter((invite) => invite.status === "pending")
-        .filter((invite) => new Date(invite.expiresAt).getTime() > Date.now())
-        .map(mapOrganizationInvitation)
+        .map((invite) => ({
+          ...mapOrganizationInvitation(invite),
+          ...(new Date(invite.expiresAt).getTime() <= Date.now() ? { expired: true as const } : {}),
+        }))
     : [];
 
   return {

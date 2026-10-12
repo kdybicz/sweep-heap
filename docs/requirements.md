@@ -115,6 +115,8 @@
 ## Invite Rules
 - Household invite links require Better Auth `invitationId + secret` and pending-status expiry checks (7 days).
 - Invite create/resend delivery is best-effort: APIs return `ok: true` even when SMTP send fails, with `inviteEmailSent: false` in the response.
+- Expired pending invitations remain visible as expired on the members page with role-aware resend/revoke controls. Creating a replacement cancels expired pending rows for that normalized household/email and clears their secret hashes. Resending refreshes the same id and role, then rotates the secret and extends validity by seven days.
+- Pending-email unique-index failures retry once in a fresh household transaction after rollback; repeated conflicts return `409 USER_ALREADY_INVITED`. Active duplicate invitations retain the existing conflict response.
 - Invitation rows and secret hashes are persisted under a household mutation lock; SMTP delivery runs after releasing that lock.
 - Accepting invite with active session:
   - Succeeds only when signed-in email matches invite email.

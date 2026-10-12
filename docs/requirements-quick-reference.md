@@ -40,6 +40,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ### Invites
+- Expired pending invitations stay visible for resend/revoke. Replacement creation retires expired rows and clears old secrets; authorized resend preserves id/role and issues a new secret. The pending-email index has one bounded fresh-transaction retry, then `409 USER_ALREADY_INVITED`.
 - Invite validity is `invitationId + secret` + pending-status expiry window (7 days).
 - Invite create/resend is best-effort for SMTP delivery; check `inviteEmailSent` in success responses.
 - Signed-in acceptance requires session email to match invited email.

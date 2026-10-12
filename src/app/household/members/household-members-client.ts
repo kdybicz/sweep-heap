@@ -41,6 +41,7 @@ export const toPendingInvite = (invite: HouseholdMembersApiInvite): HouseholdPen
   role: toHouseholdMemberRole(invite.role),
   createdAt: String(invite.createdAt),
   expiresAt: String(invite.expiresAt),
+  ...(invite.expired ? { expired: true } : {}),
 });
 
 export const toMember = (member: HouseholdMembersApiMember): HouseholdMember => ({

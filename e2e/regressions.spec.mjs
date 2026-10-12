@@ -199,29 +199,154 @@ test("#19 owner-role invitations remain protected through guarded APIs", async (
   expect((await live.api(live.owner, path, "DELETE")).status).toBe(200);
 });
 
-test("#21 expired pending invitations can be replaced without a server error", async ({
+test("#21 expired pending invitations stay visible and can be replaced", async ({
   live,
   household,
-}, testInfo) => {
-  const email = `${live.prefix}-expired@example.com`;
+}) => {
+  const email = live.member.email;
   const invite = await live.api(live.owner, "/api/households/members", "POST", { email });
   expect(invite.status).toBe(200);
+  const originalLink = new URL(
+    await live.emailLink(email, "/household/invite?", invite.body.invite.id),
+  );
   await live.db.query(
     "update household_member_invites set expires_at=now()-interval '1 minute' where id=$1 and household_id=$2",
     [invite.body.invite.id, household],
   );
-  const recreate = await live.api(live.owner, "/api/households/members", "POST", { email });
-  const resend = await live.api(
+  const snapshot = await live.api(live.owner, "/api/households/members");
+  expect(snapshot.body.pendingInvites.find((row) => row.id === invite.body.invite.id).expired).toBe(
+    true,
+  );
+  const page = await live.owner.context.newPage();
+  await page.goto(`${baseURL}/household/members`, { waitUntil: "networkidle" });
+  const row = page.getByRole("row").filter({ hasText: email });
+  await expect(row).toContainText("Expired invite");
+  await row.getByRole("button", { name: "Open invite actions" }).click();
+  await expect(page.getByRole("button", { name: "Resend invite", exact: true })).toBeEnabled();
+  const recreate = await live.api(live.owner, "/api/households/members", "POST", {
+    email: ` ${email.toUpperCase()} `,
+  });
+  expect(recreate.status).toBe(200);
+  expect(recreate.body.invite.id).not.toBe(invite.body.invite.id);
+  expect(
+    (
+      await live.db.query(
+        "select status,accept_secret_hash from household_member_invites where id=$1",
+        [invite.body.invite.id],
+      )
+    ).rows[0],
+  ).toMatchObject({ status: "canceled", accept_secret_hash: null });
+  expect(
+    (
+      await live.db.query(
+        "select id from household_member_invites where household_id=$1 and lower(email)=lower($2) and status='pending'",
+        [household, email],
+      )
+    ).rowCount,
+  ).toBe(1);
+  expect(
+    (
+      await live.api(live.member, "/api/households/invites/accept", "POST", {
+        invitationId: invite.body.invite.id,
+        secret: originalLink.searchParams.get("secret"),
+      })
+    ).status,
+  ).toBe(400);
+  await live.accept(live.member, recreate.body.invite.id);
+});
+
+test("#21 expired resend preserves id and role while rotating its secret", async ({
+  live,
+  household,
+}) => {
+  const invitationId = await live.invite(live.member);
+  const original = new URL(
+    await live.emailLink(live.member.email, "/household/invite?", invitationId),
+  );
+  await live.db.query(
+    "update household_member_invites set role='admin', expires_at=clock_timestamp()-interval '1 minute' where id=$1 and household_id=$2",
+    [invitationId, household],
+  );
+  const response = await live.api(
     live.owner,
-    `/api/households/members/invites/${invite.body.invite.id}`,
+    `/api/households/members/invites/${invitationId}`,
     "POST",
   );
-  await testInfo.attach("expired-invitation-responses", {
-    body: JSON.stringify({ recreate, resend }),
-    contentType: "application/json",
-  });
-  knownFailure(21);
-  expect(recreate.status).toBeLessThan(400);
+  expect(response.status).toBe(200);
+  expect(response.body.invite).toMatchObject({ id: invitationId, role: "admin" });
+  expect(response.body.inviteEmailSent).toBe(true);
+  expect(Date.parse(response.body.invite.expiresAt)).toBeGreaterThan(Date.now());
+  const refreshed = new URL(
+    await live.emailLink(live.member.email, "/household/invite?", invitationId),
+  );
+  expect(refreshed.searchParams.get("secret")).not.toBe(original.searchParams.get("secret"));
+  expect(
+    (
+      await live.api(live.member, "/api/households/invites/accept", "POST", {
+        invitationId,
+        secret: original.searchParams.get("secret"),
+      })
+    ).status,
+  ).toBe(400);
+  await live.accept(live.member, invitationId);
+  expect(
+    (
+      await live.db.query(
+        "select role from household_memberships where household_id=$1 and user_id=$2",
+        [household, live.member.id],
+      )
+    ).rows[0].role,
+  ).toBe("admin");
+});
+
+test("#21 concurrent creation keeps one pending normalized email", async ({ live, household }) => {
+  const email = `${live.prefix}-concurrent@example.com`;
+  const responses = await Promise.all([
+    live.api(live.owner, "/api/households/members", "POST", { email }),
+    live.api(live.owner, "/api/households/members", "POST", { email: ` ${email.toUpperCase()} ` }),
+  ]);
+  expect(responses.map((row) => row.status).sort()).toEqual([200, 409]);
+  expect(
+    (
+      await live.db.query(
+        "select id from household_member_invites where household_id=$1 and lower(email)=lower($2) and status='pending'",
+        [household, email],
+      )
+    ).rowCount,
+  ).toBe(1);
+});
+
+test("#21 raw pending-index violations recover after rollback and do not leak partial rows", async ({
+  live,
+  household,
+}) => {
+  const name = `e2e_invite_conflict_${household}`;
+  const email = `${live.prefix}-sql-conflict@example.com`;
+  await live.db.query(
+    `create function ${name}() returns trigger language plpgsql as $$ begin if pg_trigger_depth()=1 and NEW.household_id=${household} and NEW.email='${email}' then insert into household_member_invites (household_id,invited_by_user_id,email,role,status,expires_at) values (NEW.household_id,NEW.invited_by_user_id,NEW.email,'member','pending',clock_timestamp()+interval '7 days'); end if; return NEW; end $$`,
+  );
+  try {
+    await live.db.query(
+      `create trigger ${name} before insert on household_member_invites for each row execute function ${name}()`,
+    );
+    const response = await live.api(live.owner, "/api/households/members", "POST", { email });
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe("USER_ALREADY_INVITED");
+    expect(
+      (
+        await live.db.query(
+          "select id from household_member_invites where household_id=$1 and email=$2",
+          [household, email],
+        )
+      ).rowCount,
+    ).toBe(0);
+  } finally {
+    await live.db.query(`drop trigger if exists ${name} on household_member_invites`);
+    await live.db.query(`drop function if exists ${name}()`);
+  }
+  expect((await live.api(live.owner, "/api/households/members", "POST", { email })).status).toBe(
+    200,
+  );
 });
 
 test("#22 notes-only edits preserve stay-open behavior", async ({ live }) => {

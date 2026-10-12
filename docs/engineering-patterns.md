@@ -214,7 +214,10 @@ For household invite creation:
 
 - Keep email normalization (`trim().toLowerCase()`) before persistence.
 - Enforce one pending invite per `(household, email)` with a partial unique DB index. Better Auth duplicate-active-invite errors currently return `409 USER_ALREADY_INVITED`, including the existing invitation when available.
-- Expired pending rows and raw PostgreSQL `23505` conflicts are not recovered yet; see [#21](https://github.com/kdybicz/sweep-heap/issues/21). Do not assume that the unique index itself provides a successful deduplication response.
+- Before creating a replacement, retire expired pending rows for the normalized household/email and clear their secret hashes inside the household lock transaction.
+- Authorized resends refresh expired pending rows in place, preserving invitation id and role, then rotate the secret using the shared seven-day lifetime. Owner-role checks happen before refresh.
+- A violation of the pending-email index aborts the current transaction. Retry once only after rollback and lock release; repeated conflicts return `409 USER_ALREADY_INVITED`. Do not query or retry inside a failed transaction, and do not classify other unique indexes as invitation conflicts.
+- The members snapshot includes expired pending invitations with `expired: true` so users can resend or revoke them. Terminal canceled/accepted/rejected rows are excluded.
 
 ## 13) Invite Acceptance Handoff
 
