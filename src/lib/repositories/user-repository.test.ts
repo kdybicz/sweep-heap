@@ -95,6 +95,26 @@ describe("deleteUserById", () => {
     );
   });
 
+  it("fails immediately on a busy user row and preserves token consumption via rollback", async () => {
+    const client = { query: vi.fn(), release: vi.fn() };
+    connectMock.mockResolvedValue(client);
+    client.query
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ identifier: "delete-account:9:nonce" }] })
+      .mockRejectedValueOnce({ code: "55P03" })
+      .mockResolvedValueOnce({});
+    await expect(
+      deleteUserById({
+        userId: 9,
+        deleteAccountToken: { identifier: "delete-account:9:nonce", tokenHash: "hash" },
+      }),
+    ).rejects.toBeInstanceOf(HouseholdMutationBusyError);
+    expect(client.query).toHaveBeenLastCalledWith("rollback");
+    expect(
+      client.query.mock.calls.some((call) => call[0].includes("from household_memberships")),
+    ).toBe(false);
+  });
+
   it("deletes user and prunes now-empty households", async () => {
     const client = {
       query: vi.fn(),
@@ -124,7 +144,7 @@ describe("deleteUserById", () => {
     });
     expect(client.query.mock.calls[0]?.[0]).toBe("begin");
     expect(client.query.mock.calls[1]).toEqual([
-      "select id from users where id = $1 for update",
+      "select id from users where id = $1 for update nowait",
       [9],
     ]);
     expect(client.query.mock.calls[2]?.[0]).toBe(
@@ -189,7 +209,7 @@ describe("deleteUserById", () => {
     });
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
-      "select id from users where id = $1 for update",
+      "select id from users where id = $1 for update nowait",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       "select pg_try_advisory_xact_lock($1) as locked",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
@@ -262,7 +282,7 @@ describe("deleteUserById", () => {
       ["delete-account:9:nonce", "hash"],
     ]);
     expect(client.query.mock.calls[2]).toEqual([
-      "select id from users where id = $1 for update",
+      "select id from users where id = $1 for update nowait",
       [9],
     ]);
     expect(client.query.mock.calls[3]).toEqual([
@@ -296,7 +316,7 @@ describe("deleteUserById", () => {
     expect(result).toEqual({ ok: false, reason: "not-found" });
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
-      "select id from users where id = $1 for update",
+      "select id from users where id = $1 for update nowait",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active'",
@@ -326,7 +346,7 @@ describe("deleteUserById", () => {
 
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
-      "select id from users where id = $1 for update",
+      "select id from users where id = $1 for update nowait",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active'",

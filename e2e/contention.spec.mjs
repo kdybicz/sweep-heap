@@ -316,69 +316,54 @@ test("#20 user-row locking fences membership creation before the deletion snapsh
   expect((await live.api(live.member, "/api/me/delete-request", "POST")).status).toBe(200);
   const link = new URL(await live.emailLink(live.member.email, "/user/delete/confirm?"));
   const client = await live.db.connect();
-  let deletion;
-  let acceptance;
+  const payload = {
+    identifier: link.searchParams.get("identifier"),
+    token: link.searchParams.get("token"),
+  };
   try {
     await client.query("begin");
-    await client.query("select id from users where id=$1 for update", [live.member.id]);
-    deletion = live.api(
-      live.member,
-      "/api/me/delete-confirm",
-      "POST",
-      { identifier: link.searchParams.get("identifier"), token: link.searchParams.get("token") },
-      12000,
-    );
-    let blocked = false;
-    for (let attempt = 0; attempt < 30; attempt++) {
-      const rows = await live.db.query(
-        "select pid from pg_stat_activity where query='select id from users where id = $1 for update' and $1::int=any(pg_blocking_pids(pid))",
-        [client.processID],
-      );
-      if (rows.rowCount) {
-        blocked = true;
-        break;
-      }
-      await sleep(100);
-    }
-    expect(blocked, "deletion must lock the user before its membership snapshot").toBe(true);
-    acceptance = live.api(
+    // FK KEY SHARE permits another membership insert, but deletion's NOWAIT must fail fast.
+    await client.query("select id from users where id=$1 for key share", [live.member.id]);
+    const deletion = await live.api(live.member, "/api/me/delete-confirm", "POST", payload, 3000);
+    expect(deletion.status).toBe(409);
+    expect(deletion.body.code).toBe("HOUSEHOLD_MUTATION_BUSY");
+    const acceptance = await live.api(
       live.member,
       "/api/households/invites/accept",
       "POST",
       { invitationId, secret: invite.searchParams.get("secret") },
       12000,
     );
-    await sleep(300);
+    expect(acceptance.status).toBe(200);
     expect(
       (
         await live.db.query(
           "select id from household_memberships where household_id=$1 and user_id=$2",
           [household, live.member.id],
-        )
-      ).rowCount,
-    ).toBe(0);
-    await client.query("commit");
-    expect((await deletion).status).toBe(200);
-    expect((await acceptance).status).toBeGreaterThanOrEqual(400);
-    expect(
-      (
-        await live.db.query(
-          "select id from household_memberships where household_id=$1 and user_id=$2",
-          [household, live.member.id],
-        )
-      ).rowCount,
-    ).toBe(0);
-    expect(
-      (
-        await live.db.query(
-          "select id from household_memberships where household_id=$1 and role='owner'",
-          [household],
         )
       ).rowCount,
     ).toBe(1);
+    await client.query("commit");
   } finally {
     await client.query("rollback");
     client.release();
-    await Promise.allSettled([deletion, acceptance].filter(Boolean));
   }
+  expect(
+    (
+      await live.api(live.owner, "/api/households/members/owner-transfer", "POST", {
+        userId: live.member.id,
+      })
+    ).status,
+  ).toBe(200);
+  const retry = await live.api(live.member, "/api/me/delete-confirm", "POST", payload);
+  expect(retry.status).toBe(409);
+  expect(retry.body.code).toBe("ACCOUNT_DELETE_REQUIRES_SOLO_OWNERSHIP");
+  expect(
+    (
+      await live.db.query(
+        "select role from household_memberships where household_id=$1 and user_id=$2",
+        [household, live.member.id],
+      )
+    ).rows[0].role,
+  ).toBe("owner");
 });

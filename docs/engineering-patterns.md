@@ -181,7 +181,8 @@ or deferred queries are fenced. SDK nested transactions use savepoints and seria
 leases. Callbacks must await their database work and release every borrowed client. Unguarded chore
 writes are unaffected by this transaction scope.
 
-Account deletion first locks the user row, so new membership foreign-key checks serialize with it.
+Account deletion first locks the user row with `FOR UPDATE NOWAIT`, so new membership foreign-key
+checks serialize with it and a busy row fails immediately with the retryable conflict.
 It reads the membership snapshot in a subsequent statement, then takes the same locks for every
 active household membership, in household-id order,
 with `pg_try_advisory_xact_lock` on its existing data transaction and returns the same retryable conflict
