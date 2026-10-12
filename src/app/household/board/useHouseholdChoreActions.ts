@@ -61,6 +61,7 @@ type SaveChoreEditPayload = {
   type?: ChoreType;
   startDate?: string;
   endDate?: string;
+  dateBasis?: "series" | "occurrence";
   repeatRule?: string;
   seriesEndDate?: string | null;
   notes?: string;
@@ -225,6 +226,7 @@ export default function useHouseholdChoreActions({
         scope,
         startDate,
         endDate: toExclusiveChoreEndDate(endDate),
+        dateBasis: "occurrence",
       });
 
       if (result.ok) {

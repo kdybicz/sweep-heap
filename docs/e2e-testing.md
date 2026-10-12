@@ -38,6 +38,8 @@ The #21 invitation-recovery cases also pass normally: expired-row visibility, re
 old-secret rejection, concurrent normalized-email creation and raw unique-index rollback/recovery.
 The #22 cases pass normally and verify omitted/explicit types across all edit scopes, validation before
 storage changes, actual completion behavior, and an inline notes edit in Chromium.
+The #23 cases pass normally and cover browser duration changes from later instances, forward/backward
+series shifts, absolute-date compatibility and scope boundaries.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

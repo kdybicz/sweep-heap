@@ -164,6 +164,7 @@ const choreStatusSchema = z
 const chorePatchPayloadSchema = z
   .object({
     action: choreActionSchema.optional(),
+    dateBasis: z.enum(["series", "occurrence"]).optional(),
     status: choreStatusSchema.optional(),
     scope: z
       .unknown()

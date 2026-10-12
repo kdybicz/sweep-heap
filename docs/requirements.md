@@ -180,6 +180,7 @@
 - `scope=all` updates the existing series row in place and keeps the recurrence chain intact.
 - Edit actions accept the same chore fields as create; omitted fields fall back to the source series/occurrence defaults.
 - Omitted `type` preserves the source chore type for every edit scope; only creation defaults an omitted type to `close_on_done`. Explicit valid type changes are normalized and applied, while supplied invalid or non-string types return validation errors without modifying the occurrence/series.
+- Date edits default to absolute series dates for whole-series scope. The inline preview sends `dateBasis=occurrence`; the service translates the selected occurrence's day shift and exclusive duration against the stored series origin. Duration-only changes preserve earlier occurrences. Single/following edits keep their submitted instance dates; first-instance following uses whole-series semantics. Repeat-end dates remain their explicit/stored calendar cutoff.
 
 ### UI interaction constraints
 - Add-chore and edit/cancel actions remain available for past dates; only the primary done/open action is currently blocked for past-dated occurrences.

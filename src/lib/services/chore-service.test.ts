@@ -120,6 +120,148 @@ describe("mutateChore", () => {
     expect(insertChoreMock).not.toHaveBeenCalled();
   });
 
+  describe("occurrence-relative whole-series date edits", () => {
+    const series = {
+      id: 3,
+      title: "Weekly fixture",
+      type: "stay_open",
+      start_date: "2026-01-05",
+      end_date: "2026-01-06",
+      series_end_date: "2026-02-02",
+      repeat_rule: "week",
+      notes: null,
+    };
+    it.each([
+      ["2026-01-19", "2026-01-22", "2026-01-05", "2026-01-08"],
+      ["2026-01-21", "2026-01-24", "2026-01-07", "2026-01-10"],
+      ["2026-01-16", "2026-01-20", "2026-01-02", "2026-01-06"],
+    ])(
+      "translates submitted dates %s/%s against the stored anchor",
+      async (startDate, endDate, expectedStart, expectedEnd) => {
+        getChoreInHouseholdMock.mockResolvedValue(series);
+        const result = await mutateChore({
+          householdId: 11,
+          payload: {
+            action: "edit",
+            scope: "all",
+            dateBasis: "occurrence",
+            choreId: 3,
+            occurrenceStartDate: "2026-01-19",
+            startDate,
+            endDate,
+          },
+        });
+        expect(result.ok).toBe(true);
+        expect(updateChoreSeriesMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            startDate: expectedStart,
+            endDate: expectedEnd,
+            type: "stay_open",
+            seriesEndDate: "2026-02-02",
+          }),
+        );
+      },
+    );
+    it("keeps existing absolute whole-series requests unchanged", async () => {
+      getChoreInHouseholdMock.mockResolvedValue(series);
+      await mutateChore({
+        householdId: 11,
+        payload: {
+          action: "edit",
+          scope: "all",
+          choreId: 3,
+          occurrenceStartDate: "2026-01-19",
+          startDate: "2026-01-21",
+          endDate: "2026-01-24",
+        },
+      });
+      expect(updateChoreSeriesMock).toHaveBeenCalledWith(
+        expect.objectContaining({ startDate: "2026-01-21", endDate: "2026-01-24" }),
+      );
+    });
+    it.each(["single", "following"])(
+      "does not rebase %s dates to the old series origin",
+      async (scope) => {
+        getChoreInHouseholdMock.mockResolvedValue(series);
+        insertChoreMock.mockResolvedValue(44);
+        await mutateChore({
+          householdId: 11,
+          payload: {
+            action: "edit",
+            scope,
+            dateBasis: "occurrence",
+            choreId: 3,
+            occurrenceStartDate: "2026-01-19",
+            startDate: "2026-01-21",
+            endDate: "2026-01-24",
+          },
+        });
+        expect(insertChoreMock).toHaveBeenCalledWith(
+          expect.objectContaining({ startDate: "2026-01-21", endDate: "2026-01-24" }),
+        );
+      },
+    );
+    it("treats first-instance following relative dates as whole-series dates", async () => {
+      getChoreInHouseholdMock.mockResolvedValue(series);
+      await mutateChore({
+        householdId: 11,
+        payload: {
+          action: "edit",
+          scope: "following",
+          dateBasis: "occurrence",
+          choreId: 3,
+          occurrenceStartDate: "2026-01-05",
+          startDate: "2026-01-06",
+          endDate: "2026-01-09",
+        },
+      });
+      expect(updateChoreSeriesMock).toHaveBeenCalledWith(
+        expect.objectContaining({ startDate: "2026-01-06", endDate: "2026-01-09" }),
+      );
+      expect(insertChoreMock).not.toHaveBeenCalled();
+    });
+    it("rejects invalid relative dates without changing storage", async () => {
+      getChoreInHouseholdMock.mockResolvedValue(series);
+      const result = await mutateChore({
+        householdId: 11,
+        payload: {
+          action: "edit",
+          scope: "all",
+          dateBasis: "occurrence",
+          choreId: 3,
+          occurrenceStartDate: "2026-01-19",
+          startDate: "2026-02-30",
+          endDate: "2026-03-02",
+        },
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        code: "VALIDATION_FAILED",
+        fieldErrors: { startDate: "Invalid start date" },
+      });
+      expect(updateChoreSeriesMock).not.toHaveBeenCalled();
+    });
+    it("rejects an unsupported date basis", async () => {
+      getChoreInHouseholdMock.mockResolvedValue(series);
+      const result = await mutateChore({
+        householdId: 11,
+        payload: {
+          action: "edit",
+          scope: "all",
+          dateBasis: "invalid",
+          choreId: 3,
+          occurrenceStartDate: "2026-01-19",
+        },
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        code: "VALIDATION_FAILED",
+        fieldErrors: { dateBasis: expect.any(String) },
+      });
+      expect(updateChoreSeriesMock).not.toHaveBeenCalled();
+    });
+  });
+
   describe.each(["single", "following", "all"] as const)("edit scope %s type handling", (scope) => {
     it.each([
       ["notes", { notes: "Updated notes" }],

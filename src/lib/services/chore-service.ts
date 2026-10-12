@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { API_ERROR_CODE, type ApiErrorCode } from "@/lib/api-error";
 import { type ChorePatchPayload, validateChorePatchIntent } from "@/lib/api-payload-validation";
 import { getStoredChoreDurationDays } from "@/lib/chore-date-range";
+import { translateOccurrenceSeriesDates } from "@/lib/chore-edit-dates";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import type { RepeatRule } from "@/lib/occurrences";
 import { generateOccurrenceDayEntries } from "@/lib/occurrences";
@@ -368,6 +369,17 @@ export const mutateChore = async ({
   const choreRepeatRule = normalizeRepeatRule(chore.repeat_rule);
 
   if (action === "edit") {
+    if (
+      input.dateBasis !== undefined &&
+      input.dateBasis !== "series" &&
+      input.dateBasis !== "occurrence"
+    ) {
+      return choreMutationFailure({
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: "Validation failed",
+        fieldErrors: { dateBasis: "Date basis must be series or occurrence" },
+      });
+    }
     const editScope = scope as ChoreMutationScope;
     const treatFollowingAsAll =
       editScope === "following" && occurrenceStartDate === chore.start_date;
@@ -378,11 +390,35 @@ export const mutateChore = async ({
     });
     const useWholeSeriesDefaults = editScope === "all" || treatFollowingAsAll;
     const defaultStartDate = useWholeSeriesDefaults ? chore.start_date : occurrenceStartDate;
-    const nextStartDate = normalizeDate(input.startDate, timeZone) ?? defaultStartDate;
-    const nextExclusiveEndDate =
+    let nextStartDate = normalizeDate(input.startDate, timeZone) ?? defaultStartDate;
+    let nextExclusiveEndDate =
       normalizeDate(input.endDate, timeZone) ??
       addDays(nextStartDate, originalDurationDays) ??
       nextStartDate;
+    if (useWholeSeriesDefaults && input.dateBasis === "occurrence") {
+      const occurrenceStartInput = Object.hasOwn(input, "startDate")
+        ? normalizeDate(input.startDate, timeZone)
+        : occurrenceStartDate;
+      const occurrenceEndInput = Object.hasOwn(input, "endDate")
+        ? normalizeDate(input.endDate, timeZone)
+        : occurrenceStartInput
+          ? addDays(occurrenceStartInput, originalDurationDays)
+          : null;
+      const translated = translateOccurrenceSeriesDates({
+        seriesStartDate: chore.start_date,
+        occurrenceStartDate,
+        startDate: occurrenceStartInput,
+        exclusiveEndDate: occurrenceEndInput,
+      });
+      if (!translated.ok)
+        return choreMutationFailure({
+          code: API_ERROR_CODE.VALIDATION_FAILED,
+          error: "Validation failed",
+          fieldErrors: translated.fieldErrors,
+        });
+      nextStartDate = translated.startDate;
+      nextExclusiveEndDate = translated.exclusiveEndDate;
+    }
     const nextRepeatRule =
       editScope === "single"
         ? "none"
