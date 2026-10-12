@@ -691,8 +691,138 @@ test("#23 extending a later occurrence does not move the series anchor", async (
   expect((await responsePromise).status()).toBe(200);
   const stored = await live.choreRow(id);
   expect(stored).toBeDefined();
-  knownFailure(23);
   expect(stored.start_date).toBe(start);
+  expect(stored.end_date).toBe(day(start, 2));
+  const visible = await live.list(start, day(monday(), 7));
+  expect(visible.some((row) => row.id === id && row.occurrence_start_date === start)).toBe(true);
+  expect(visible.some((row) => row.id === id && row.occurrence_start_date === monday())).toBe(true);
+});
+
+test("#23 occurrence-relative all edits shift the original chain forward or backward", async ({
+  live,
+}) => {
+  const start = day(monday(), -14);
+  const selected = monday();
+  for (const delta of [-2, 2]) {
+    const id = await live.chore({
+      title: "Relative shift fixture",
+      startDate: start,
+      endDate: day(start, 1),
+      repeatRule: "week",
+    });
+    const response = await live.mutate({
+      action: "edit",
+      scope: "all",
+      dateBasis: "occurrence",
+      choreId: id,
+      occurrenceStartDate: selected,
+      startDate: day(selected, delta),
+      endDate: day(selected, delta + 3),
+    });
+    expect(response.status).toBe(200);
+    const stored = await live.choreRow(id);
+    expect(stored.start_date).toBe(day(start, delta));
+    expect(stored.end_date).toBe(day(start, delta + 3));
+    const entries = (await live.list(day(start, -3), day(selected, 10))).filter(
+      (row) => row.id === id,
+    );
+    const instances = new Set(entries.map((row) => row.occurrence_start_date));
+    for (const offset of [0, 7, 14, 21])
+      expect(instances.has(day(start, offset + delta))).toBe(true);
+  }
+});
+
+test("#23 absolute series dates and other edit scopes retain their existing meaning", async ({
+  live,
+}) => {
+  const start = day(monday(), -7);
+  const selected = monday();
+  const absolute = await live.chore({
+    title: "Absolute date fixture",
+    startDate: start,
+    endDate: day(start, 1),
+    repeatRule: "week",
+  });
+  expect(
+    (
+      await live.mutate({
+        action: "edit",
+        scope: "all",
+        choreId: absolute,
+        occurrenceStartDate: selected,
+        startDate: day(selected, 1),
+        endDate: day(selected, 3),
+      })
+    ).status,
+  ).toBe(200);
+  expect((await live.choreRow(absolute)).start_date).toBe(day(selected, 1));
+  for (const scope of ["single", "following"]) {
+    const id = await live.chore({
+      title: "Scoped date fixture",
+      startDate: start,
+      endDate: day(start, 1),
+      repeatRule: "week",
+    });
+    const response = await live.mutate({
+      action: "edit",
+      scope,
+      dateBasis: "occurrence",
+      choreId: id,
+      occurrenceStartDate: selected,
+      startDate: day(selected, 1),
+      endDate: day(selected, 3),
+    });
+    expect(response.status).toBe(200);
+    expect((await live.choreRow(response.body.createdChoreId)).start_date).toBe(day(selected, 1));
+  }
+  const first = await live.chore({
+    title: "First following fixture",
+    startDate: start,
+    endDate: day(start, 1),
+    repeatRule: "week",
+  });
+  const firstResponse = await live.mutate({
+    action: "edit",
+    scope: "following",
+    dateBasis: "occurrence",
+    choreId: first,
+    occurrenceStartDate: start,
+    startDate: day(start, 1),
+    endDate: day(start, 3),
+  });
+  expect(firstResponse.status).toBe(200);
+  expect(firstResponse.body.createdChoreId).toBeUndefined();
+  expect((await live.choreRow(first)).start_date).toBe(day(start, 1));
+});
+
+test("#23 unsupported basis and invalid relative dates fail before changing the anchor", async ({
+  live,
+}) => {
+  const start = day(monday(), -7);
+  const id = await live.chore({
+    title: "Relative validation fixture",
+    startDate: start,
+    endDate: day(start, 1),
+    repeatRule: "week",
+  });
+  for (const changes of [
+    { dateBasis: "invalid" },
+    { dateBasis: "occurrence", startDate: "2026-02-30", endDate: "2026-03-02" },
+    { dateBasis: "occurrence", startDate: monday(), endDate: monday() },
+  ]) {
+    expect(
+      (
+        await live.mutate({
+          action: "edit",
+          scope: "all",
+          choreId: id,
+          occurrenceStartDate: monday(),
+          ...changes,
+        })
+      ).status,
+    ).toBe(400);
+  }
+  expect((await live.choreRow(id)).start_date).toBe(start);
 });
 
 test("#26 single edits keep the preview attached to the replacement", async ({ live }) => {

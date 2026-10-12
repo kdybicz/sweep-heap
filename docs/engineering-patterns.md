@@ -204,6 +204,7 @@ For `PATCH /api/chores`:
 - For `action: "cancel" | "edit"`, require `scope: "single" | "following" | "all"`.
 - Scope semantics follow Google Calendar: `single` affects only the selected occurrence, `following` affects the selected occurrence plus later ones, and `all` affects the full series definition.
 - Scope resolution is based on the selected occurrence's position in the series; do not use household-local `today` as a cutoff.
+- Inline preview date fields describe the selected occurrence, so send `dateBasis: "occurrence"`. For whole-series results, translate the day delta and duration in the service using the stored origin. Keep default/`series` requests absolute for existing series-date forms, and do not substitute a later occurrence as the new anchor.
 - For `scope: "single"`, cancel upserts a `kind = canceled` exception and edit creates a detached one-off chore while canceling the original occurrence.
 - For `scope: "following"`, require a repeating chore (`repeatRule !== "none"`) and truncate the original series before the targeted occurrence unless that occurrence is the first series instance; first-instance `following` falls through to whole-series behavior.
 - For `scope: "all"`, cancel marks the source series row canceled and edit updates the current series row in place using the submitted fields/defaults.
