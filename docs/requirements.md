@@ -179,6 +179,7 @@
 - If `scope=following` targets the first occurrence in the series, it falls through to the same whole-series result as `scope=all`.
 - `scope=all` updates the existing series row in place and keeps the recurrence chain intact.
 - Edit actions accept the same chore fields as create; omitted fields fall back to the source series/occurrence defaults.
+- Omitted `type` preserves the source chore type for every edit scope; only creation defaults an omitted type to `close_on_done`. Explicit valid type changes are normalized and applied, while supplied invalid or non-string types return validation errors without modifying the occurrence/series.
 
 ### UI interaction constraints
 - Add-chore and edit/cancel actions remain available for past dates; only the primary done/open action is currently blocked for past-dated occurrences.

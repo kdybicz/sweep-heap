@@ -199,6 +199,7 @@ email delivery is not a transaction with membership state.
 For `PATCH /api/chores`:
 
 - Support `action: "create" | "set" | "cancel" | "edit"`.
+- Keep type omission distinct from an explicit value. Apply the creation default only in the create branch; edit defaults come from the stored chore. Validate supplied types instead of silently substituting a different completion policy.
 - For `action: "set"`, validate that `occurrenceStartDate` is a generated series occurrence start date for the chore and return `409` when it is outside schedule.
 - For `action: "cancel" | "edit"`, require `scope: "single" | "following" | "all"`.
 - Scope semantics follow Google Calendar: `single` affects only the selected occurrence, `following` affects the selected occurrence plus later ones, and `all` affects the full series definition.
