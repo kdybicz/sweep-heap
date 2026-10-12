@@ -84,7 +84,9 @@ export const insertChore = async ({
     "insert into chores (household_id, title, type, start_date, end_date, series_end_date, repeat_rule, status, notes) values ($1, $2, $3, $4, $5, $6, $7, 'active', $8) returning id",
     [householdId, title, type, startDate, endDate, seriesEndDate, repeatRule, notes],
   );
-  return result.rows[0]?.id ?? null;
+  const id = result.rows[0]?.id;
+  if (!id) throw new Error("Chore insertion did not return an id");
+  return id;
 };
 
 export const getChoreInHousehold = async ({

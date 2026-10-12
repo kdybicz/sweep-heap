@@ -199,6 +199,7 @@ email delivery is not a transaction with membership state.
 For `PATCH /api/chores`:
 
 - Support `action: "create" | "set" | "cancel" | "edit"`.
+- All chore writers execute under the shared household lock transaction. Read the source/exception state inside that transaction; cancellation/truncation, replacement insertion and completion copying commit together. Any write failure rolls all of them back. API callers pass the authenticated actor id for membership/management revalidation after acquisition; only trusted internal callers may omit it.
 - Keep type omission distinct from an explicit value. Apply the creation default only in the create branch; edit defaults come from the stored chore. Validate supplied types instead of silently substituting a different completion policy.
 - For `action: "set"`, validate that `occurrenceStartDate` is a generated series occurrence start date for the chore and return `409` when it is outside schedule.
 - For `action: "cancel" | "edit"`, require `scope: "single" | "following" | "all"`.

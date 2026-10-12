@@ -13,7 +13,7 @@ const queryPool = new Pool({
 });
 export const pool = transactionAwarePool(queryPool);
 
-// Lock callbacks use the query pool above. Never queue their locks in that same pool.
+// Guarded callbacks share their lock transaction; waiters must not consume normal query capacity.
 export const householdLockPool = new Pool({
   connectionString: databaseUrl,
   max: 10,
