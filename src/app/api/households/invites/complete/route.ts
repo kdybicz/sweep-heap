@@ -83,6 +83,8 @@ export async function GET(request: Request) {
     return new Response(null, { status: 302, headers });
   }
 
+  if (acceptance.reason === "busy") return jsonHouseholdMutationBusy();
+
   if (acceptance.reason === "invalid") {
     return redirectToInvitePage({
       error: "invalid",
@@ -108,3 +110,5 @@ export async function GET(request: Request) {
     secret,
   });
 }
+
+import { jsonHouseholdMutationBusy } from "@/lib/api-error";

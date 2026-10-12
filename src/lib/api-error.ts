@@ -46,15 +46,16 @@ type ApiErrorPayload = {
   error: string;
 };
 
+export const jsonHouseholdMutationBusy = (headers?: HeadersInit) =>
+  jsonError({
+    headers,
+    status: 409,
+    code: API_ERROR_CODE.HOUSEHOLD_MUTATION_BUSY,
+    error: new HouseholdMutationBusyError().message,
+  });
+
 export const householdMutationBusyResponse = (error: unknown, headers?: HeadersInit) =>
-  error instanceof HouseholdMutationBusyError
-    ? jsonError({
-        headers,
-        status: 409,
-        code: API_ERROR_CODE.HOUSEHOLD_MUTATION_BUSY,
-        error: error.message,
-      })
-    : null;
+  error instanceof HouseholdMutationBusyError ? jsonHouseholdMutationBusy(headers) : null;
 
 export const apiErrorBody = <T extends Record<string, unknown>>(payload: ApiErrorPayload & T) => {
   return {

@@ -158,3 +158,61 @@ test("#20 account deletion does not wait in the query pool or consume a busy tok
     client.release();
   }
 });
+
+test("#20 invite acceptance and post-sign-in completion preserve contention and allow retry", async ({
+  live,
+  household,
+}) => {
+  const invitationId = await live.invite(live.member);
+  const invitation = new URL(
+    await live.emailLink(live.member.email, "/household/invite?", invitationId),
+  );
+  const callback = new URL("/api/households/invites/complete", baseURL);
+  callback.searchParams.set("invitationId", String(invitationId));
+  callback.searchParams.set("secret", invitation.searchParams.get("secret"));
+  const client = await live.db.connect();
+  try {
+    await client.query("select pg_advisory_lock($1)", [household]);
+    const complete = await live.api(
+      live.member,
+      `${callback.pathname}${callback.search}`,
+      "GET",
+      undefined,
+      12000,
+    );
+    expect(complete.status).toBe(409);
+    expect(complete.body.code).toBe("HOUSEHOLD_MUTATION_BUSY");
+    const accept = await live.api(
+      live.member,
+      "/api/households/invites/accept",
+      "POST",
+      { invitationId, secret: invitation.searchParams.get("secret") },
+      12000,
+    );
+    expect(accept.status).toBe(409);
+    expect(accept.body.code).toBe("HOUSEHOLD_MUTATION_BUSY");
+    expect(
+      (
+        await live.db.query("select status from household_member_invites where id=$1", [
+          invitationId,
+        ])
+      ).rows[0].status,
+    ).toBe("pending");
+    expect(
+      (
+        await live.db.query(
+          "select id from household_memberships where household_id=$1 and user_id=$2",
+          [household, live.member.id],
+        )
+      ).rowCount,
+    ).toBe(0);
+  } finally {
+    await client.query("select pg_advisory_unlock_all()");
+    client.release();
+  }
+  expect((await live.api(live.member, `${callback.pathname}${callback.search}`)).status).toBe(302);
+  expect(
+    (await live.db.query("select status from household_member_invites where id=$1", [invitationId]))
+      .rows[0].status,
+  ).toBe("accepted");
+});

@@ -272,6 +272,7 @@
 
 ## Ownership and Deletion Reconciliation (Current)
 - Household mutation locks use a separate bounded connection pool so queued locks cannot starve business queries. Connection acquisition is bounded to five seconds, then PostgreSQL lock waits to five seconds before `409 HOUSEHOLD_MUTATION_BUSY`; callbacks retain the lock until they finish.
+- Both invite acceptance APIs, including the post-sign-in completion callback, preserve lock contention as `409 HOUSEHOLD_MUTATION_BUSY`. The invitation remains pending and the same link can be retried; completion returns JSON for this conflict instead of an unexpected-error redirect.
 - Account deletion fails immediately with the same code if an owned-household lock is busy, rolling back token consumption. Token replacement uses a separate user-lock namespace.
 - Deleting a user's last household leaves the user in onboarding with no active household; they may create a new household afterward.
 - When an active household is deleted or the user's membership in it ends through self-leave, `active_household_id` is cleared or re-resolved when possible before the client continues; if Better Auth session healing fails, later household-scoped API requests with real request headers can finish healing the stale selection, while pages may still resolve fallback state for navigation.

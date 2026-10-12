@@ -1,4 +1,9 @@
-import { API_ERROR_CODE, householdMutationBusyResponse, jsonError } from "@/lib/api-error";
+import {
+  API_ERROR_CODE,
+  householdMutationBusyResponse,
+  jsonError,
+  jsonHouseholdMutationBusy,
+} from "@/lib/api-error";
 import { validateHouseholdInviteAcceptPayload } from "@/lib/api-payload-validation";
 import {
   buildHouseholdInviteSignInRedirectUrl,
@@ -73,6 +78,7 @@ export async function POST(request: Request) {
       requestHeaders: request.headers,
     });
     if (!acceptance.ok) {
+      if (acceptance.reason === "busy") return jsonHouseholdMutationBusy();
       if (acceptance.reason === "invalid") {
         return jsonError({
           status: 400,

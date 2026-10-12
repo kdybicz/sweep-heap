@@ -6,6 +6,7 @@ import {
   generateHouseholdInviteSecret,
   hashHouseholdInviteSecret,
 } from "@/lib/household-invite-secret";
+import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
 import { getAppOrigin } from "@/lib/http";
 import {
   isInvitationNotFoundError,
@@ -93,6 +94,9 @@ export const acceptHouseholdInvite = async ({
       ...outcome,
     };
   } catch (error) {
+    if (error instanceof HouseholdMutationBusyError) {
+      return { ok: false as const, reason: "busy" as const };
+    }
     const authApiError = toAuthApiError(error);
     if (isInvitationNotFoundError(authApiError)) {
       return {
