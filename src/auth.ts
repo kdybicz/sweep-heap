@@ -8,6 +8,7 @@ import { getPluginHttpPaths } from "@/lib/auth-endpoint-policy";
 import { pool } from "@/lib/db";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional-email";
 import { renderMagicLinkEmail } from "@/lib/email/templates/magic-link-email";
+import { HOUSEHOLD_INVITE_EXPIRES_SECONDS } from "@/lib/household-invite-policy";
 import { parsePositiveInt } from "@/lib/organization-api";
 
 const appUrl = process.env.AUTH_URL;
@@ -41,7 +42,7 @@ const householdMemberRole = organizationAccessControl.newRole({
 const householdOrganization = organization({
   ac: organizationAccessControl,
   creatorRole: "owner",
-  invitationExpiresIn: 7 * 24 * 60 * 60,
+  invitationExpiresIn: HOUSEHOLD_INVITE_EXPIRES_SECONDS,
   roles: {
     admin: householdAdminRole,
     owner: householdOwnerRole,

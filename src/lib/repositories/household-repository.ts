@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { HOUSEHOLD_INVITE_EXPIRES_SECONDS } from "@/lib/household-invite-policy";
 import type { HouseholdRole } from "@/lib/household-roles";
 
 export type ActiveMembershipSummary = {
@@ -219,6 +220,32 @@ export const setPendingHouseholdInviteSecretHash = async ({
   );
 
   return result.rows[0]?.id ?? null;
+};
+
+export const retireExpiredHouseholdInvitesForEmail = async ({
+  householdId,
+  email,
+}: {
+  householdId: number;
+  email: string;
+}) => {
+  await pool.query(
+    "update household_member_invites set status='canceled', accept_secret_hash=null where household_id=$1 and lower(email)=lower($2) and status='pending' and expires_at<=clock_timestamp()",
+    [householdId, email.trim().toLowerCase()],
+  );
+};
+
+export const refreshExpiredPendingHouseholdInvite = async ({
+  householdId,
+  inviteId,
+}: {
+  householdId: number;
+  inviteId: number;
+}) => {
+  await pool.query(
+    "update household_member_invites set expires_at=clock_timestamp()+($3*interval '1 second'), accept_secret_hash=null where household_id=$1 and id=$2 and status='pending' and expires_at<=clock_timestamp()",
+    [householdId, inviteId, HOUSEHOLD_INVITE_EXPIRES_SECONDS],
+  );
 };
 
 export const updateHouseholdById = async ({

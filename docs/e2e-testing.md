@@ -34,6 +34,8 @@ the marker is removed. Setup failures before the marker remain ordinary failures
 The #19 organization-boundary cases are passing regressions without expected-failure markers. They
 verify blocked public auth routes have no database side effects while guarded member, invitation,
 ownership-transfer and household workflows continue to work.
+The #21 invitation-recovery cases also pass normally: expired-row visibility, replacement and resend,
+old-secret rejection, concurrent normalized-email creation and raw unique-index rollback/recovery.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

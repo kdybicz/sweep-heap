@@ -31,6 +31,7 @@ export default async function HouseholdMembersPage() {
     role: invite.role,
     createdAt: new Date(invite.createdAt).toISOString(),
     expiresAt: new Date(invite.expiresAt).toISOString(),
+    ...(invite.expired ? { expired: true } : {}),
   }));
 
   return (

@@ -19,6 +19,7 @@ export type HouseholdPendingInvite = {
   role: HouseholdMemberRole;
   createdAt: string;
   expiresAt: string;
+  expired?: boolean;
 };
 
 export type HouseholdRow =
@@ -45,6 +46,19 @@ export const sortPendingInvites = (invites: HouseholdPendingInvite[]) =>
     return a.email.toLowerCase().localeCompare(b.email.toLowerCase());
   });
 
+export const mergePendingInvite = (
+  previous: HouseholdPendingInvite[],
+  next: HouseholdPendingInvite,
+) =>
+  sortPendingInvites([
+    ...previous.filter(
+      (invite) =>
+        invite.id !== next.id &&
+        invite.email.trim().toLowerCase() !== next.email.trim().toLowerCase(),
+    ),
+    next,
+  ]);
+
 export const toHouseholdMemberRole = (role: unknown): HouseholdMemberRole =>
   typeof role === "string" ? normalizeHouseholdRole(role) : "member";
 
@@ -63,5 +77,5 @@ export const toSearchText = (row: HouseholdRow) => {
   if (row.kind === "member") {
     return `${row.member.name ?? ""} ${row.member.email} ${row.member.role} member`.toLowerCase();
   }
-  return `${row.invite.email} ${row.invite.role} pending invite`.toLowerCase();
+  return `${row.invite.email} ${row.invite.role} ${row.invite.expired ? "expired" : "pending"} invite`.toLowerCase();
 };

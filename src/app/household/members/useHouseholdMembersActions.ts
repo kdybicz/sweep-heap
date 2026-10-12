@@ -20,6 +20,7 @@ import {
   type HouseholdMemberRole,
   type HouseholdPendingInvite,
   type HouseholdRow,
+  mergePendingInvite,
   sortMembers,
   sortPendingInvites,
   toSearchText,
@@ -86,12 +87,7 @@ export const useHouseholdMembersActions = ({
   };
 
   const upsertPendingInvite = (nextInvite: HouseholdPendingInvite) => {
-    setPendingInvites((previousInvites) =>
-      sortPendingInvites([
-        ...previousInvites.filter((invite) => invite.id !== nextInvite.id),
-        nextInvite,
-      ]),
-    );
+    setPendingInvites((previousInvites) => mergePendingInvite(previousInvites, nextInvite));
   };
 
   const handleInvite = async (event: React.FormEvent<HTMLFormElement>) => {
