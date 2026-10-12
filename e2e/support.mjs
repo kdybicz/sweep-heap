@@ -40,7 +40,9 @@ class LiveFixtures {
         timeout,
         maxRedirects: 0,
       });
-      const body = await response.json();
+      const body = response.headers()["content-type"]?.includes("application/json")
+        ? await response.json()
+        : await response.text();
       return { status: response.status(), body };
     } catch (error) {
       // Playwright's full request errors contain Cookie headers. Never attach them to reports.

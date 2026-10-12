@@ -23,12 +23,18 @@ test("#19 ordinary members cannot invite administrators through public auth", as
     email: live.alternate.email,
     role: "admin",
   });
-  knownFailure(19);
-  expect(response.status).toBeGreaterThanOrEqual(400);
-  expect(response.status).toBeLessThan(500);
+  expect(response.status).toBe(404);
+  expect(
+    (
+      await live.db.query(
+        "select id from household_member_invites where household_id=$1 and email=$2",
+        [household, live.alternate.email],
+      )
+    ).rowCount,
+  ).toBe(0);
 });
 
-test("#19 public auth acceptance cannot bypass invitation secrets", async ({ live }) => {
+test("#19 public auth acceptance cannot bypass invitation secrets", async ({ live, household }) => {
   const invitationId = await live.invite(live.alternate);
   const response = await live.api(
     live.alternate,
@@ -36,9 +42,16 @@ test("#19 public auth acceptance cannot bypass invitation secrets", async ({ liv
     "POST",
     { invitationId: String(invitationId) },
   );
-  knownFailure(19);
-  expect(response.status).toBeGreaterThanOrEqual(400);
-  expect(response.status).toBeLessThan(500);
+  expect(response.status).toBe(404);
+  expect(
+    (
+      await live.db.query(
+        "select id from household_memberships where household_id=$1 and user_id=$2",
+        [household, live.alternate.id],
+      )
+    ).rowCount,
+  ).toBe(0);
+  await live.accept(live.alternate, invitationId);
 });
 
 test("#19 public auth deletion cannot bypass the other-member guard", async ({
@@ -50,9 +63,140 @@ test("#19 public auth deletion cannot bypass the other-member guard", async ({
   const response = await live.api(live.owner, "/api/auth/organization/delete", "POST", {
     organizationId: String(household),
   });
-  knownFailure(19);
-  expect(response.status).toBeGreaterThanOrEqual(400);
-  expect(response.status).toBeLessThan(500);
+  expect(response.status).toBe(404);
+  expect((await live.db.query("select id from households where id=$1", [household])).rowCount).toBe(
+    1,
+  );
+});
+
+test("#19 organization reads and remaining mutations are server-only", async ({
+  live,
+  household,
+}) => {
+  await live.join();
+  const mutations = [
+    "create",
+    "update",
+    "update-member-role",
+    "remove-member",
+    "leave",
+    "set-active",
+    "cancel-invitation",
+    "reject-invitation",
+  ];
+  const reads = [
+    "list",
+    "list-members",
+    "list-invitations",
+    "list-user-invitations",
+    "get-invitation",
+    "get-active-member",
+  ];
+  for (const user of [live.owner, live.member]) {
+    for (const endpoint of mutations) {
+      const response = await live.api(user, `/api/auth/organization/${endpoint}`, "POST", {
+        organizationId: String(household),
+        name: "Bypass fixture",
+        slug: live.prefix,
+        timeZone: "not-a-time-zone",
+        memberId: String(live.member.id),
+        role: "owner",
+      });
+      expect(response.status, `${endpoint} as ${user.email}`).toBe(404);
+    }
+    for (const endpoint of reads)
+      expect((await live.api(user, `/api/auth/organization/${endpoint}`)).status, endpoint).toBe(
+        404,
+      );
+  }
+  expect((await live.api(live.owner, "/api/households/members")).status).toBe(200);
+  expect(
+    (
+      await live.api(live.owner, "/api/households", "PATCH", {
+        name: `${live.prefix} valid settings`,
+        timeZone: "not-a-time-zone",
+      })
+    ).status,
+  ).toBe(400);
+});
+
+test("#19 guarded member and ownership workflows retain server-side SDK access", async ({
+  live,
+}) => {
+  await live.join();
+  expect(
+    (
+      await live.api(live.owner, "/api/households/members", "PATCH", {
+        userId: live.owner.id,
+        role: "member",
+      })
+    ).status,
+  ).toBe(400);
+  expect(
+    (
+      await live.api(live.owner, "/api/households/members", "PATCH", {
+        userId: live.member.id,
+        role: "admin",
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await live.api(live.member, "/api/households/members", "PATCH", {
+        userId: live.owner.id,
+        role: "member",
+      })
+    ).status,
+  ).toBe(403);
+  expect(
+    (await live.api(live.member, "/api/households/members", "DELETE", { userId: live.member.id }))
+      .status,
+  ).toBe(400);
+  expect(
+    (
+      await live.api(live.owner, "/api/households/members/owner-transfer", "POST", {
+        userId: live.member.id,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await live.api(live.member, "/api/households/members/leave", "POST")).status).toBe(403);
+  expect(
+    (
+      await live.api(live.member, "/api/households/members/owner-transfer", "POST", {
+        userId: live.owner.id,
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (await live.api(live.owner, "/api/households/members", "DELETE", { userId: live.member.id }))
+      .status,
+  ).toBe(200);
+});
+
+test("#19 owner-role invitations remain protected through guarded APIs", async ({
+  live,
+  household,
+}) => {
+  await live.join();
+  const invitationId = await live.invite(live.alternate);
+  await live.db.query(
+    "update household_member_invites set role='owner' where id=$1 and household_id=$2",
+    [invitationId, household],
+  );
+  const path = `/api/households/members/invites/${invitationId}`;
+  expect((await live.api(live.member, path, "POST")).status).toBe(403);
+  expect(
+    (
+      await live.api(live.owner, "/api/households/members", "PATCH", {
+        userId: live.member.id,
+        role: "admin",
+      })
+    ).status,
+  ).toBe(200);
+  expect((await live.api(live.member, path, "POST")).status).toBe(403);
+  expect((await live.api(live.member, path, "DELETE")).status).toBe(403);
+  expect((await live.api(live.owner, path, "POST")).status).toBe(200);
+  expect((await live.api(live.owner, path, "DELETE")).status).toBe(200);
 });
 
 test("#21 expired pending invitations can be replaced without a server error", async ({

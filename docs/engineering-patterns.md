@@ -47,10 +47,24 @@ Rules for `secure`:
 
 ## 3) API Error Contract
 
-Return a consistent JSON envelope for failures:
+### Organization HTTP boundary
+
+Better Auth's organization plugin is server-only. `src/auth.ts` derives `disabledPaths` from the
+configured plugin's HTTP endpoints, including reads, so the catch-all auth handler returns native
+`404 Not Found` responses for those routes before dispatch. Server-side `auth.api` organization
+methods remain available to the guarded household routes and services. Browser code must use
+`/api/households/**` rather than `authClient.organization`.
+
+This uses Better Auth's supported HTTP-only control rather than duplicating household policies in
+plugin hooks. Hooks would retain a second public API with separate validation, invitation-secret,
+ownership-lock and session-reconciliation rules to maintain. New organization plugin endpoints
+are included automatically in the disabled path list.
+
+Return a consistent JSON envelope for business API failures. Better Auth's catch-all handler retains
+the provider's response formats, including native text `404` responses for disabled routes:
 
 - `{ ok: false, code: string, error: string }`
-- Include a stable machine-readable `code` field on every API failure response (for example `code: "HOUSEHOLD_REQUIRED"`) so UI behavior is never tied to user-facing message text.
+- Include a stable machine-readable `code` field on every business API failure response (for example `code: "HOUSEHOLD_REQUIRED"`) so UI behavior is never tied to user-facing message text.
 - Client and server control flow must branch on `code` (and optional HTTP status), not on `error` message text.
 - Keep route handlers wrapped in top-level `try/catch` so unexpected throws still return the same envelope.
 
