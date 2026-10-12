@@ -88,6 +88,10 @@ export const deleteUserById = async ({
       }
     }
 
+    // FK checks for new memberships require KEY SHARE on this row. Acquire it before
+    // the membership snapshot, using a separate statement so READ COMMITTED sees prior inserts.
+    await client.query("select id from users where id = $1 for update", [userId]);
+
     const householdIdsResult = await client.query<{ householdId: number }>(
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       [userId],

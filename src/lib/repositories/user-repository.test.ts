@@ -78,6 +78,7 @@ describe("deleteUserById", () => {
     client.query
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ identifier: "delete-account:9:nonce" }] })
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
       .mockResolvedValueOnce({ rows: [{ locked: false }] })
       .mockResolvedValueOnce({});
@@ -103,6 +104,7 @@ describe("deleteUserById", () => {
 
     client.query
       .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ id: 9 }] })
       .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
       .mockResolvedValueOnce({ rows: [{ locked: true }] })
       .mockResolvedValueOnce({ rows: [] })
@@ -121,27 +123,31 @@ describe("deleteUserById", () => {
       deletedHouseholdIds: [2],
     });
     expect(client.query.mock.calls[0]?.[0]).toBe("begin");
-    expect(client.query.mock.calls[1]?.[0]).toBe(
+    expect(client.query.mock.calls[1]).toEqual([
+      "select id from users where id = $1 for update",
+      [9],
+    ]);
+    expect(client.query.mock.calls[2]?.[0]).toBe(
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
     );
-    expect(client.query.mock.calls[1]?.[1]).toEqual([9]);
-    expect(client.query.mock.calls[2]?.[0]).toBe("select pg_try_advisory_xact_lock($1) as locked");
-    expect(client.query.mock.calls[2]?.[1]).toEqual([2]);
-    expect(client.query.mock.calls[3]?.[0]).toBe(
+    expect(client.query.mock.calls[2]?.[1]).toEqual([9]);
+    expect(client.query.mock.calls[3]?.[0]).toBe("select pg_try_advisory_xact_lock($1) as locked");
+    expect(client.query.mock.calls[3]?.[1]).toEqual([2]);
+    expect(client.query.mock.calls[4]?.[0]).toBe(
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
     );
-    expect(client.query.mock.calls[3]?.[1]).toEqual([9]);
-    expect(client.query.mock.calls[4]?.[0]).toBe(
+    expect(client.query.mock.calls[4]?.[1]).toEqual([9]);
+    expect(client.query.mock.calls[5]?.[0]).toBe(
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active'",
     );
-    expect(client.query.mock.calls[4]?.[1]).toEqual([9]);
-    expect(client.query.mock.calls[5]?.[0]).toBe("delete from users where id = $1 returning id");
     expect(client.query.mock.calls[5]?.[1]).toEqual([9]);
-    expect(client.query.mock.calls[6]?.[0]).toBe(
+    expect(client.query.mock.calls[6]?.[0]).toBe("delete from users where id = $1 returning id");
+    expect(client.query.mock.calls[6]?.[1]).toEqual([9]);
+    expect(client.query.mock.calls[7]?.[0]).toBe(
       "delete from households where id = any($1::int[]) and not exists (select 1 from household_memberships where household_memberships.household_id = households.id and household_memberships.status = 'active') returning id",
     );
-    expect(client.query.mock.calls[6]?.[1]).toEqual([[2, 5]]);
-    expect(client.query.mock.calls[7]?.[0]).toBe("commit");
+    expect(client.query.mock.calls[7]?.[1]).toEqual([[2, 5]]);
+    expect(client.query.mock.calls[8]?.[0]).toBe("commit");
     expect(client.release).toHaveBeenCalledTimes(1);
   });
 
@@ -153,6 +159,7 @@ describe("deleteUserById", () => {
     connectMock.mockResolvedValue(client as unknown as PoolClient);
 
     client.query
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
       .mockResolvedValueOnce({ rows: [{ locked: true }] })
@@ -182,6 +189,7 @@ describe("deleteUserById", () => {
     });
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
+      "select id from users where id = $1 for update",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       "select pg_try_advisory_xact_lock($1) as locked",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
@@ -227,6 +235,7 @@ describe("deleteUserById", () => {
     client.query
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ identifier: "delete-account:9:nonce" }] })
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
       .mockResolvedValueOnce({ rows: [{ locked: true }] })
       .mockResolvedValueOnce({ rows: [] })
@@ -253,10 +262,14 @@ describe("deleteUserById", () => {
       ["delete-account:9:nonce", "hash"],
     ]);
     expect(client.query.mock.calls[2]).toEqual([
-      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
+      "select id from users where id = $1 for update",
       [9],
     ]);
     expect(client.query.mock.calls[3]).toEqual([
+      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
+      [9],
+    ]);
+    expect(client.query.mock.calls[4]).toEqual([
       "select pg_try_advisory_xact_lock($1) as locked",
       [2],
     ]);
@@ -271,6 +284,7 @@ describe("deleteUserById", () => {
 
     client.query
       .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ householdId: 2 }] })
@@ -282,6 +296,7 @@ describe("deleteUserById", () => {
     expect(result).toEqual({ ok: false, reason: "not-found" });
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
+      "select id from users where id = $1 for update",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active'",
@@ -301,6 +316,7 @@ describe("deleteUserById", () => {
     const error = new Error("delete failed");
     client.query
       .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockRejectedValueOnce(error)
@@ -310,6 +326,7 @@ describe("deleteUserById", () => {
 
     expect(client.query.mock.calls.map((call) => call[0])).toEqual([
       "begin",
+      "select id from users where id = $1 for update",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       "select h.id as \"householdId\", h.name as \"householdName\", count(other_members.user_id)::int as \"otherActiveMemberCount\" from household_memberships owner_membership join households h on h.id = owner_membership.household_id left join household_memberships other_members on other_members.household_id = h.id and other_members.status = 'active' and other_members.user_id <> $1 where owner_membership.user_id = $1 and owner_membership.status = 'active' and owner_membership.role = 'owner' group by h.id, h.name having count(other_members.user_id) > 0 order by h.id asc",
       "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active'",

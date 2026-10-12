@@ -304,3 +304,81 @@ test("#20 deletion locks regular memberships before ownership can change", async
     ).rows[0].role,
   ).toBe("owner");
 });
+
+test("#20 user-row locking fences membership creation before the deletion snapshot", async ({
+  live,
+  household,
+}) => {
+  const invitationId = await live.invite(live.member);
+  const invite = new URL(
+    await live.emailLink(live.member.email, "/household/invite?", invitationId),
+  );
+  expect((await live.api(live.member, "/api/me/delete-request", "POST")).status).toBe(200);
+  const link = new URL(await live.emailLink(live.member.email, "/user/delete/confirm?"));
+  const client = await live.db.connect();
+  let deletion;
+  let acceptance;
+  try {
+    await client.query("begin");
+    await client.query("select id from users where id=$1 for update", [live.member.id]);
+    deletion = live.api(
+      live.member,
+      "/api/me/delete-confirm",
+      "POST",
+      { identifier: link.searchParams.get("identifier"), token: link.searchParams.get("token") },
+      12000,
+    );
+    let blocked = false;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const rows = await live.db.query(
+        "select pid from pg_stat_activity where query='select id from users where id = $1 for update' and $1::int=any(pg_blocking_pids(pid))",
+        [client.processID],
+      );
+      if (rows.rowCount) {
+        blocked = true;
+        break;
+      }
+      await sleep(100);
+    }
+    expect(blocked, "deletion must lock the user before its membership snapshot").toBe(true);
+    acceptance = live.api(
+      live.member,
+      "/api/households/invites/accept",
+      "POST",
+      { invitationId, secret: invite.searchParams.get("secret") },
+      12000,
+    );
+    await sleep(300);
+    expect(
+      (
+        await live.db.query(
+          "select id from household_memberships where household_id=$1 and user_id=$2",
+          [household, live.member.id],
+        )
+      ).rowCount,
+    ).toBe(0);
+    await client.query("commit");
+    expect((await deletion).status).toBe(200);
+    expect((await acceptance).status).toBeGreaterThanOrEqual(400);
+    expect(
+      (
+        await live.db.query(
+          "select id from household_memberships where household_id=$1 and user_id=$2",
+          [household, live.member.id],
+        )
+      ).rowCount,
+    ).toBe(0);
+    expect(
+      (
+        await live.db.query(
+          "select id from household_memberships where household_id=$1 and role='owner'",
+          [household],
+        )
+      ).rowCount,
+    ).toBe(1);
+  } finally {
+    await client.query("rollback");
+    client.release();
+    await Promise.allSettled([deletion, acceptance].filter(Boolean));
+  }
+});
