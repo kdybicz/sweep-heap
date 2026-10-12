@@ -8,6 +8,7 @@ const {
   listInvitationsMock,
   listMembersMock,
   removeMemberMock,
+  prepareHouseholdInviteMock,
   sendHouseholdInviteMock,
   updateMemberRoleMock,
   withHouseholdMutationLockMock,
@@ -17,6 +18,7 @@ const {
   listInvitationsMock: vi.fn(),
   listMembersMock: vi.fn(),
   removeMemberMock: vi.fn(),
+  prepareHouseholdInviteMock: vi.fn(),
   sendHouseholdInviteMock: vi.fn(),
   updateMemberRoleMock: vi.fn(),
   withHouseholdMutationLockMock: vi.fn(async ({ task }: { task: () => Promise<unknown> }) =>
@@ -38,6 +40,7 @@ vi.mock("@/auth", () => ({
 }));
 
 vi.mock("@/lib/services/household-invite-service", () => ({
+  prepareHouseholdInvite: prepareHouseholdInviteMock,
   sendHouseholdInvite: sendHouseholdInviteMock,
 }));
 
@@ -71,6 +74,8 @@ describe("household-members-service", () => {
     listInvitationsMock.mockReset();
     listMembersMock.mockReset();
     removeMemberMock.mockReset();
+    prepareHouseholdInviteMock.mockReset();
+    prepareHouseholdInviteMock.mockResolvedValue({ inviteId: 12 });
     sendHouseholdInviteMock.mockReset();
     updateMemberRoleMock.mockReset();
     withHouseholdMutationLockMock.mockClear();
@@ -106,6 +111,57 @@ describe("household-members-service", () => {
       householdId: 11,
       task: expect.any(Function),
     });
+  });
+
+  it("persists invitation secrets under the lock and sends SMTP after release", async () => {
+    let released = false;
+    withHouseholdMutationLockMock.mockImplementationOnce(async ({ task }) => {
+      const result = await task();
+      released = true;
+      return result;
+    });
+    createInvitationMock.mockResolvedValue(pendingInvite());
+    prepareHouseholdInviteMock.mockImplementationOnce(async () => {
+      expect(released).toBe(false);
+      return { inviteId: 12 };
+    });
+    sendHouseholdInviteMock.mockImplementationOnce(async () => {
+      expect(released).toBe(true);
+      return { inviteId: 12, inviteEmailSent: true };
+    });
+    const result = await createHouseholdMemberInvite({
+      email: "pending@example.com",
+      householdId: 11,
+      householdName: "Home",
+      inviterName: "Alex",
+      request: new Request("http://localhost/api/households/members", { method: "POST" }),
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("resends email after releasing the household lock", async () => {
+    let released = false;
+    withHouseholdMutationLockMock.mockImplementationOnce(async ({ task }) => {
+      const result = await task();
+      released = true;
+      return result;
+    });
+    listInvitationsMock.mockResolvedValue([pendingInvite()]);
+    createInvitationMock.mockResolvedValue(pendingInvite());
+    sendHouseholdInviteMock.mockImplementationOnce(async () => {
+      expect(released).toBe(true);
+      return { inviteId: 12, inviteEmailSent: false };
+    });
+    const result = await resendHouseholdInvite({
+      actorRole: "owner",
+      householdId: 11,
+      householdName: "Home",
+      inviteId: 12,
+      inviterName: "Alex",
+      request: new Request("http://localhost", { method: "POST" }),
+    });
+    expect(result.ok && result.data.inviteEmailSent).toBe(false);
+    expect(result.ok).toBe(true);
   });
 
   it("maps duplicate pending invites with the existing invite payload", async () => {

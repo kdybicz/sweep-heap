@@ -161,6 +161,39 @@ For household member/invite role-management routes:
 - Enforce owner-role protections at the API boundary (`403`): non-owners cannot manage owner memberships or owner-role invites.
 - Translate Better Auth business-rule conflicts (for example last-owner) to consistent `409` responses.
 
+## Household mutation locking
+
+Household membership, invitation and deletion guards use `withHouseholdMutationLock`. Its separate
+`householdLockPool` has at most ten connections and a five-second connection-acquisition timeout.
+Within a guarded callback, an AsyncLocalStorage-aware query-pool facade routes repository `query()`
+and Better Auth `connect()` calls to the same physical lock transaction. Other requests use the normal
+query pool, so queued advisory-lock clients cannot consume their capacity. The query pool also bounds
+connection acquisition to five seconds.
+
+The lock client holds a transaction-scoped single-key advisory lock for the entire callback. PostgreSQL
+`lock_timeout` is five seconds; acquisition timeout returns `409 HOUSEHOLD_MUTATION_BUSY`. Commit/rollback
+releases the lock. Cleanup failures discard the client rather than returning a possibly locked connection
+to the pool. Dedicated-pool checkout saturation is also a retryable busy response; genuine connection
+failures retain the normal internal-error response. The pg-pool checkout timeout currently has no
+SQLSTATE, so only its specific queue-timeout error is translated.
+Guarded business writes share the lock transaction: connection loss rolls them back, and subsequent
+or deferred queries are fenced. SDK nested transactions use savepoints and serialized connection
+leases. Callbacks must await their database work and release every borrowed client. Unguarded chore
+writes are unaffected by this transaction scope.
+
+Account deletion first locks the user row with `FOR UPDATE NOWAIT`, so new membership foreign-key
+checks serialize with it and a busy row fails immediately with the retryable conflict.
+It reads the membership snapshot in a subsequent statement, then takes the same locks for every
+active household membership, in household-id order,
+with `pg_try_advisory_xact_lock` on its existing data transaction and returns the same retryable conflict
+immediately when busy. It must not wait for household
+locks while holding query-pool connections. Delete-token replacement uses a separate two-key user-lock
+namespace so a user id cannot collide with a household id.
+
+Persist invitation state and its secret hash inside the household lock, then send SMTP outside it.
+Delivery remains best-effort, reported by `inviteEmailSent`. A subsequent resend rotates the prior secret;
+email delivery is not a transaction with membership state.
+
 ## 11) Chore Mutation Contract
 
 For `PATCH /api/chores`:

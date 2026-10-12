@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ERROR_CODE } from "@/lib/api-error";
+import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
 
 const {
   acceptInvitationMock,
@@ -79,6 +80,20 @@ describe("/api/households/invites/accept route", () => {
       error: "Invitation id and secret are required",
     });
     expect(getPendingHouseholdInviteByIdAndSecretMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves shared-service lock contention as a retryable response", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "7", email: "jane@example.com" } });
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
+      householdId: 11,
+      email: "jane@example.com",
+    });
+    withHouseholdMutationLockMock.mockRejectedValueOnce(new HouseholdMutationBusyError());
+    const response = await POST(requestWithBody({ invitationId: 12, secret: "fixture" }));
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("HOUSEHOLD_MUTATION_BUSY");
+    expect(acceptInvitationMock).not.toHaveBeenCalled();
   });
 
   it("rejects non-object json payloads", async () => {

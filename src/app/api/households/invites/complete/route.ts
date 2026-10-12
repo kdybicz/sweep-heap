@@ -1,3 +1,4 @@
+import { jsonHouseholdMutationBusy } from "@/lib/api-error";
 import { toHouseholdInvitePagePath } from "@/lib/household-invite-paths";
 import { parsePositiveInt } from "@/lib/organization-api";
 import {
@@ -82,6 +83,8 @@ export async function GET(request: Request) {
     headers.set("location", new URL(acceptance.nextPath, request.url).toString());
     return new Response(null, { status: 302, headers });
   }
+
+  if (acceptance.reason === "busy") return jsonHouseholdMutationBusy();
 
   if (acceptance.reason === "invalid") {
     return redirectToInvitePage({

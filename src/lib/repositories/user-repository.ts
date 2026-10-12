@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
 
 const deleteAccountTokenPrefix = "delete-account";
 
@@ -87,12 +88,25 @@ export const deleteUserById = async ({
       }
     }
 
-    const ownedHouseholdIdsResult = await client.query<{ householdId: number }>(
-      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' and role = 'owner' order by household_id asc",
+    // FK checks for new memberships require KEY SHARE on this row. Acquire it before
+    // the membership snapshot, using a separate statement so READ COMMITTED sees prior inserts.
+    try {
+      await client.query("select id from users where id = $1 for update nowait", [userId]);
+    } catch (error) {
+      if ((error as { code?: string }).code === "55P03") throw new HouseholdMutationBusyError();
+      throw error;
+    }
+
+    const householdIdsResult = await client.query<{ householdId: number }>(
+      "select distinct household_id as \"householdId\" from household_memberships where user_id = $1 and status = 'active' order by household_id asc",
       [userId],
     );
-    for (const row of ownedHouseholdIdsResult.rows) {
-      await client.query("select pg_advisory_xact_lock($1)", [row.householdId]);
+    for (const row of householdIdsResult.rows) {
+      const lock = await client.query<{ locked: boolean }>(
+        "select pg_try_advisory_xact_lock($1) as locked",
+        [row.householdId],
+      );
+      if (!lock.rows[0]?.locked) throw new HouseholdMutationBusyError();
     }
 
     const blockingHouseholdsResult = await client.query<BlockedOwnedHousehold>(
@@ -164,7 +178,8 @@ export const createDeleteAccountToken = async ({
   const client = await pool.connect();
   try {
     await client.query("begin");
-    await client.query("select pg_advisory_xact_lock($1)", [userId]);
+    // Two-key locks do not collide with single-key household locks, even when ids match.
+    await client.query("select pg_advisory_xact_lock($1, $2)", [1, userId]);
     await client.query("delete from delete_account_tokens where user_id = $1", [userId]);
     await client.query(
       "insert into delete_account_tokens (user_id, identifier, token_hash, expires_at) values ($1, $2, $3, $4)",

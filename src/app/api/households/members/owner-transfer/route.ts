@@ -1,5 +1,10 @@
 import { requireApiHouseholdAdmin } from "@/lib/api-access";
-import { API_ERROR_CODE, type ApiErrorCode, jsonError } from "@/lib/api-error";
+import {
+  API_ERROR_CODE,
+  type ApiErrorCode,
+  householdMutationBusyResponse,
+  jsonError,
+} from "@/lib/api-error";
 import { validateHouseholdOwnerTransferPayload } from "@/lib/api-payload-validation";
 import { parseJsonObjectBody } from "@/lib/http";
 import { transferHouseholdOwnership } from "@/lib/services/household-members-service";
@@ -65,6 +70,8 @@ export async function POST(request: Request) {
 
     return Response.json({ ok: true, ...result.data }, { headers: adminAccess.responseHeaders });
   } catch (error) {
+    const busyResponse = householdMutationBusyResponse(error, responseHeaders);
+    if (busyResponse) return busyResponse;
     console.error("Failed to transfer household ownership", error);
     return jsonError({
       headers: responseHeaders,

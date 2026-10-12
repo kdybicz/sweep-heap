@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { API_ERROR_CODE, jsonError } from "@/lib/api-error";
+import { API_ERROR_CODE, householdMutationBusyResponse, jsonError } from "@/lib/api-error";
 import { parseJsonObjectBody } from "@/lib/http";
 import { deleteUserById, extractUserIdFromDeleteAccountTokenIdentifier } from "@/lib/repositories";
 
@@ -74,6 +74,8 @@ export async function POST(request: Request) {
       deletedHouseholdIds: user.deletedHouseholdIds,
     });
   } catch (error) {
+    const busyResponse = householdMutationBusyResponse(error);
+    if (busyResponse) return busyResponse;
     console.error("Failed to confirm account deletion", error);
     return jsonError({
       status: 500,

@@ -1,4 +1,5 @@
-import { pool } from "@/lib/db";
+export { withHouseholdMutationLock } from "@/lib/household-mutation-lock";
+
 import {
   countActiveHouseholdMembersExcludingUser,
   listOwnedHouseholdsWithOtherMembers,
@@ -19,24 +20,4 @@ export const householdHasOtherActiveMembers = async ({
     householdId,
   });
   return count > 0;
-};
-
-export const withHouseholdMutationLock = async <T>({
-  householdId,
-  task,
-}: {
-  householdId: number;
-  task: () => Promise<T>;
-}) => {
-  const client = await pool.connect();
-  try {
-    await client.query("select pg_advisory_lock($1)", [householdId]);
-    return await task();
-  } finally {
-    try {
-      await client.query("select pg_advisory_unlock($1)", [householdId]);
-    } finally {
-      client.release();
-    }
-  }
 };

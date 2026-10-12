@@ -6,6 +6,7 @@ import {
   generateHouseholdInviteSecret,
   hashHouseholdInviteSecret,
 } from "@/lib/household-invite-secret";
+import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
 import { getAppOrigin } from "@/lib/http";
 import {
   isInvitationNotFoundError,
@@ -93,6 +94,9 @@ export const acceptHouseholdInvite = async ({
       ...outcome,
     };
   } catch (error) {
+    if (error instanceof HouseholdMutationBusyError) {
+      return { ok: false as const, reason: "busy" as const };
+    }
     const authApiError = toAuthApiError(error);
     if (isInvitationNotFoundError(authApiError)) {
       return {
@@ -116,7 +120,7 @@ export const acceptHouseholdInvite = async ({
   }
 };
 
-export const sendHouseholdInvite = async ({
+export const prepareHouseholdInvite = async ({
   householdId,
   householdName,
   invite,
@@ -153,13 +157,31 @@ export const sendHouseholdInvite = async ({
     appOrigin,
   );
 
+  return {
+    householdId,
+    householdName,
+    inviteId,
+    inviteUrl: inviteUrl.toString(),
+    inviterName,
+    to: invite.email,
+  };
+};
+
+export const sendHouseholdInvite = async ({
+  householdId,
+  householdName,
+  inviteId,
+  inviteUrl,
+  inviterName,
+  to,
+}: Awaited<ReturnType<typeof prepareHouseholdInvite>>) => {
   let inviteEmailSent = false;
   try {
     await sendHouseholdInviteEmail({
       householdName,
-      inviteUrl: inviteUrl.toString(),
+      inviteUrl,
       inviterName,
-      to: invite.email,
+      to,
     });
     inviteEmailSent = true;
   } catch (error) {

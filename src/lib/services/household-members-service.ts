@@ -15,7 +15,10 @@ import {
   parsePositiveInt,
   toAuthApiError,
 } from "@/lib/organization-api";
-import { sendHouseholdInvite } from "@/lib/services/household-invite-service";
+import {
+  prepareHouseholdInvite,
+  sendHouseholdInvite,
+} from "@/lib/services/household-invite-service";
 import { withHouseholdMutationLock } from "@/lib/services/ownership-guard-service";
 
 type HouseholdMembersServiceFailure<T extends Record<string, unknown> = Record<string, never>> = {
@@ -237,8 +240,8 @@ export const createHouseholdMemberInvite = async ({
     { invite: ReturnType<typeof mapOrganizationInvitation>; inviteEmailSent: boolean },
     { existingInvite?: ReturnType<typeof mapOrganizationInvitation> }
   >
-> =>
-  withHouseholdMutationLock({
+> => {
+  const result = await withHouseholdMutationLock({
     householdId,
     task: async () => {
       let invite: OrganizationInvitationLike;
@@ -272,7 +275,7 @@ export const createHouseholdMemberInvite = async ({
         throw error;
       }
 
-      const { inviteEmailSent } = await sendHouseholdInvite({
+      const prepared = await prepareHouseholdInvite({
         householdId,
         householdName,
         invite,
@@ -282,10 +285,14 @@ export const createHouseholdMemberInvite = async ({
 
       return serviceSuccess({
         invite: mapOrganizationInvitation(invite),
-        inviteEmailSent,
+        prepared,
       });
     },
   });
+  if (!result.ok) return result;
+  const { inviteEmailSent } = await sendHouseholdInvite(result.data.prepared);
+  return serviceSuccess({ invite: result.data.invite, inviteEmailSent });
+};
 
 export const updateHouseholdMemberRole = async ({
   actorRole,
@@ -453,8 +460,8 @@ export const resendHouseholdInvite = async ({
     invite: ReturnType<typeof mapOrganizationInvitation>;
     inviteEmailSent: boolean;
   }>
-> =>
-  withHouseholdMutationLock({
+> => {
+  const result = await withHouseholdMutationLock({
     householdId,
     task: async () => {
       const invite = await findPendingInviteById({
@@ -489,7 +496,7 @@ export const resendHouseholdInvite = async ({
         headers: request.headers,
       })) as OrganizationInvitationLike;
 
-      const { inviteEmailSent } = await sendHouseholdInvite({
+      const prepared = await prepareHouseholdInvite({
         householdId,
         householdName,
         invite: resentInvite,
@@ -499,10 +506,14 @@ export const resendHouseholdInvite = async ({
 
       return serviceSuccess({
         invite: mapOrganizationInvitation(resentInvite),
-        inviteEmailSent,
+        prepared,
       });
     },
   });
+  if (!result.ok) return result;
+  const { inviteEmailSent } = await sendHouseholdInvite(result.data.prepared);
+  return serviceSuccess({ invite: result.data.invite, inviteEmailSent });
+};
 
 export const revokeHouseholdInvite = async ({
   actorRole,

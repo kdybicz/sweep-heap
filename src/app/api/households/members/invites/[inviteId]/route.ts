@@ -1,5 +1,10 @@
 import { requireApiHousehold, requireApiHouseholdAdmin } from "@/lib/api-access";
-import { API_ERROR_CODE, type ApiErrorCode, jsonError } from "@/lib/api-error";
+import {
+  API_ERROR_CODE,
+  type ApiErrorCode,
+  householdMutationBusyResponse,
+  jsonError,
+} from "@/lib/api-error";
 import { parsePositiveInt } from "@/lib/organization-api";
 import {
   isHouseholdMemberInviteNotFoundError,
@@ -71,6 +76,8 @@ export async function POST(
       { headers: householdAccess.responseHeaders },
     );
   } catch (error) {
+    const busyResponse = householdMutationBusyResponse(error, responseHeaders);
+    if (busyResponse) return busyResponse;
     if (isHouseholdMemberInviteNotFoundError(error)) {
       const result = mapHouseholdMemberInviteNotFoundFailure();
       return jsonServiceFailure({ headers: responseHeaders, result });
@@ -121,6 +128,8 @@ export async function DELETE(
 
     return Response.json({ ok: true, ...result.data }, { headers: adminAccess.responseHeaders });
   } catch (error) {
+    const busyResponse = householdMutationBusyResponse(error, responseHeaders);
+    if (busyResponse) return busyResponse;
     if (isHouseholdMemberInviteNotFoundError(error)) {
       const result = mapHouseholdMemberInviteNotFoundFailure();
       return jsonServiceFailure({ headers: responseHeaders, result });

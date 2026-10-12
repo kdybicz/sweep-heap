@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
 
 const {
   acceptInvitationMock,
@@ -58,6 +59,29 @@ describe("/api/households/invites/complete route", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("http://localhost/auth");
+  });
+
+  it("preserves shared-service lock contention as retryable JSON instead of an unexpected redirect", async () => {
+    getSessionMock.mockResolvedValue({ user: { id: "7", email: "jane@example.com" } });
+    getPendingHouseholdInviteByIdAndSecretMock.mockResolvedValue({
+      id: 12,
+      householdId: 11,
+      email: "jane@example.com",
+    });
+    withHouseholdMutationLockMock.mockRejectedValueOnce(new HouseholdMutationBusyError());
+    const response = await GET(
+      new Request(
+        "http://localhost/api/households/invites/complete?invitationId=12&secret=fixture",
+      ),
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      ok: false,
+      code: "HOUSEHOLD_MUTATION_BUSY",
+      error: "Household is busy. Please retry.",
+    });
+    expect(response.headers.get("location")).toBeNull();
+    expect(acceptInvitationMock).not.toHaveBeenCalled();
   });
 
   it("redirects back to invite page when sign-in did not complete", async () => {

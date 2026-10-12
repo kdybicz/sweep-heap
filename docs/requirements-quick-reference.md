@@ -12,6 +12,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## Core Rules
 
 ### Household and roles
+- Household mutation lock waits use a dedicated pool and return `409 HOUSEHOLD_MUTATION_BUSY` after five seconds; pool checkout saturation also returns this code. Guarded writes share the lock transaction and are fenced on connection loss. Account deletion locks all active memberships without waiting and preserves the confirmation token on conflicts. Invitation SMTP runs outside the lock.
 - Better Auth organization HTTP routes return `404`; use guarded `/api/households/**` APIs. Server-side `auth.api` organization methods remain available to household services.
 - Any signed-in user can create a household, including users who already belong to another active household.
 - Active household comes from session `active_household_id`, with one-household bootstrap fallback when the session selection is missing or stale.
@@ -109,7 +110,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 
 ## Known Gaps (Do Not Forget)
 - No append-only chore event log yet (only latest exception state).
-- Concurrency conflicts are not exposed as explicit retryable responses.
+- Chore-write conflicts are not exposed as explicit retryable responses; household lock contention returns `HOUSEHOLD_MUTATION_BUSY`.
 - Month/year recurrence edge cases can drift from strict start-date anchoring.
 - Board UI exposes cancel actions from the chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
 
