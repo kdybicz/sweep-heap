@@ -43,6 +43,9 @@ series shifts, absolute-date compatibility and scope boundaries.
 The #24 cases pass normally. Scoped PostgreSQL failures exercise replacement insertion and completion
 copying across edit scopes, verifying source bounds/state and absence of partial replacements, with
 successful retry. The contention suite also checks queued chore permission revalidation.
+The #25 cases pass normally and cover following/whole-series exception preservation, mixed state and
+cancellation keys, shifts into occupied keys, cadence changes and shortened cutoffs. Scoped PostgreSQL
+failures after the first copied exception verify complete rollback and successful retry.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

@@ -45,6 +45,61 @@ const advance = <IsValid extends boolean>(
   return value;
 };
 
+/** Map sparse starts by ordinal using the same calendar stepping as board generation. */
+export const mapOccurrenceStarts = ({
+  occurrenceStarts,
+  sourceStartDate,
+  sourceRepeatRule,
+  sourceSeriesEndDate,
+  fromDate,
+  targetStartDate,
+  targetRepeatRule,
+  targetSeriesEndDate,
+}: {
+  occurrenceStarts: string[];
+  sourceStartDate: string;
+  sourceRepeatRule: RepeatRule;
+  sourceSeriesEndDate: string | null;
+  fromDate: string;
+  targetStartDate: string;
+  targetRepeatRule: RepeatRule;
+  targetSeriesEndDate: string | null;
+}) => {
+  const mapping = new Map<string, string>();
+  const wanted = new Set(occurrenceStarts);
+  const last = [...wanted].sort().at(-1);
+  if (!last) return mapping;
+  let source: DateTime = toDate(sourceStartDate, "UTC");
+  let target: DateTime = toDate(targetStartDate, "UTC");
+  let targetAvailable = true;
+  while (source.isValid) {
+    const sourceDate = source.toISODate();
+    if (
+      !sourceDate ||
+      sourceDate > last ||
+      (sourceSeriesEndDate && sourceDate > sourceSeriesEndDate)
+    )
+      break;
+    if (sourceDate >= fromDate) {
+      const targetDate = target.toISODate();
+      if (
+        !targetAvailable ||
+        !targetDate ||
+        (targetSeriesEndDate && targetDate > targetSeriesEndDate)
+      )
+        break;
+      if (wanted.has(sourceDate)) mapping.set(sourceDate, targetDate);
+      if (targetRepeatRule === "none") targetAvailable = false;
+      else target = advance(target, targetRepeatRule);
+    }
+    if (sourceRepeatRule === "none") break;
+    const nextSource = advance(source, sourceRepeatRule);
+    if (nextSource.equals(source)) break;
+    source = nextSource;
+  }
+  return mapping;
+};
+
 export const generateOccurrenceDayKeys = ({
   startDate,
   endDate,

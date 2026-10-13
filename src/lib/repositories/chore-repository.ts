@@ -130,6 +130,33 @@ export const deleteChoreOccurrenceException = async ({
   );
 };
 
+export const listChoreOccurrenceExceptions = async ({
+  choreId,
+  fromDate,
+}: {
+  choreId: number;
+  fromDate: string;
+}) => {
+  const result = await pool.query<ChoreExceptionRow>(
+    "select chore_id, to_char(occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date, kind, status, closed_reason from chore_occurrence_exceptions where chore_id = $1 and occurrence_start_date >= $2::date order by occurrence_start_date",
+    [choreId, fromDate],
+  );
+  return result.rows;
+};
+
+export const deleteChoreOccurrenceExceptions = async ({
+  choreId,
+  fromDate,
+}: {
+  choreId: number;
+  fromDate: string;
+}) => {
+  await pool.query(
+    "delete from chore_occurrence_exceptions where chore_id = $1 and occurrence_start_date >= $2::date",
+    [choreId, fromDate],
+  );
+};
+
 export const upsertChoreOccurrenceException = async ({
   choreId,
   occurrenceStartDate,

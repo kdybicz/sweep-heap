@@ -516,6 +516,8 @@ test("#22 inline notes editor keeps a stay-open chore open after logging", async
   await textarea.evaluate((element) => element.blur());
   expect((await saved).status()).toBe(200);
   expect((await live.choreRow(id)).type).toBe("stay_open");
+  // Saving notes can leave the preview open; reload before reopening the persisted chore.
+  await page.reload();
   await page.locator(`[data-chore-preview-id="${id}"]`).click();
   await page.getByRole("button", { name: "Log completion", exact: true }).click();
   await expect
@@ -795,7 +797,6 @@ test("#25 following edits retain future cancellation and completion exceptions",
   const instances = (await live.list(day(start, 14), day(start, 21))).filter(
     (chore) => chore.id === replacementId,
   );
-  knownFailure(25);
   expect(instances.some((chore) => chore.occurrence_start_date === day(start, 14))).toBe(false);
   expect(instances.find((chore) => chore.occurrence_start_date === day(start, 21))?.status).toBe(
     "closed",
@@ -830,9 +831,182 @@ test("#25 whole-series shifts preserve every completion", async ({ live }) => {
   const instances = (await live.list(day(start, 1), day(start, 8))).filter(
     (chore) => chore.id === id,
   );
-  knownFailure(25);
   expect(instances.map((chore) => chore.status)).toEqual(["closed", "closed"]);
 });
+
+for (const scope of ["all", "following"]) {
+  test(`#25 ${scope} edits migrate mixed exceptions through collisions and cadence changes`, async ({
+    live,
+  }) => {
+    const start = day(monday(), -7);
+    const id = await live.chore({
+      title: "Mixed exceptions source",
+      startDate: start,
+      endDate: day(start, 1),
+      repeatRule: "day",
+    });
+    for (const offset of [0, 2, 4]) {
+      expect(
+        (
+          await live.mutate({
+            action: "set",
+            choreId: id,
+            occurrenceStartDate: day(start, offset),
+            status: "closed",
+          })
+        ).status,
+      ).toBe(200);
+    }
+    expect(
+      (
+        await live.mutate({
+          action: "cancel",
+          scope: "single",
+          choreId: id,
+          occurrenceStartDate: day(start, 3),
+        })
+      ).status,
+    ).toBe(200);
+    const from = scope === "all" ? start : day(start, 2);
+    const target = day(from, 1);
+    const shifted = await live.mutate({
+      action: "edit",
+      scope,
+      choreId: id,
+      occurrenceStartDate: from,
+      startDate: target,
+      endDate: day(target, 1),
+    });
+    expect(shifted.status).toBe(200);
+    const targetId = scope === "all" ? id : shifted.body.createdChoreId;
+    const rows = async (choreId) =>
+      (
+        await live.db.query(
+          "select to_char(occurrence_start_date,'YYYY-MM-DD') as date,kind,status,closed_reason from chore_occurrence_exceptions where chore_id=$1 order by occurrence_start_date",
+          [choreId],
+        )
+      ).rows;
+    const offsets = scope === "all" ? [0, 2, 3, 4] : [0, 1, 2];
+    expect((await rows(targetId)).map((row) => row.date)).toEqual(
+      offsets.map((offset) => day(target, offset)),
+    );
+    if (scope === "following") expect((await rows(id)).map((row) => row.date)).toEqual([start]);
+    const cadence = await live.mutate({
+      action: "edit",
+      scope: "all",
+      choreId: targetId,
+      occurrenceStartDate: target,
+      repeatRule: "week",
+      seriesEndDate: day(target, 21),
+    });
+    expect(cadence.status).toBe(200);
+    const mapped = await rows(targetId);
+    const remaining = offsets.filter((offset) => offset <= 3);
+    expect(mapped.map((row) => row.date)).toEqual(
+      remaining.map((offset) => day(target, offset * 7)),
+    );
+    expect(mapped.find((row) => row.kind === "canceled")).toMatchObject({
+      status: null,
+      closed_reason: null,
+    });
+    const visible = (await live.list(target, day(target, 21))).filter((row) => row.id === targetId);
+    expect(
+      visible.some(
+        (row) => row.occurrence_start_date === mapped.find((row) => row.kind === "canceled").date,
+      ),
+    ).toBe(false);
+    for (const row of mapped.filter((row) => row.kind === "state")) {
+      expect(visible.find((entry) => entry.occurrence_start_date === row.date)).toMatchObject({
+        status: "closed",
+        closed_reason: "done",
+      });
+    }
+  });
+
+  test(`#25 ${scope} migration failures restore all source exceptions and allow retry`, async ({
+    live,
+    household,
+  }) => {
+    const start = day(monday(), -7);
+    const id = await live.chore({
+      title: "Migration rollback source",
+      startDate: start,
+      endDate: day(start, 1),
+      repeatRule: "day",
+    });
+    for (const offset of [0, 2, 4])
+      expect(
+        (
+          await live.mutate({
+            action: "set",
+            choreId: id,
+            occurrenceStartDate: day(start, offset),
+            status: "closed",
+          })
+        ).status,
+      ).toBe(200);
+    expect(
+      (
+        await live.mutate({
+          action: "cancel",
+          scope: "single",
+          choreId: id,
+          occurrenceStartDate: day(start, 3),
+        })
+      ).status,
+    ).toBe(200);
+    const before = (await live.db.query("select * from chores where id=$1", [id])).rows[0];
+    const exceptions = (
+      await live.db.query(
+        "select * from chore_occurrence_exceptions where chore_id=$1 order by id",
+        [id],
+      )
+    ).rows;
+    const name = `e2e_migration_${household}_${scope}`;
+    const title = `${live.prefix} migration ${scope}`;
+    await live.db.query(
+      `create function ${name}() returns trigger language plpgsql as $$ begin if NEW.kind='canceled' and exists(select 1 from chores where id=NEW.chore_id and household_id=${household} and title='${title}') then raise exception 'E2E migration failure after completion copy'; end if; return NEW; end $$`,
+    );
+    const payload = {
+      action: "edit",
+      scope,
+      choreId: id,
+      occurrenceStartDate: day(start, 2),
+      startDate: day(start, 3),
+      endDate: day(start, 4),
+      title,
+    };
+    try {
+      await live.db.query(
+        `create trigger ${name} before insert on chore_occurrence_exceptions for each row execute function ${name}()`,
+      );
+      expect((await live.mutate(payload)).status).toBe(500);
+      expect((await live.db.query("select * from chores where id=$1", [id])).rows[0]).toEqual(
+        before,
+      );
+      expect(
+        (
+          await live.db.query(
+            "select * from chore_occurrence_exceptions where chore_id=$1 order by id",
+            [id],
+          )
+        ).rows,
+      ).toEqual(exceptions);
+      expect(
+        (
+          await live.db.query("select id from chores where household_id=$1 and title=$2", [
+            household,
+            title,
+          ])
+        ).rowCount,
+      ).toBe(0);
+    } finally {
+      await live.db.query(`drop trigger if exists ${name} on chore_occurrence_exceptions`);
+      await live.db.query(`drop function if exists ${name}()`);
+    }
+    expect((await live.mutate(payload)).status).toBe(200);
+  });
+}
 
 test("#27 progress counts occurrences once regardless of span", async ({ live }, testInfo) => {
   const start = monday();

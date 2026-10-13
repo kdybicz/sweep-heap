@@ -3,6 +3,8 @@ import { API_ERROR_CODE } from "@/lib/api-error";
 
 const {
   deleteChoreOccurrenceExceptionMock,
+  deleteChoreOccurrenceExceptionsMock,
+  listChoreOccurrenceExceptionsMock,
   getChoreInHouseholdMock,
   getChoreOccurrenceExceptionMock,
   insertChoreMock,
@@ -20,6 +22,8 @@ const {
   toISODateOrThrowMock,
 } = vi.hoisted(() => ({
   deleteChoreOccurrenceExceptionMock: vi.fn(),
+  deleteChoreOccurrenceExceptionsMock: vi.fn(),
+  listChoreOccurrenceExceptionsMock: vi.fn(),
   getChoreInHouseholdMock: vi.fn(),
   getChoreOccurrenceExceptionMock: vi.fn(),
   insertChoreMock: vi.fn(),
@@ -41,6 +45,8 @@ const {
 
 vi.mock("@/lib/repositories", () => ({
   deleteChoreOccurrenceException: deleteChoreOccurrenceExceptionMock,
+  deleteChoreOccurrenceExceptions: deleteChoreOccurrenceExceptionsMock,
+  listChoreOccurrenceExceptions: listChoreOccurrenceExceptionsMock,
   getChoreInHousehold: getChoreInHouseholdMock,
   getChoreOccurrenceException: getChoreOccurrenceExceptionMock,
   insertChore: insertChoreMock,
@@ -85,6 +91,8 @@ const scheduledMultiDaySeries = {
 describe("mutateChore", () => {
   beforeEach(() => {
     deleteChoreOccurrenceExceptionMock.mockReset();
+    deleteChoreOccurrenceExceptionsMock.mockReset();
+    listChoreOccurrenceExceptionsMock.mockReset().mockResolvedValue([]);
     getChoreInHouseholdMock.mockReset();
     getChoreOccurrenceExceptionMock.mockReset();
     insertChoreMock.mockReset();
@@ -1080,6 +1088,15 @@ describe("mutateChore", () => {
   });
 
   it("preserves completion state on the first occurrence of an edited future branch", async () => {
+    listChoreOccurrenceExceptionsMock.mockResolvedValue([
+      {
+        chore_id: 3,
+        occurrence_start_date: "2026-01-05",
+        kind: "state",
+        status: "open",
+        closed_reason: "done",
+      },
+    ]);
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
       title: "Kitchen",
@@ -1244,6 +1261,15 @@ describe("mutateChore", () => {
   });
 
   it("shifts preserved completion exceptions with the edited occurrence for scope=all", async () => {
+    listChoreOccurrenceExceptionsMock.mockResolvedValue([
+      {
+        chore_id: 3,
+        occurrence_start_date: "2026-01-05",
+        kind: "state",
+        status: "closed",
+        closed_reason: "done",
+      },
+    ]);
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
       title: "Kitchen",
@@ -1274,9 +1300,9 @@ describe("mutateChore", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(deleteChoreOccurrenceExceptionMock).toHaveBeenCalledWith({
+    expect(deleteChoreOccurrenceExceptionsMock).toHaveBeenCalledWith({
       choreId: 3,
-      occurrenceStartDate: "2026-01-05",
+      fromDate: "0001-01-01",
     });
     expect(upsertChoreOccurrenceExceptionMock).toHaveBeenCalledWith({
       choreId: 3,

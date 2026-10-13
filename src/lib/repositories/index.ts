@@ -1,10 +1,12 @@
 export {
   deleteChoreOccurrenceException,
+  deleteChoreOccurrenceExceptions,
   getChoreInHousehold,
   getChoreOccurrenceException,
   insertChore,
   listActiveChoreSeriesByHousehold,
   listChoreExceptionsByHousehold,
+  listChoreOccurrenceExceptions,
   updateChoreSeries,
   updateChoreSeriesEndDate,
   updateChoreStatus,
