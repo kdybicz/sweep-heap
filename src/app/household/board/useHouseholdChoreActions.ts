@@ -31,27 +31,13 @@ import {
   recoverFromHouseholdContextError,
 } from "@/app/household/household-context-client";
 import { toExclusiveChoreEndDate } from "@/lib/chore-date-range";
+import type { ChoreMutationData, ChoreMutationResponse } from "@/lib/chore-mutation-response";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
 export type {
   UseHouseholdChoreActionsModel,
   UseHouseholdChoreActionsParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
-
-type ChoreMutationResponse = {
-  ok?: boolean;
-  error?: string;
-  code?: string;
-  fieldErrors?: Record<string, string>;
-  data?: {
-    choreId?: number;
-    createdChoreId?: number;
-    occurrenceStartDate?: string;
-    scope?: string;
-  };
-  status?: string;
-  closed_reason?: string;
-};
 
 type SaveChoreEditPayload = {
   choreId: number;
@@ -68,7 +54,7 @@ type SaveChoreEditPayload = {
 };
 
 type SaveChoreEditResult =
-  | { ok: true; data?: ChoreMutationResponse["data"] }
+  | { ok: true; data: ChoreMutationData }
   | {
       ok: false;
       error: string;
@@ -207,7 +193,7 @@ export default function useHouseholdChoreActions({
         }
 
         await refreshChoreCollections();
-        return { ok: true, data: data?.data };
+        return { ok: true, data };
       } catch (error) {
         return {
           ok: false,
@@ -230,12 +216,12 @@ export default function useHouseholdChoreActions({
       });
 
       if (result.ok) {
+        // The response occurrenceStartDate identifies the source, not the moved target.
         const target = getChorePreviewDateMutationTarget({
           chore,
           scope,
           startDate,
-          targetChoreId: result.data?.createdChoreId ?? chore.id,
-          targetOccurrenceStartDate: result.data?.occurrenceStartDate,
+          targetChoreId: result.data.createdChoreId ?? chore.id,
         });
 
         return {
@@ -275,9 +261,8 @@ export default function useHouseholdChoreActions({
       if (result.ok) {
         return {
           error: null,
-          targetChoreId: result.data?.createdChoreId ?? chore.id,
-          targetOccurrenceStartDate:
-            result.data?.occurrenceStartDate ?? chore.occurrence_start_date,
+          targetChoreId: result.data.createdChoreId ?? chore.id,
+          targetOccurrenceStartDate: result.data.occurrenceStartDate ?? chore.occurrence_start_date,
         };
       }
 
@@ -311,9 +296,8 @@ export default function useHouseholdChoreActions({
       if (result.ok) {
         return {
           error: null,
-          targetChoreId: result.data?.createdChoreId ?? chore.id,
-          targetOccurrenceStartDate:
-            result.data?.occurrenceStartDate ?? chore.occurrence_start_date,
+          targetChoreId: result.data.createdChoreId ?? chore.id,
+          targetOccurrenceStartDate: result.data.occurrenceStartDate ?? chore.occurrence_start_date,
         };
       }
 
@@ -346,9 +330,8 @@ export default function useHouseholdChoreActions({
       if (result.ok) {
         return {
           error: null,
-          targetChoreId: result.data?.createdChoreId ?? chore.id,
-          targetOccurrenceStartDate:
-            result.data?.occurrenceStartDate ?? chore.occurrence_start_date,
+          targetChoreId: result.data.createdChoreId ?? chore.id,
+          targetOccurrenceStartDate: result.data.occurrenceStartDate ?? chore.occurrence_start_date,
         };
       }
 

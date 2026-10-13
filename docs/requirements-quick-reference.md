@@ -75,6 +75,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `scope=all` updates or cancels the entire series definition.
 - Series edits preserve affected completion/cancellation exceptions by occurrence ordinal, including cadence changes. Following edits leave earlier exceptions on the source. Shortened schedules discard exceptions without a target occurrence; migration and series edits commit together.
 - Mutation payloads use `occurrenceStartDate`.
+- PATCH success JSON is flat. Single/following inline edits keep the preview attached to the replacement through refetch, and later edits/deletion use its id and occurrence start. Replacements outside the visible week close the preview.
 - Chore list rows include `occurrence_date` (calendar day) and `occurrence_start_date` (instance identity).
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores clipped by the current week use a clipped edge treatment at the left and/or right edge (no outer corner radius and no outer vertical border).

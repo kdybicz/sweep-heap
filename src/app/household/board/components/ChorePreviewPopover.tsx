@@ -48,6 +48,7 @@ type ChorePreviewPopoverProps = {
   selectionKey: string | null;
   todayKey: string;
   onClose: () => void;
+  onSavingChange?: (isSaving: boolean) => void;
   onPrimaryAction: (chore: ChoreItem) => void;
   onRebindPreviewTarget: (target: { choreId: number; occurrenceStartDate: string }) => void;
   onDeleteChore: (params: {
@@ -225,6 +226,7 @@ export default function ChorePreviewPopover({
   selectionKey,
   todayKey,
   onClose,
+  onSavingChange,
   onPrimaryAction,
   onRebindPreviewTarget,
   onDeleteChore,
@@ -285,6 +287,10 @@ export default function ChorePreviewPopover({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [scopePopupMode, setScopePopupMode] = useState<ScopePopupMode | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    onSavingChange?.(isSaving);
+  }, [isSaving, onSavingChange]);
 
   const resetPreviewFields = useCallback(() => {
     if (!chore) {
@@ -978,7 +984,8 @@ export default function ChorePreviewPopover({
         (anchorElement.isConnected ? anchorElement : null);
 
       if (!nextAnchorElement) {
-        closePreview();
+        // Keep the last position while a save replaces the source card. The board owns
+        // selection validity and supplies the replacement anchor when rebinding finishes.
         return;
       }
 
@@ -994,7 +1001,7 @@ export default function ChorePreviewPopover({
       window.removeEventListener("scroll", updateRect, true);
       window.removeEventListener("resize", updateRect);
     };
-  }, [anchorElement, chore, closePreview, previewAnchorSelector]);
+  }, [anchorElement, chore, previewAnchorSelector]);
 
   useEffect(() => {
     if (!chore) {
@@ -1656,6 +1663,12 @@ export default function ChorePreviewPopover({
           }
 
           if (editPaneRef.current?.contains(event.target as Node)) {
+            return;
+          }
+
+          // Footer actions handle their own close/delete flow. Collapsing here moves
+          // the pressed button before mouse-up and can discard the click entirely.
+          if (getSaveBehaviorForTarget(event.target).postAction !== "none") {
             return;
           }
 

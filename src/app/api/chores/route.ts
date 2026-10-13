@@ -1,6 +1,7 @@
 import { requireApiHousehold } from "@/lib/api-access";
 import { API_ERROR_CODE, householdMutationBusyResponse, jsonError } from "@/lib/api-error";
 import { validateChorePatchPayload } from "@/lib/api-payload-validation";
+import type { ChoreMutationResponse } from "@/lib/chore-mutation-response";
 import { canManageHouseholdChores } from "@/lib/household-roles";
 import { parseJsonObjectBody } from "@/lib/http";
 import { HouseholdNotFoundError } from "@/lib/repositories";
@@ -155,10 +156,9 @@ export async function PATCH(request: Request) {
       });
     }
 
-    return Response.json(
-      { ok: true, ...result.data },
-      { headers: householdAccess.responseHeaders },
-    );
+    return Response.json({ ok: true, ...result.data } satisfies ChoreMutationResponse, {
+      headers: householdAccess.responseHeaders,
+    });
   } catch (error) {
     if (error instanceof HouseholdNotFoundError) {
       return jsonError({
