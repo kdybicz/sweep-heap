@@ -46,6 +46,7 @@ export default function HouseholdBoard() {
 function HouseholdBoardContent() {
   const board = useHouseholdBoard();
   const [previewChore, setPreviewChore] = useState<ChoreItem | null>(null);
+  const [isPreviewSaving, setIsPreviewSaving] = useState(false);
   const [previewAnchorElement, setPreviewAnchorElement] = useState<HTMLElement | null>(null);
   const [pendingPreviewTarget, setPendingPreviewTarget] = useState<PendingPreviewTarget | null>(
     null,
@@ -61,6 +62,7 @@ function HouseholdBoardContent() {
 
   const closePreview = useCallback(() => {
     setPreviewChore(null);
+    setIsPreviewSaving(false);
     setPreviewAnchorElement(null);
     setPendingPreviewTarget(null);
   }, []);
@@ -133,6 +135,7 @@ function HouseholdBoardContent() {
     previewChore,
     visiblePreviewChore,
     pendingPreviewTarget,
+    isSaving: isPreviewSaving,
   });
   const activePreviewChore = previewPopoverChore ?? previewChore;
 
@@ -244,6 +247,7 @@ function HouseholdBoardContent() {
         canManageChores={canManageChores}
         chore={previewPopoverChore}
         onClose={closePreview}
+        onSavingChange={setIsPreviewSaving}
         onPrimaryAction={board.chorePreviewPopover.onPrimaryAction}
         onRebindPreviewTarget={rebindPreviewTarget}
         onDeleteChore={board.chorePreviewPopover.onDeleteChore}

@@ -325,6 +325,26 @@ describe("chore preview helpers", () => {
     ).toBeNull();
   });
 
+  it("keeps the selection alive while a save refresh removes the source occurrence", () => {
+    const previewChore = createChore({ id: 7, is_repeating: true });
+    expect(
+      getPreviewPopoverChore({
+        previewChore,
+        visiblePreviewChore: null,
+        pendingPreviewTarget: null,
+        isSaving: true,
+      }),
+    ).toBe(previewChore);
+    expect(
+      getPreviewPopoverChore({
+        previewChore,
+        visiblePreviewChore: null,
+        pendingPreviewTarget: null,
+        isSaving: false,
+      }),
+    ).toBeNull();
+  });
+
   it("serializes saves within the same preview session", async () => {
     const calls: string[] = [];
     const firstSaveDeferred = createDeferred<void>();

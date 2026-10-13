@@ -1192,6 +1192,112 @@ test("#23 unsupported basis and invalid relative dates fail before changing the 
   expect((await live.choreRow(id)).start_date).toBe(start);
 });
 
+for (const scope of ["single", "following"]) {
+  for (const field of ["title", "dates", "notes", "repeat"]) {
+    test(`#26 ${scope} ${field} edits rebind the preview and subsequent mutations`, async ({
+      live,
+    }) => {
+      const start = day(monday(), -7);
+      const id = await live.chore({
+        title: "Preview rebind fixture",
+        startDate: start,
+        endDate: day(start, 1),
+        repeatRule: "week",
+      });
+      const page = await live.board();
+      await page.locator(`[data-chore-preview-id="${id}"]`).click();
+      const preview = page.getByRole("dialog", { name: "Chore preview" });
+      const targetDate = field === "dates" ? day(monday(), 1) : monday();
+      if (field === "title") {
+        await preview.getByRole("button", { name: "Preview rebind fixture", exact: true }).click();
+        await preview.getByPlaceholder("Chore title").fill("Preview replacement title");
+        await preview.getByPlaceholder("Chore title").press("Enter");
+      } else if (field === "notes") {
+        await preview.getByRole("button", { name: "Add Notes", exact: true }).click();
+        const textarea = preview.getByPlaceholder("Add Notes");
+        await textarea.fill("Replacement notes");
+        // Blur to a control inside the preview, so this save requests continuity rather than close.
+        await preview.locator("button[aria-expanded]").click();
+      } else {
+        await preview.locator("button[aria-expanded]").click();
+        if (field === "dates") await preview.locator("input[type=date]").nth(0).fill(targetDate);
+        else
+          await preview
+            .locator("select")
+            .filter({ has: page.locator('option[value="biweekly"]') })
+            .selectOption("biweekly");
+      }
+      const responsePromise = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+      );
+      await page
+        .getByRole("button", {
+          name: scope === "single" ? "Only current chore" : "All future chores",
+          exact: true,
+        })
+        .click();
+      const response = await responsePromise;
+      expect(response.status()).toBe(200);
+      const body = await response.json();
+      expect(body.data).toBeUndefined();
+      expect(body.createdChoreId).toEqual(expect.any(Number));
+      expect(body.choreId).toBe(id);
+      const replacementId = body.createdChoreId;
+      await expect(
+        page.locator(
+          `[data-chore-preview-id="${replacementId}"][data-chore-preview-start="${targetDate}"]`,
+        ),
+      ).toHaveCount(1);
+      await expect(preview).toBeVisible();
+      const replacementTitle =
+        field === "title" ? "Preview replacement title" : "Preview rebind fixture";
+      await expect(preview).toContainText(replacementTitle);
+      // Use the still-open preview, without reopening its trigger, to verify its mutation identity.
+      await preview.getByRole("button", { name: replacementTitle, exact: true }).click();
+      await preview.getByPlaceholder("Chore title").fill("Second edit of replacement");
+      const nextResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+      );
+      await preview.getByPlaceholder("Chore title").press("Enter");
+      if (scope === "following")
+        await page.getByRole("button", { name: "All chores", exact: true }).click();
+      const nextResponse = await nextResponsePromise;
+      expect(nextResponse.status()).toBe(200);
+      expect(nextResponse.request().postDataJSON()).toMatchObject({
+        choreId: replacementId,
+        occurrenceStartDate: targetDate,
+      });
+      await expect(preview).toContainText("Second edit of replacement");
+      expect((await live.choreRow(replacementId)).title).toBe("Second edit of replacement");
+      expect((await live.choreRow(id)).title).toBe("Preview rebind fixture");
+      const deletionPromise = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+      );
+      await preview.getByRole("button", { name: "Delete chore", exact: true }).click();
+      if (scope === "following")
+        await page.getByRole("button", { name: "All chores", exact: true }).click();
+      const deletion = await deletionPromise;
+      expect(deletion.status()).toBe(200);
+      expect(deletion.request().postDataJSON()).toMatchObject({
+        action: "cancel",
+        choreId: replacementId,
+        occurrenceStartDate: targetDate,
+      });
+      await expect(preview).not.toBeVisible();
+      expect(
+        (await live.list(targetDate, day(targetDate, 14))).some((row) => row.id === replacementId),
+      ).toBe(false);
+      expect((await live.list(start)).find((row) => row.id === id)).toMatchObject({
+        title: "Preview rebind fixture",
+        status: "open",
+      });
+    });
+  }
+}
+
 test("#26 single edits keep the preview attached to the replacement", async ({ live }) => {
   const id = await live.chore({
     title: "Preview rebind fixture",
@@ -1212,11 +1318,136 @@ test("#26 single edits keep the preview attached to the replacement", async ({ l
   const response = await responsePromise;
   expect(response.status()).toBe(200);
   const body = await response.json();
-  const replacementId = body.createdChoreId ?? body.data?.createdChoreId;
+  const replacementId = body.createdChoreId;
   await expect(page.locator(`[data-chore-preview-id="${replacementId}"]`)).toHaveCount(1);
-  knownFailure(26);
   await expect(preview).toBeVisible({ timeout: 2000 });
   await expect(preview).toContainText("Preview replacement title");
+});
+
+for (const scope of ["single", "following"]) {
+  test(`#26 ${scope} edits outside the visible week close the preview`, async ({ live }) => {
+    const start = day(monday(), -7);
+    const id = await live.chore({
+      title: "Offscreen replacement fixture",
+      startDate: start,
+      endDate: day(start, 1),
+      repeatRule: "week",
+    });
+    const page = await live.board();
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    await preview.locator("button[aria-expanded]").click();
+    const targetDate = day(monday(), 14);
+    await preview.locator("input[type=date]").nth(0).fill(targetDate);
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+    );
+    await page
+      .getByRole("button", {
+        name: scope === "single" ? "Only current chore" : "All future chores",
+        exact: true,
+      })
+      .click();
+    const response = await responsePromise;
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    await expect(preview).not.toBeVisible();
+    expect(
+      (await live.list(targetDate)).find((row) => row.id === body.createdChoreId),
+    ).toMatchObject({ occurrence_start_date: targetDate });
+  });
+
+  test(`#26 ${scope} failed saves keep the source selection and allow retry`, async ({ live }) => {
+    const start = day(monday(), -7);
+    const id = await live.chore({
+      title: "Retry preview fixture",
+      startDate: start,
+      endDate: day(start, 1),
+      repeatRule: "week",
+    });
+    const page = await live.board();
+    let rejectEdit = true;
+    await page.route("**/api/chores", async (route) => {
+      if (route.request().method() === "PATCH" && rejectEdit) {
+        rejectEdit = false;
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: false,
+            code: "HOUSEHOLD_MUTATION_BUSY",
+            error: "Household is busy, retry this edit",
+          }),
+        });
+      } else await route.continue();
+    });
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    await preview.getByRole("button", { name: "Retry preview fixture", exact: true }).click();
+    const titleInput = preview.getByPlaceholder("Chore title");
+    await titleInput.fill("Retried replacement");
+    await titleInput.press("Enter");
+    await page
+      .getByRole("button", {
+        name: scope === "single" ? "Only current chore" : "All future chores",
+        exact: true,
+      })
+      .click();
+    await expect(preview).toContainText("Household is busy, retry this edit");
+    expect((await live.choreRow(id)).title).toBe("Retry preview fixture");
+    await titleInput.press("Enter");
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+    );
+    await page
+      .getByRole("button", {
+        name: scope === "single" ? "Only current chore" : "All future chores",
+        exact: true,
+      })
+      .click();
+    const response = await responsePromise;
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    await expect(page.locator(`[data-chore-preview-id="${body.createdChoreId}"]`)).toHaveCount(1);
+    await expect(preview).toContainText("Retried replacement");
+  });
+}
+
+test("#26 moving a one-off preview keeps subsequent actions on its new start", async ({ live }) => {
+  const id = await live.chore({
+    title: "Moved one-off preview",
+    startDate: monday(),
+    endDate: day(monday(), 1),
+  });
+  const page = await live.board();
+  await page.locator(`[data-chore-preview-id="${id}"]`).click();
+  const preview = page.getByRole("dialog", { name: "Chore preview" });
+  await preview.locator("button[aria-expanded]").click();
+  const responsePromise = page.waitForResponse(
+    (response) => response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+  );
+  const targetDate = day(monday(), 1);
+  await preview.locator("input[type=date]").nth(0).fill(targetDate);
+  const response = await responsePromise;
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toMatchObject({ choreId: id, occurrenceStartDate: monday() });
+  await expect(
+    page.locator(`[data-chore-preview-id="${id}"][data-chore-preview-start="${targetDate}"]`),
+  ).toHaveCount(1);
+  await expect(preview).toBeVisible();
+  const deletionPromise = page.waitForResponse(
+    (response) => response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+  );
+  await preview.getByRole("button", { name: "Delete chore", exact: true }).click();
+  const deletion = await deletionPromise;
+  expect(deletion.status()).toBe(200);
+  expect(deletion.request().postDataJSON()).toMatchObject({
+    choreId: id,
+    occurrenceStartDate: targetDate,
+  });
+  await expect(preview).not.toBeVisible();
 });
 
 test("#28 Today advances across household-local midnight", async ({ live }) => {

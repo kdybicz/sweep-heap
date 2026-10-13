@@ -170,16 +170,18 @@ export const getPreviewPopoverChore = ({
   previewChore,
   visiblePreviewChore,
   pendingPreviewTarget,
+  isSaving = false,
 }: {
   previewChore: ChoreItem | null;
   visiblePreviewChore: ChoreItem | null;
   pendingPreviewTarget: ChorePreviewTarget | null;
+  isSaving?: boolean;
 }) => {
   if (visiblePreviewChore) {
     return visiblePreviewChore;
   }
 
-  if (previewChore && pendingPreviewTarget) {
+  if (previewChore && (pendingPreviewTarget || isSaving)) {
     return previewChore;
   }
 

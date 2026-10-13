@@ -46,6 +46,9 @@ successful retry. The contention suite also checks queued chore permission reval
 The #25 cases pass normally and cover following/whole-series exception preservation, mixed state and
 cancellation keys, shifts into occupied keys, cadence changes and shortened cutoffs. Scoped PostgreSQL
 failures after the first copied exception verify complete rollback and successful retry.
+The #26 browser cases pass normally and cover title, date, notes and repeat edits in single/following
+scopes, real top-level PATCH responses, preview continuity, and subsequent edits/deletion of the replacement.
+They also cover retryable failures, offscreen replacements, and moving/deleting a one-off from the expanded preview.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

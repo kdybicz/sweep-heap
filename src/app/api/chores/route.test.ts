@@ -317,39 +317,48 @@ describe("PATCH /api/chores", () => {
     expect(response.status).toBe(403);
   });
 
-  it("forwards edit payloads with following scope to the service", async () => {
-    getSessionMock.mockResolvedValue({
-      user: { id: "21" },
-      session: { activeOrganizationId: "11" },
-    });
-    resolveActiveHouseholdMock.mockResolvedValue({
-      status: "resolved",
-      source: "session",
-      household: { id: 11 },
-    });
-    const payload = {
-      action: "edit",
-      scope: "following",
-      choreId: 3,
-      occurrenceStartDate: "2026-01-03",
-      title: "Deep clean",
-    };
-    mutateChoreMock.mockResolvedValue({
-      ok: true,
-      data: { choreId: 3, createdChoreId: 9, occurrenceStartDate: "2026-01-03" },
-    });
+  it.each(["single", "following"])(
+    "returns top-level replacement identity for %s edits",
+    async (scope) => {
+      getSessionMock.mockResolvedValue({
+        user: { id: "21" },
+        session: { activeOrganizationId: "11" },
+      });
+      resolveActiveHouseholdMock.mockResolvedValue({
+        status: "resolved",
+        source: "session",
+        household: { id: 11, role: "owner" },
+      });
+      const payload = {
+        action: "edit",
+        scope,
+        choreId: 3,
+        occurrenceStartDate: "2026-01-03",
+        title: "Deep clean",
+      };
+      mutateChoreMock.mockResolvedValue({
+        ok: true,
+        data: { choreId: 3, createdChoreId: 9, occurrenceStartDate: "2026-01-03" },
+      });
 
-    const response = await PATCH(
-      new Request("http://localhost/api/chores", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }),
-    );
+      const response = await PATCH(
+        new Request("http://localhost/api/chores", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+      );
 
-    expect(response.status).toBe(200);
-    expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, actorUserId: 21, payload });
-  });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        ok: true,
+        choreId: 3,
+        createdChoreId: 9,
+        occurrenceStartDate: "2026-01-03",
+      });
+      expect(mutateChoreMock).toHaveBeenCalledWith({ householdId: 11, actorUserId: 21, payload });
+    },
+  );
 
   it("rejects chore edit mutations for members when household settings disable them", async () => {
     getSessionMock.mockResolvedValue({

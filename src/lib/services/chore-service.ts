@@ -3,6 +3,7 @@ import { API_ERROR_CODE, type ApiErrorCode } from "@/lib/api-error";
 import { type ChorePatchPayload, validateChorePatchIntent } from "@/lib/api-payload-validation";
 import { getStoredChoreDurationDays } from "@/lib/chore-date-range";
 import { translateOccurrenceSeriesDates } from "@/lib/chore-edit-dates";
+import type { ChoreMutationData, ChoreMutationFailure } from "@/lib/chore-mutation-response";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import { withHouseholdMutationLock } from "@/lib/household-mutation-lock";
 import { canManageHouseholdChores } from "@/lib/household-roles";
@@ -27,16 +28,9 @@ import {
 
 type ChoreMutationScope = "single" | "following" | "all";
 
-type ChoreMutationFailure = {
-  ok: false;
-  code: ApiErrorCode;
-  error: string;
-  fieldErrors?: Record<string, string>;
-};
-
 type ChoreMutationSuccess = {
   ok: true;
-  data: Record<string, unknown>;
+  data: ChoreMutationData;
 };
 
 const choreMutationFailure = ({

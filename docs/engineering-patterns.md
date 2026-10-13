@@ -84,6 +84,7 @@ Body parsing rule:
 - Route handlers using `requireApiSessionHouseholdResolution()`, `requireApiHousehold()`, or `requireApiHouseholdAdmin()` should pass `request.headers` so active-household reconciliation can emit `Set-Cookie` headers when healing stale session state.
 - Low-level access helpers such as `src/lib/api-access.ts` and `src/lib/page-access.ts` should import the specific service modules they need instead of the `src/lib/services/index.ts` barrel, so auth/db-heavy service modules are not pulled in transitively during tests or server startup.
 - When forwarding Better Auth `asResponse: true` cookies between services and route handlers, use `src/lib/auth-response.ts` helpers so `Set-Cookie` propagation stays consistent.
+- Chore PATCH success JSON is flat: `{ ok: true, choreId, createdChoreId?, occurrenceStartDate?, ... }`. Share `ChoreMutationResponse` from `src/lib/chore-mutation-response.ts` across route and client. The service's internal `data` wrapper does not appear in HTTP JSON; `occurrenceStartDate` identifies the source occurrence, while date edits use the submitted start date for the replacement.
 
 Important contract:
 
@@ -207,6 +208,7 @@ For `PATCH /api/chores`:
 - Scope semantics follow Google Calendar: `single` affects only the selected occurrence, `following` affects the selected occurrence plus later ones, and `all` affects the full series definition.
 - Scope resolution is based on the selected occurrence's position in the series; do not use household-local `today` as a cutoff.
 - Inline preview date fields describe the selected occurrence, so send `dateBasis: "occurrence"`. For whole-series results, translate the day delta and duration in the service using the stored origin. Keep default/`series` requests absolute for existing series-date forms, and do not substitute a later occurrence as the new anchor.
+- Keep the preview's selected chore and last anchor rectangle during save/refetch while its source card disappears. Rebind to the replacement before invalidating the selection; preserve the session checks so stale callbacks cannot reopen a dismissed or changed preview. Footer buttons must finish their click before any layout collapse that moves them.
 - For `scope: "single"`, cancel upserts a `kind = canceled` exception and edit creates a detached one-off chore while canceling the original occurrence.
 - For `scope: "following"`, require a repeating chore (`repeatRule !== "none"`) and truncate the original series before the targeted occurrence unless that occurrence is the first series instance; first-instance `following` falls through to whole-series behavior.
 - For `scope: "all"`, cancel marks the source series row canceled and edit updates the current series row in place using the submitted fields/defaults.
