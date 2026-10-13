@@ -7,9 +7,10 @@ import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation
 import { withHouseholdMutationLock } from "@/lib/household-mutation-lock";
 import { canManageHouseholdChores } from "@/lib/household-roles";
 import type { RepeatRule } from "@/lib/occurrences";
-import { generateOccurrenceDayEntries } from "@/lib/occurrences";
+import { generateOccurrenceDayEntries, mapOccurrenceStarts } from "@/lib/occurrences";
 import {
   deleteChoreOccurrenceException,
+  deleteChoreOccurrenceExceptions,
   getChoreInHousehold,
   getChoreOccurrenceException,
   getHouseholdSummaryForUser,
@@ -17,6 +18,7 @@ import {
   insertChore,
   listActiveChoreSeriesByHousehold,
   listChoreExceptionsByHousehold,
+  listChoreOccurrenceExceptions,
   updateChoreSeries,
   updateChoreSeriesEndDate,
   updateChoreStatus,
@@ -94,12 +96,6 @@ const normalizeNotes = (value: unknown) => {
 
 const addDays = (value: string, days: number) =>
   DateTime.fromISO(value, { zone: "UTC" }).plus({ days }).toISODate();
-
-const dayOffsetBetween = (startDate: string, endDate: string) => {
-  const start = DateTime.fromISO(startDate, { zone: "UTC" }).startOf("day");
-  const end = DateTime.fromISO(endDate, { zone: "UTC" }).startOf("day");
-  return Math.round(end.diff(start, "days").days);
-};
 
 const isOccurrenceStartInSeries = ({
   occurrenceStartDate,
@@ -478,11 +474,35 @@ const mutateChoreInTransaction = async ({
       });
     }
 
-    if (editScope === "all" || treatFollowingAsAll) {
-      const occurrenceShiftDays = dayOffsetBetween(chore.start_date, nextStartDate);
-      const shiftedOccurrenceStartDate =
-        addDays(occurrenceStartDate, occurrenceShiftDays) ?? nextStartDate;
+    const exceptionFromDate = useWholeSeriesDefaults ? "0001-01-01" : occurrenceStartDate;
+    const migrateExceptions = async (targetChoreId: number) => {
+      const rows = await listChoreOccurrenceExceptions({ choreId, fromDate: exceptionFromDate });
+      const mapping = mapOccurrenceStarts({
+        occurrenceStarts: rows.map((row) => row.occurrence_start_date),
+        sourceStartDate: chore.start_date,
+        sourceRepeatRule: choreRepeatRule as RepeatRule,
+        sourceSeriesEndDate: chore.series_end_date,
+        fromDate: useWholeSeriesDefaults ? chore.start_date : occurrenceStartDate,
+        targetStartDate: nextStartDate,
+        targetRepeatRule: nextRepeatRule as RepeatRule,
+        targetSeriesEndDate: nextSeriesEndDate,
+      });
+      // Clear every old key first: a shifted target may occupy another source key.
+      await deleteChoreOccurrenceExceptions({ choreId, fromDate: exceptionFromDate });
+      for (const row of rows) {
+        const mappedDate = mapping.get(row.occurrence_start_date);
+        if (!mappedDate) continue;
+        await upsertChoreOccurrenceException({
+          choreId: targetChoreId,
+          occurrenceStartDate: mappedDate,
+          kind: row.kind === "canceled" ? "canceled" : "state",
+          status: row.status === "closed" ? "closed" : row.status === "open" ? "open" : null,
+          closedReason: row.closed_reason === "done" ? "done" : null,
+        });
+      }
+    };
 
+    if (editScope === "all" || treatFollowingAsAll) {
       await updateChoreSeries({
         choreId,
         title: nextTitle,
@@ -494,19 +514,7 @@ const mutateChoreInTransaction = async ({
         notes: nextNotes,
       });
 
-      if (completionException && shiftedOccurrenceStartDate !== occurrenceStartDate) {
-        await deleteChoreOccurrenceException({
-          choreId,
-          occurrenceStartDate,
-        });
-        await upsertChoreOccurrenceException({
-          choreId,
-          occurrenceStartDate: shiftedOccurrenceStartDate,
-          kind: "state",
-          status: completionException.status,
-          closedReason: completionException.closedReason,
-        });
-      }
+      await migrateExceptions(choreId);
 
       return {
         ok: true,
@@ -548,7 +556,9 @@ const mutateChoreInTransaction = async ({
       notes: nextNotes,
     });
 
-    if (createdChoreId && completionException) {
+    if (editScope === "following") {
+      await migrateExceptions(createdChoreId);
+    } else if (completionException) {
       await upsertChoreOccurrenceException({
         choreId: createdChoreId,
         occurrenceStartDate: nextStartDate,

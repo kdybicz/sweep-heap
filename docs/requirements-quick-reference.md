@@ -73,6 +73,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - `scope=single` creates occurrence-only exceptions or one-off edits.
 - `scope=following` splits a repeating series into a new future branch.
 - `scope=all` updates or cancels the entire series definition.
+- Series edits preserve affected completion/cancellation exceptions by occurrence ordinal, including cadence changes. Following edits leave earlier exceptions on the source. Shortened schedules discard exceptions without a target occurrence; migration and series edits commit together.
 - Mutation payloads use `occurrenceStartDate`.
 - Chore list rows include `occurrence_date` (calendar day) and `occurrence_start_date` (instance identity).
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
