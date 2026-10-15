@@ -193,6 +193,7 @@
 - On the weekly board, all chores render once in a shared board area over the original day-column backgrounds; single-day chores occupy one day and multi-day chores span across days.
 - Chores that start before or end after the visible week use a clipped edge treatment on the continued side (no outer corner radius and no outer vertical border).
 - In the sidebar Today list, multi-day chores are collapsed to a single entry per occurrence and may reuse the same compact single-card styling as one-day chores.
+- Weekly progress counts unique visible occurrences by `(chore id, occurrence_start_date)`, not their day rows. An occurrence counts once even when clipped at either week boundary; overlapping occurrences of a repeating series remain distinct. Done uses `closed_reason = done`, including logged stay-open chores. Open is total minus done, the percentage is rounded to the nearest integer, and an empty week shows zero percent.
 - Single click or keyboard activation on a board chore opens a compact preview popover with title, status, date span, repeat cadence, notes, primary completion/log action, and delete when the viewer can manage chores; clicking the metadata block expands inline editing UI for title/date/repeat fields with single, future, and whole-series scope choices where applicable. When regular members are not allowed to manage chores, add buttons and edit/delete controls are hidden while completion/log actions remain available.
 
 ## API Surface (Current Snapshot)

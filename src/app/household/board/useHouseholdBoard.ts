@@ -1,9 +1,9 @@
 import { useMemo } from "react";
+import { getWeeklyChoreProgress } from "@/app/household/board/chore-progress";
 import type { UseHouseholdBoardModel } from "@/app/household/board/useHouseholdBoard.types";
 import useHouseholdChoreActions from "@/app/household/board/useHouseholdChoreActions";
 import useHouseholdChoresData from "@/app/household/board/useHouseholdChoresData";
 import useHouseholdWeek from "@/app/household/board/useHouseholdWeek";
-import { isChoreCompleted } from "@/lib/chore-ui-state";
 
 export type { UseHouseholdBoardModel } from "@/app/household/board/useHouseholdBoard.types";
 
@@ -24,13 +24,10 @@ export default function useHouseholdBoard(): UseHouseholdBoardModel {
     timeZone: week.timeZone,
   });
 
-  const doneChores = useMemo(
-    () => choresData.chores.filter((chore) => isChoreCompleted(chore)).length,
+  const { doneChores, totalChores, openChores, progress } = useMemo(
+    () => getWeeklyChoreProgress(choresData.chores),
     [choresData.chores],
   );
-  const totalChores = choresData.chores.length;
-  const openChores = totalChores - doneChores;
-  const progress = totalChores ? Math.round((doneChores / totalChores) * 100) : 0;
 
   return {
     sidebar: {
