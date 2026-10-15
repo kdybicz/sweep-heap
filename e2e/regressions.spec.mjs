@@ -1725,6 +1725,30 @@ for (const [date, hours] of [
   });
 }
 
+test("#28 Havana advances Today at the first occurrence of a repeated midnight", async ({
+  live,
+  household,
+}) => {
+  await live.db.query("update households set time_zone=$1 where id=$2", [
+    "America/Havana",
+    household,
+  ]);
+  await live.chore({
+    title: "Repeated-midnight fixture",
+    startDate: "2026-11-01",
+    endDate: "2026-11-02",
+  });
+  const page = await openClockBoard(live, "2026-10-31T23:59:00-04:00", "America/Havana");
+  const refreshed = waitForChoreRange(page, "2026-11-01");
+  await page.clock.fastForward(120000);
+  await refreshed;
+  await expect(page.locator("aside")).toContainText("Sun, Nov 1");
+  await expect(page.locator("aside")).toContainText("Repeated-midnight fixture");
+  await expect(page.locator('[aria-current="date"]')).toHaveText("1");
+  await page.clock.fastForward(60 * 60 * 1000);
+  await expect(page.locator("aside")).toContainText("Sun, Nov 1");
+});
+
 for (const event of ["focus", "visibilitychange"]) {
   test(`#28 ${event} catches up a suspended tab and refreshes same-day data`, async ({ live }) => {
     await live.chore({

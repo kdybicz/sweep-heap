@@ -22,6 +22,8 @@ export type ChoresQueryData = {
   rangeEnd: string | null;
 };
 
+export const choreCompletionMutationKey = ["household-chores", "completion"] as const;
+
 const toChoresQueryData = (data: ChoresApiResponse): ChoresQueryData => ({
   chores: data.chores ?? [],
   timeZone: typeof data.timeZone === "string" ? data.timeZone : null,

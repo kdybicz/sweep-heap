@@ -1,7 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo } from "react";
 import {
   type ChoresQueryData,
+  choreCompletionMutationKey,
   fetchTodayChores,
   fetchWeekChores,
   getTodayChoresQueryKey,
@@ -50,6 +51,7 @@ export default function useHouseholdChoresData({
   setTimeZone,
 }: UseHouseholdChoresDataParams): UseHouseholdChoresDataModel {
   const queryClient = useQueryClient();
+  const pendingCompletions = useIsMutating({ mutationKey: choreCompletionMutationKey });
   const weekChoresQueryKey = useMemo(
     () => getWeekChoresQueryKey(weekStartKey, weekEndKey),
     [weekStartKey, weekEndKey],
@@ -61,13 +63,14 @@ export default function useHouseholdChoresData({
     queryFn: ({ signal }) =>
       fetchWeekChores({ rangeStart: weekStartKey, rangeEnd: weekEndKey, signal }),
     retry: false,
+    enabled: pendingCompletions === 0,
   });
 
   const todayChoresQuery = useQuery({
     queryKey: todayChoresQueryKey,
     queryFn: ({ signal }) => fetchTodayChores({ todayKey, signal }),
     retry: false,
-    enabled: Boolean(todayKey),
+    enabled: Boolean(todayKey) && pendingCompletions === 0,
   });
 
   useEffect(() => {
@@ -121,10 +124,9 @@ export default function useHouseholdChoresData({
   }, [setTimeZone, weekChoresQuery.data]);
 
   const loadTodayChores = useCallback(async () => {
-    await queryClient.refetchQueries({
+    await queryClient.invalidateQueries({
       queryKey: todayChoresQueryKey,
       exact: true,
-      type: "active",
     });
   }, [queryClient, todayChoresQueryKey]);
 
