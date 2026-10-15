@@ -34,6 +34,7 @@ import type {
   CancelChoreScope,
   EditChoreScope,
 } from "@/app/household/board/useHouseholdChoreActions.types";
+import { normalizeChoreNotes } from "@/lib/chore-notes";
 import {
   type ChoreType,
   getChoreStateLabel,
@@ -723,6 +724,7 @@ export default function ChorePreviewPopover({
         return;
       }
 
+      setTitleDraft((value) => (value === titleDraft ? titleDraft.trim() : value));
       const target = getChorePreviewMutationTarget({
         chore,
         targetChoreId: result.targetChoreId,
@@ -780,6 +782,7 @@ export default function ChorePreviewPopover({
       setIsEditingTitle(false);
 
       if (!areChorePreviewTitleTypeDirty(chore, { title: titleDraft, type })) {
+        setTitleDraft((value) => (value === titleDraft ? titleDraft.trim() : value));
         if (postAction === "delete") {
           beginDeleteFlow();
           return;
@@ -823,6 +826,7 @@ export default function ChorePreviewPopover({
         return;
       }
 
+      setTitleDraft((value) => (value === titleDraft ? titleDraft.trim() : value));
       if (postAction === "delete") {
         beginDeleteFlow();
         return;
@@ -879,6 +883,9 @@ export default function ChorePreviewPopover({
       setIsEditingNotes(false);
 
       if (nextNotes === savedNotes) {
+        setNotesDraft((value) =>
+          value === notesDraft ? (normalizeChoreNotes(notesDraft) ?? "") : value,
+        );
         if (postAction === "delete") {
           beginDeleteFlow();
           return;
@@ -921,6 +928,9 @@ export default function ChorePreviewPopover({
         return;
       }
 
+      setNotesDraft((value) =>
+        value === notesDraft ? (normalizeChoreNotes(notesDraft) ?? "") : value,
+      );
       if (postAction === "delete") {
         beginDeleteFlow();
         return;
@@ -1099,10 +1109,15 @@ export default function ChorePreviewPopover({
       // Background updates replace the chore object, not the user's selection. Adopt
       // refreshed clean fields while preserving dirty drafts and the active editor/scope popup.
       const previousState = getChorePreviewFormState(previousChore);
-      setTitleDraft((value) => (value === previousChore.title ? chore.title : value));
+      setTitleDraft((value) =>
+        value === previousChore.title || value.trim() === chore.title ? chore.title : value,
+      );
       setType((value) => (value === previousChore.type ? chore.type : value));
       setNotesDraft((value) =>
-        value === (previousChore.notes ?? "") ? (chore.notes ?? "") : value,
+        value === (previousChore.notes ?? "") ||
+        normalizeChoreNotes(value) === (chore.notes ?? null)
+          ? (chore.notes ?? "")
+          : value,
       );
       setStartDate((value) => (value === previousState.startDate ? nextState.startDate : value));
       setEndDate((value) => (value === previousState.endDate ? nextState.endDate : value));
@@ -1392,6 +1407,9 @@ export default function ChorePreviewPopover({
       return;
     }
 
+    setNotesDraft((value) =>
+      value === notesDraft ? (normalizeChoreNotes(notesDraft) ?? "") : value,
+    );
     const target = getChorePreviewMutationTarget({
       chore,
       targetChoreId: result.targetChoreId,

@@ -1895,6 +1895,84 @@ for (const field of ["title", "notes", "dates", "repeat"]) {
   });
 }
 
+for (const repeatRule of ["none", "week"]) {
+  for (const field of ["title", "notes", "long-notes"]) {
+    test(`#28 normalized ${field} saves on ${repeatRule} chores stay clean on remote refresh`, async ({
+      live,
+    }) => {
+      const id = await live.chore({
+        title: "Canonical preview fixture",
+        notes: "Original notes",
+        startDate: "2026-10-14",
+        endDate: "2026-10-15",
+        repeatRule,
+      });
+      const page = await openClockBoard(live, "2026-10-14T12:00:00Z");
+      await page.locator(`[data-chore-preview-id="${id}"]`).click();
+      const preview = page.getByRole("dialog", { name: "Chore preview" });
+      const canonical =
+        field === "title" ? "Saved title" : field === "notes" ? "Saved notes" : "x".repeat(500);
+      const draft =
+        field === "title" ? " Saved title " : field === "notes" ? " Saved notes " : "x".repeat(501);
+      const save = async (label, value, sendsPatch) => {
+        await preview.getByRole("button", { name: label, exact: true }).click();
+        const input = preview.getByPlaceholder(field === "title" ? "Chore title" : "Add Notes");
+        await input.fill(value);
+        const saved = sendsPatch
+          ? page.waitForResponse(
+              (response) =>
+                response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+            )
+          : null;
+        if (field === "title") await input.press("Enter");
+        else await preview.locator("button[aria-expanded]").click();
+        if (sendsPatch && repeatRule === "week")
+          await page.getByRole("button", { name: "All chores", exact: true }).click();
+        if (saved) expect((await saved).status()).toBe(200);
+        await expect(preview.getByRole("button", { name: canonical, exact: true })).toBeVisible();
+      };
+      await save(field === "title" ? "Canonical preview fixture" : "Original notes", draft, true);
+      const persisted = (await live.db.query("select title, notes from chores where id=$1", [id]))
+        .rows[0];
+      expect(field === "title" ? persisted.title : persisted.notes).toBe(canonical);
+      // Exercise an unchanged server value too: truncation still sends a save, while
+      // whitespace-only edits take the no-op path. Neither should leave a dirty draft.
+      await save(
+        canonical,
+        field === "long-notes" ? draft : `${canonical} `,
+        field === "long-notes",
+      );
+      expect(
+        (
+          await live.mutate({
+            action: "edit",
+            scope: "all",
+            choreId: id,
+            occurrenceStartDate: "2026-10-14",
+            title: "Remote final title",
+            notes: "Remote final notes",
+          })
+        ).status,
+      ).toBe(200);
+      const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await refreshed;
+      await expect(
+        preview.getByRole("button", { name: "Remote final title", exact: true }),
+      ).toBeVisible();
+      await expect(
+        preview.getByRole("button", { name: "Remote final notes", exact: true }),
+      ).toBeVisible();
+      await preview.getByRole("button", { name: "Remote final notes", exact: true }).click();
+      await expect(preview.getByPlaceholder("Add Notes")).toHaveValue("Remote final notes");
+      await preview.locator("button[aria-expanded]").click();
+      expect(
+        (await live.db.query("select notes from chores where id=$1", [id])).rows[0].notes,
+      ).toBe("Remote final notes");
+    });
+  }
+}
+
 test("#31 invalid calendar dates return validation errors", async ({ live }) => {
   const response = await live.mutate({
     action: "create",

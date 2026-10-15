@@ -4,6 +4,7 @@ import { type ChorePatchPayload, validateChorePatchIntent } from "@/lib/api-payl
 import { getStoredChoreDurationDays } from "@/lib/chore-date-range";
 import { translateOccurrenceSeriesDates } from "@/lib/chore-edit-dates";
 import type { ChoreMutationData, ChoreMutationFailure } from "@/lib/chore-mutation-response";
+import { normalizeChoreNotes as normalizeNotes } from "@/lib/chore-notes";
 import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation";
 import { withHouseholdMutationLock } from "@/lib/household-mutation-lock";
 import { canManageHouseholdChores } from "@/lib/household-roles";
@@ -75,17 +76,6 @@ const normalizeDate = (value: unknown, timeZone: string) => {
     return parsed.isValid ? parsed.toISODate() : null;
   }
   return null;
-};
-
-const normalizeNotes = (value: unknown) => {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed.slice(0, 500);
 };
 
 const addDays = (value: string, days: number) =>
