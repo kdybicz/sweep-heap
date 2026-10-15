@@ -1008,6 +1008,22 @@ for (const scope of ["all", "following"]) {
   });
 }
 
+const expectWeeklyProgress = async (page, { done, total, open, percent }) => {
+  const sidebar = page
+    .locator("aside")
+    .getByText("Week progress", { exact: true })
+    .locator("..")
+    .locator("..");
+  await expect(sidebar.getByText(`${done}/${total} done`, { exact: true })).toBeVisible();
+  await expect(
+    sidebar.getByText("Total", { exact: true }).locator("..").locator("div").first(),
+  ).toHaveText(String(total));
+  await expect(
+    sidebar.getByText("Open", { exact: true }).locator("..").locator("div").first(),
+  ).toHaveText(String(open));
+  await expect(sidebar.getByText(`${percent}%`, { exact: true })).toBeVisible();
+};
+
 test("#27 progress counts occurrences once regardless of span", async ({ live }, testInfo) => {
   const start = monday();
   const id = await live.chore({
@@ -1025,17 +1041,125 @@ test("#27 progress counts occurrences once regardless of span", async ({ live },
       })
     ).status,
   ).toBe(200);
-  await live.chore({ title: "Open one-day fixture", startDate: today(), endDate: day(today(), 1) });
+  const openId = await live.chore({
+    title: "Open one-day fixture",
+    startDate: today(),
+    endDate: day(today(), 1),
+  });
   const page = await live.board();
   await expect(page.locator("[data-chore-preview-id]")).toHaveCount(2);
-  const text = (await page.locator("aside").innerText()).replace(/\s+/g, " ");
+  await expectWeeklyProgress(page, { done: 1, total: 2, open: 1, percent: 50 });
   await testInfo.attach("weekly-progress", {
     body: await page.screenshot({ fullPage: true }),
     contentType: "image/png",
   });
-  knownFailure(27);
-  expect(text).toContain("1/2 done");
-  expect(text).toContain("50%");
+  await page.locator(`[data-chore-preview-id="${openId}"]`).click();
+  const completed = page.waitForResponse(
+    (response) => response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+  );
+  await page
+    .getByRole("dialog", { name: "Chore preview" })
+    .getByRole("button", { name: "Complete & close", exact: true })
+    .click();
+  expect((await completed).status()).toBe(200);
+  await expectWeeklyProgress(page, { done: 2, total: 2, open: 0, percent: 100 });
+  await page.reload();
+  await expectWeeklyProgress(page, { done: 2, total: 2, open: 0, percent: 100 });
+});
+
+test("#27 overlapping recurrences stay distinct and logged stay-open chores count as done", async ({
+  live,
+}) => {
+  const start = monday();
+  const seriesId = await live.chore({
+    title: "Overlapping nine-day weekly fixture",
+    startDate: day(start, -7),
+    endDate: day(start, 2),
+    repeatRule: "week",
+    seriesEndDate: start,
+  });
+  expect(
+    (
+      await live.mutate({
+        action: "set",
+        choreId: seriesId,
+        occurrenceStartDate: day(start, -7),
+        status: "closed",
+      })
+    ).status,
+  ).toBe(200);
+  const loggedId = await live.chore({
+    title: "Logged seven-day stay-open fixture",
+    type: "stay_open",
+    startDate: start,
+    endDate: day(start, 7),
+  });
+  expect(
+    (
+      await live.mutate({
+        action: "set",
+        choreId: loggedId,
+        occurrenceStartDate: start,
+        status: "closed",
+      })
+    ).status,
+  ).toBe(200);
+  const rows = await live.list(start, day(start, 6));
+  expect(rows.filter((row) => row.id === seriesId)).toHaveLength(9);
+  expect(
+    rows
+      .filter((row) => row.id === loggedId)
+      .every((row) => row.status === "open" && row.closed_reason === "done"),
+  ).toBe(true);
+  const page = await live.board();
+  await expect(page.locator(`[data-chore-preview-id="${seriesId}"]`)).toHaveCount(2);
+  await expect(page.locator("[data-chore-preview-id]")).toHaveCount(3);
+  await expectWeeklyProgress(page, { done: 2, total: 3, open: 1, percent: 67 });
+  expect(
+    (
+      await live.mutate({
+        action: "cancel",
+        scope: "single",
+        choreId: seriesId,
+        occurrenceStartDate: start,
+      })
+    ).status,
+  ).toBe(200);
+  await page.reload();
+  await expectWeeklyProgress(page, { done: 2, total: 2, open: 0, percent: 100 });
+  await expect(page.locator("[data-chore-preview-id]")).toHaveCount(2);
+});
+
+test("#27 clipped spans count once in each week they overlap", async ({ live }) => {
+  const start = monday();
+  const id = await live.chore({
+    title: "Three-week clipped fixture",
+    startDate: day(start, -3),
+    endDate: day(start, 10),
+  });
+  expect(
+    (
+      await live.mutate({
+        action: "set",
+        choreId: id,
+        occurrenceStartDate: day(start, -3),
+        status: "closed",
+      })
+    ).status,
+  ).toBe(200);
+  await live.chore({
+    title: "Current-week open fixture",
+    startDate: day(start, 6),
+    endDate: day(start, 7),
+  });
+  const page = await live.board();
+  await expectWeeklyProgress(page, { done: 1, total: 2, open: 1, percent: 50 });
+  await page.getByRole("button", { name: "Next week", exact: true }).click();
+  await expectWeeklyProgress(page, { done: 1, total: 1, open: 0, percent: 100 });
+  await page.getByRole("button", { name: "Previous week", exact: true }).click();
+  await expectWeeklyProgress(page, { done: 1, total: 2, open: 1, percent: 50 });
+  await page.getByRole("button", { name: "Previous week", exact: true }).click();
+  await expectWeeklyProgress(page, { done: 1, total: 1, open: 0, percent: 100 });
 });
 
 test("#23 extending a later occurrence does not move the series anchor", async ({ live }) => {

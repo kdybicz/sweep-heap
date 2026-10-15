@@ -110,6 +110,7 @@ In `src/lib/occurrences.ts`:
 - Recurrence cursor loops must guard against non-advancing values (`nextCursor.equals(cursor)`) to avoid hangs.
 - Keep date math timezone-aware and day-based (`Luxon`, `startOf("day")`, ISO date keys).
 - `generateOccurrenceDayKeys()` returns the visible day keys in range, while `generateOccurrenceDayEntries()` returns one row per visible day in a span tied back to its occurrence start date.
+- Weekly progress must deduplicate those day rows by chore id and occurrence start before counting. Use `getWeeklyChoreProgress()` and the shared `isChoreCompleted()` predicate; do not deduplicate by chore id alone, since one series can have overlapping instances.
 - Keep `src/lib/occurrences.ts` overlap behavior aligned with the SQL prefilters in `src/lib/repositories/chore-repository.ts`; changing only one side can silently drop or over-include chores.
 - Series edit exception migration uses `mapOccurrenceStarts()` and the board's recurrence stepping. Map by ordinal within the affected branch, discard keys without a generated target, and clear old keys before writing any mapped exceptions. Run the migration inside the same household transaction as the series update or split.
 

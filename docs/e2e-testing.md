@@ -49,6 +49,7 @@ failures after the first copied exception verify complete rollback and successfu
 The #26 browser cases pass normally and cover title, date, notes and repeat edits in single/following
 scopes, real top-level PATCH responses, preview continuity, and subsequent edits/deletion of the replacement.
 They also cover retryable failures, offscreen replacements, and moving/deleting a one-off from the expanded preview.
+The #27 progress cases pass normally and count unique occurrences rather than visible day rows.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,
