@@ -43,19 +43,23 @@ const toNextChores = ({
 };
 
 export default function useHouseholdChoresData({
-  weekOffset,
+  weekStartKey,
+  weekEndKey,
+  refreshVersion,
   todayKey,
   setTimeZone,
-  setRangeStart,
-  setRangeEnd,
 }: UseHouseholdChoresDataParams): UseHouseholdChoresDataModel {
   const queryClient = useQueryClient();
-  const weekChoresQueryKey = useMemo(() => getWeekChoresQueryKey(weekOffset), [weekOffset]);
+  const weekChoresQueryKey = useMemo(
+    () => getWeekChoresQueryKey(weekStartKey, weekEndKey),
+    [weekStartKey, weekEndKey],
+  );
   const todayChoresQueryKey = useMemo(() => getTodayChoresQueryKey(todayKey), [todayKey]);
 
   const weekChoresQuery = useQuery({
     queryKey: weekChoresQueryKey,
-    queryFn: ({ signal }) => fetchWeekChores({ weekOffset, signal }),
+    queryFn: ({ signal }) =>
+      fetchWeekChores({ rangeStart: weekStartKey, rangeEnd: weekEndKey, signal }),
     retry: false,
   });
 
@@ -65,6 +69,13 @@ export default function useHouseholdChoresData({
     retry: false,
     enabled: Boolean(todayKey),
   });
+
+  useEffect(() => {
+    if (refreshVersion === 0) return;
+    // Resumption can change server state even when the local calendar day did not change.
+    // Mark cached ranges stale too, so returning to a pinned week cannot reuse pre-midnight data.
+    void queryClient.invalidateQueries({ queryKey: ["household-chores"] });
+  }, [queryClient, refreshVersion]);
 
   const setChores = useCallback<Dispatch<SetStateAction<ChoreItem[]>>>(
     (value) => {
@@ -107,12 +118,7 @@ export default function useHouseholdChoresData({
     if (nextTimeZone) {
       setTimeZone((current) => (nextTimeZone !== current ? nextTimeZone : current));
     }
-
-    if (data.rangeStart && data.rangeEnd) {
-      setRangeStart(data.rangeStart);
-      setRangeEnd(data.rangeEnd);
-    }
-  }, [setRangeEnd, setRangeStart, setTimeZone, weekChoresQuery.data]);
+  }, [setTimeZone, weekChoresQuery.data]);
 
   const loadTodayChores = useCallback(async () => {
     await queryClient.refetchQueries({

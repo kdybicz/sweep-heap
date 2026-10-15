@@ -31,7 +31,15 @@ const createResponse = (
 
 describe("chores-query helpers", () => {
   it("returns stable week query keys", () => {
-    expect(getWeekChoresQueryKey(3)).toEqual(["household-chores", "week", 3]);
+    expect(getWeekChoresQueryKey("2026-03-02", "2026-03-08")).toEqual([
+      "household-chores",
+      "week",
+      "2026-03-02",
+      "2026-03-08",
+    ]);
+    expect(getWeekChoresQueryKey("2026-03-09", "2026-03-15")).not.toEqual(
+      getWeekChoresQueryKey("2026-03-02", "2026-03-08"),
+    );
   });
 
   it("returns stable today query keys", () => {
@@ -54,11 +62,12 @@ describe("chores-query helpers", () => {
     );
 
     const data = await fetchWeekChores({
-      weekOffset: 1,
+      rangeStart: "2026-03-03",
+      rangeEnd: "2026-03-09",
       fetchImpl,
     });
 
-    expect(fetchImpl).toHaveBeenCalledWith("/api/chores?weekOffset=1", {
+    expect(fetchImpl).toHaveBeenCalledWith("/api/chores?start=2026-03-03&end=2026-03-09", {
       cache: "no-store",
       signal: undefined,
     });
@@ -103,9 +112,9 @@ describe("chores-query helpers", () => {
         createResponse({ ok: false, error: "Household required", code: "HOUSEHOLD_REQUIRED" }, 403),
       );
 
-    await expect(fetchWeekChores({ weekOffset: 0, fetchImpl })).rejects.toBeInstanceOf(
-      HouseholdContextRedirectError,
-    );
+    await expect(
+      fetchWeekChores({ rangeStart: "2026-03-02", rangeEnd: "2026-03-08", fetchImpl }),
+    ).rejects.toBeInstanceOf(HouseholdContextRedirectError);
   });
 
   it("throws HouseholdContextRedirectError when household selection is required", async () => {
@@ -136,8 +145,8 @@ describe("chores-query helpers", () => {
   it("throws fallback error when response is not json", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(createResponse("<html></html>", 500, "text/html"));
 
-    await expect(fetchWeekChores({ weekOffset: 0, fetchImpl })).rejects.toThrow(
-      "Failed to load chores",
-    );
+    await expect(
+      fetchWeekChores({ rangeStart: "2026-03-02", rangeEnd: "2026-03-08", fetchImpl }),
+    ).rejects.toThrow("Failed to load chores");
   });
 });

@@ -1574,21 +1574,198 @@ test("#26 moving a one-off preview keeps subsequent actions on its new start", a
   await expect(preview).not.toBeVisible();
 });
 
-test("#28 Today advances across household-local midnight", async ({ live }) => {
-  const date = today();
-  // Playwright clocks affect their browser context, so isolate this clock from later tests.
+const waitForChoreRange = (page, start, end = start) =>
+  page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      url.pathname === "/api/chores" &&
+      url.searchParams.get("start") === start &&
+      url.searchParams.get("end") === end &&
+      response.status() === 200
+    );
+  });
+
+const openClockBoard = async (live, instant, timeZone = "UTC") => {
+  // Install after hydration, in an isolated context, so a fake calendar date cannot cause hydration drift.
   const context = await live.browser.newContext({
     storageState: await live.owner.context.storageState(),
+    viewport: { width: 1440, height: 1100 },
   });
   live.contexts.push(context);
   const page = await context.newPage();
-  await page.clock.install({ time: new Date(`${date}T23:59:00Z`) });
   await page.goto(`${baseURL}/household`, { waitUntil: "networkidle", timeout: 90000 });
+  await expect(page.locator("aside")).not.toContainText("Loading chores...");
+  await page.clock.install({ time: new Date(instant) });
+  const date = DateTime.fromISO(instant).setZone(timeZone).toISODate();
+  const refreshed = waitForChoreRange(page, date);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await refreshed;
+  await expect(page.locator("aside")).toContainText(
+    DateTime.fromISO(date, { zone: timeZone }).toFormat("ccc, LLL d"),
+  );
+  return page;
+};
+
+test("#28 Today advances across household-local midnight", async ({ live }) => {
+  const date = today();
+  const id = await live.chore({
+    title: "Before midnight fixture",
+    startDate: date,
+    endDate: day(date, 1),
+  });
+  await live.chore({
+    title: "After midnight fixture",
+    startDate: day(date, 1),
+    endDate: day(date, 2),
+  });
+  const page = await openClockBoard(live, `${date}T23:59:00Z`);
+  await expect(page.locator("aside")).toContainText("Before midnight fixture");
+  await page.locator(`[data-chore-preview-id="${id}"]`).click();
+  const primaryAction = page
+    .getByRole("dialog", { name: "Chore preview" })
+    .getByRole("button", { name: "Complete & close", exact: true });
+  await expect(primaryAction).toBeEnabled();
+  const refreshed = waitForChoreRange(page, day(date, 1));
   await page.clock.fastForward(120000);
+  await refreshed;
   const expectedLabel = DateTime.fromISO(day(date, 1), { zone: "UTC" }).toFormat("ccc, LLL d");
-  knownFailure(28);
-  await expect(page.locator("aside")).toContainText(expectedLabel, { timeout: 2000 });
+  await expect(page.locator("aside")).toContainText(expectedLabel);
+  await expect(page.locator("aside")).toContainText("After midnight fixture");
+  await expect(page.locator("aside")).not.toContainText("Before midnight fixture");
+  // A Sunday rollover can remove the old card; otherwise its open preview becomes past-dated.
+  if (DateTime.fromISO(date).weekday !== 7) await expect(primaryAction).toBeDisabled();
+  await expect(page.locator('[aria-current="date"]')).toHaveText(
+    String(DateTime.fromISO(day(date, 1)).day),
+  );
 });
+
+test("#28 the default week follows Sunday midnight into the new week", async ({ live }) => {
+  await live.chore({ title: "Old Sunday fixture", startDate: "2026-10-11", endDate: "2026-10-12" });
+  await live.chore({ title: "New Monday fixture", startDate: "2026-10-12", endDate: "2026-10-13" });
+  const page = await openClockBoard(live, "2026-10-11T23:59:00Z");
+  await expect(page.locator("[data-chore-preview-id]")).toHaveText([/Old Sunday fixture/]);
+  const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+  await page.clock.fastForward(120000);
+  await refreshed;
+  await expect(page.locator("[data-chore-preview-id]")).toHaveText([/New Monday fixture/]);
+  await expect(page.locator('[aria-current="date"]')).toHaveText("12");
+});
+
+for (const navigation of ["Previous week", "Next week"]) {
+  test(`#28 ${navigation} stays pinned across midnight until Today is clicked`, async ({
+    live,
+  }) => {
+    const pinnedStart = navigation === "Previous week" ? "2026-09-28" : "2026-10-12";
+    const pinnedEnd = day(pinnedStart, 6);
+    await live.chore({
+      title: "Pinned week fixture",
+      startDate: pinnedStart,
+      endDate: day(pinnedStart, 1),
+    });
+    await live.chore({
+      title: "Resumed Today fixture",
+      startDate: "2026-10-12",
+      endDate: "2026-10-13",
+    });
+    const page = await openClockBoard(live, "2026-10-11T23:59:00Z");
+    const navigated = waitForChoreRange(page, pinnedStart, pinnedEnd);
+    await page.getByRole("button", { name: navigation, exact: true }).click();
+    await navigated;
+    await expect(page.locator("main")).toContainText("Pinned week fixture");
+    const refreshed = waitForChoreRange(page, pinnedStart, pinnedEnd);
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(page.locator("main")).toContainText("Pinned week fixture");
+    await expect(page.locator("aside")).toContainText("Mon, Oct 12");
+    await expect(page.locator("aside")).toContainText("Resumed Today fixture");
+    const reset =
+      navigation === "Previous week" ? waitForChoreRange(page, "2026-10-12", "2026-10-18") : null;
+    await page.getByRole("button", { name: "Today", exact: true }).click();
+    // A pinned next week is already this calendar week after midnight, so no range fetch is needed.
+    await reset;
+    await expect(page.locator('[aria-current="date"]')).toHaveText("12");
+    await expect(page.locator("main")).toContainText("Resumed Today fixture");
+  });
+}
+
+for (const [date, hours] of [
+  ["2026-03-08", 23],
+  ["2026-11-01", 25],
+]) {
+  test(`#28 New York's ${hours}-hour DST day refreshes at local midnight`, async ({
+    live,
+    household,
+  }) => {
+    await live.db.query("update households set time_zone=$1 where id=$2", [
+      "America/New_York",
+      household,
+    ]);
+    const nextDate = day(date, 1);
+    await live.chore({
+      title: "DST next-day fixture",
+      startDate: nextDate,
+      endDate: day(nextDate, 1),
+    });
+    const instant = DateTime.fromISO(`${date}T00:00:00`, { zone: "America/New_York" }).toISO();
+    const page = await openClockBoard(live, instant, "America/New_York");
+    const label = DateTime.fromISO(date, { zone: "America/New_York" }).toFormat("ccc, LLL d");
+    await page.clock.fastForward(hours * 60 * 60 * 1000 - 60000);
+    await expect(page.locator("aside")).toContainText(label);
+    const refreshed = waitForChoreRange(page, nextDate);
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(page.locator("aside")).toContainText(
+      DateTime.fromISO(nextDate, { zone: "America/New_York" }).toFormat("ccc, LLL d"),
+    );
+    await expect(page.locator("aside")).toContainText("DST next-day fixture");
+    await expect(page.locator('[aria-current="date"]')).toHaveText(
+      String(DateTime.fromISO(nextDate).day),
+    );
+  });
+}
+
+for (const event of ["focus", "visibilitychange"]) {
+  test(`#28 ${event} catches up a suspended tab and refreshes same-day data`, async ({ live }) => {
+    await live.chore({
+      title: "Resumed day fixture",
+      startDate: "2026-10-29",
+      endDate: "2026-10-30",
+    });
+    const page = await openClockBoard(live, "2026-10-11T23:59:00Z");
+    await page.clock.setSystemTime(new Date("2026-10-29T12:00:00Z"));
+    await expect(page.locator("aside")).toContainText("Sun, Oct 11");
+    const refreshed = waitForChoreRange(page, "2026-10-29");
+    await page.evaluate(
+      (event) =>
+        event === "focus"
+          ? window.dispatchEvent(new Event(event))
+          : document.dispatchEvent(new Event(event)),
+      event,
+    );
+    await refreshed;
+    await expect(page.locator("aside")).toContainText("Thu, Oct 29");
+    await expect(page.locator("aside")).toContainText("Resumed day fixture");
+    await expect(page.locator("[data-chore-preview-id]")).toHaveText([/Resumed day fixture/]);
+    await live.chore({
+      title: "New same-day fixture",
+      startDate: "2026-10-29",
+      endDate: "2026-10-30",
+    });
+    const todayRefetched = waitForChoreRange(page, "2026-10-29");
+    const weekRefetched = waitForChoreRange(page, "2026-10-26", "2026-11-01");
+    await page.evaluate(
+      (event) =>
+        event === "focus"
+          ? window.dispatchEvent(new Event(event))
+          : document.dispatchEvent(new Event(event)),
+      event,
+    );
+    await Promise.all([todayRefetched, weekRefetched]);
+    await expect(page.locator("aside")).toContainText("New same-day fixture");
+    await expect(page.locator("[data-chore-preview-id]")).toHaveCount(2);
+  });
+}
 
 test("#31 invalid calendar dates return validation errors", async ({ live }) => {
   const response = await live.mutate({

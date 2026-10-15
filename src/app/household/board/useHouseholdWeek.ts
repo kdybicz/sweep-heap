@@ -1,10 +1,9 @@
-import type { DateTime } from "luxon";
 import { DateTime as LuxonDateTime } from "luxon";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   formatRange,
-  getHouseholdToday,
+  getNextHouseholdMidnightDelay,
   startOfWeek,
   toDateKey,
 } from "@/app/household/board/date-utils";
@@ -13,61 +12,75 @@ import type { UseHouseholdWeekModel } from "@/app/household/board/useHouseholdWe
 export type { UseHouseholdWeekModel } from "@/app/household/board/useHouseholdWeek.types";
 
 export default function useHouseholdWeek(): UseHouseholdWeekModel {
-  const [weekOffset, setWeekOffset] = useState(0);
   const [timeZone, setTimeZone] = useState("UTC");
-  const [rangeStart, setRangeStart] = useState<string | null>(null);
-  const [rangeEnd, setRangeEnd] = useState<string | null>(null);
-  const baseDateRef = useRef<DateTime | null>(null);
-
-  if (!baseDateRef.current) {
-    baseDateRef.current = getHouseholdToday(timeZone);
-  }
+  // null follows the current week; explicit navigation pins a calendar week until Today is clicked.
+  const [selectedWeekStartKey, setSelectedWeekStartKey] = useState<string | null>(null);
+  const [clock, setClock] = useState(() => ({ now: LuxonDateTime.now(), refreshVersion: 0 }));
+  const today = useMemo(() => clock.now.setZone(timeZone).startOf("day"), [clock.now, timeZone]);
+  const todayKey = toDateKey(today) ?? "";
+  const currentWeekStartKey = toDateKey(startOfWeek(today)) ?? "";
+  const weekStartKey = selectedWeekStartKey ?? currentWeekStartKey;
 
   useEffect(() => {
-    baseDateRef.current = getHouseholdToday(timeZone);
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = () => {
+      const now = LuxonDateTime.now();
+      setClock((current) => ({ now, refreshVersion: current.refreshVersion + 1 }));
+      clearTimeout(timer);
+      timer = setTimeout(refresh, getNextHouseholdMidnightDelay(timeZone, now));
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [timeZone]);
 
-  const weekStart = useMemo(() => {
-    if (rangeStart) {
-      return LuxonDateTime.fromISO(rangeStart, { zone: timeZone }).startOf("day");
-    }
-    const baseDate = baseDateRef.current ?? getHouseholdToday(timeZone);
-    return startOfWeek(baseDate).plus({ weeks: weekOffset });
-  }, [rangeStart, timeZone, weekOffset]);
-
-  const weekEnd = useMemo(() => {
-    if (rangeEnd) {
-      return LuxonDateTime.fromISO(rangeEnd, { zone: timeZone }).startOf("day");
-    }
-    return weekStart.plus({ days: 6 });
-  }, [rangeEnd, timeZone, weekStart]);
+  const weekStart = useMemo(
+    () => LuxonDateTime.fromISO(weekStartKey, { zone: timeZone }).startOf("day"),
+    [weekStartKey, timeZone],
+  );
+  const weekEnd = useMemo(() => weekStart.plus({ days: 6 }), [weekStart]);
+  const weekEndKey = toDateKey(weekEnd) ?? "";
 
   const days = useMemo(() => {
     const totalDays = Math.max(Math.round(weekEnd.diff(weekStart, "days").days) + 1, 1);
     return Array.from({ length: totalDays }, (_, index) => weekStart.plus({ days: index }));
   }, [weekEnd, weekStart]);
   const rangeLabel = formatRange(weekStart);
-  const today = useMemo(() => getHouseholdToday(timeZone), [timeZone]);
-  const todayKey = useMemo(() => toDateKey(today) ?? "", [today]);
 
   const onResetWeek = useCallback(() => {
-    setWeekOffset(0);
+    setSelectedWeekStartKey(null);
   }, []);
 
   const onPreviousWeek = useCallback(() => {
-    setWeekOffset((value) => value - 1);
-  }, []);
+    setSelectedWeekStartKey((value) =>
+      toDateKey(
+        LuxonDateTime.fromISO(value ?? currentWeekStartKey, { zone: timeZone }).minus({ weeks: 1 }),
+      ),
+    );
+  }, [currentWeekStartKey, timeZone]);
 
   const onNextWeek = useCallback(() => {
-    setWeekOffset((value) => value + 1);
-  }, []);
+    setSelectedWeekStartKey((value) =>
+      toDateKey(
+        LuxonDateTime.fromISO(value ?? currentWeekStartKey, { zone: timeZone }).plus({ weeks: 1 }),
+      ),
+    );
+  }, [currentWeekStartKey, timeZone]);
 
   return {
-    weekOffset,
+    weekStartKey,
+    weekEndKey,
+    refreshVersion: clock.refreshVersion,
     timeZone,
     setTimeZone,
-    setRangeStart,
-    setRangeEnd,
     rangeLabel,
     days,
     today,

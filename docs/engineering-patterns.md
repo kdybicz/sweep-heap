@@ -109,6 +109,7 @@ In `src/lib/occurrences.ts`:
 - Treat API/storage `endDate` as exclusive for span math; convert from the inclusive create/edit form input at the UI boundary with the shared helpers in `src/lib/chore-date-range.ts`.
 - Recurrence cursor loops must guard against non-advancing values (`nextCursor.equals(cursor)`) to avoid hangs.
 - Keep date math timezone-aware and day-based (`Luxon`, `startOf("day")`, ISO date keys).
+- The board clock schedules the next household-local midnight with calendar-day arithmetic, not a fixed 24-hour interval, and rechecks on window focus/document visibility. Clock refreshes invalidate the chore query cache, including same-day resumes. Key weekly queries by explicit date range; keep deliberately selected weeks pinned independently of the moving current week.
 - `generateOccurrenceDayKeys()` returns the visible day keys in range, while `generateOccurrenceDayEntries()` returns one row per visible day in a span tied back to its occurrence start date.
 - Weekly progress must deduplicate those day rows by chore id and occurrence start before counting. Use `getWeeklyChoreProgress()` and the shared `isChoreCompleted()` predicate; do not deduplicate by chore id alone, since one series can have overlapping instances.
 - Keep `src/lib/occurrences.ts` overlap behavior aligned with the SQL prefilters in `src/lib/repositories/chore-repository.ts`; changing only one side can silently drop or over-include chores.

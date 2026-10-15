@@ -3,11 +3,11 @@ import type { Dispatch, SetStateAction } from "react";
 import type { ChoreItem } from "@/app/household/board/types";
 
 export type UseHouseholdChoresDataParams = {
-  weekOffset: number;
+  weekStartKey: string;
+  weekEndKey: string;
+  refreshVersion: number;
   todayKey: string;
   setTimeZone: Dispatch<SetStateAction<string>>;
-  setRangeStart: Dispatch<SetStateAction<string | null>>;
-  setRangeEnd: Dispatch<SetStateAction<string | null>>;
 };
 
 export type LoadChoresFn = (options?: { force?: boolean }) => Promise<void>;
