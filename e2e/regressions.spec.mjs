@@ -1791,6 +1791,110 @@ for (const event of ["focus", "visibilitychange"]) {
   });
 }
 
+for (const field of ["title", "notes", "dates", "repeat"]) {
+  test(`#28 background status refresh preserves an unsaved ${field} edit`, async ({ live }) => {
+    const id = await live.chore({
+      title: "Draft refresh fixture",
+      startDate: "2026-10-07",
+      endDate: "2026-10-08",
+      repeatRule: "week",
+    });
+    const page = await openClockBoard(live, "2026-10-14T23:59:00Z");
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    if (field === "title") {
+      await preview.getByRole("button", { name: "Draft refresh fixture", exact: true }).click();
+      await preview.getByPlaceholder("Chore title").fill("Unsaved title draft");
+    } else if (field === "notes") {
+      await preview.getByRole("button", { name: "Add Notes", exact: true }).click();
+      await preview.getByPlaceholder("Add Notes").fill("Unsaved notes draft");
+    } else {
+      await preview.locator("button[aria-expanded]").click();
+      if (field === "dates") await preview.locator("input[type=date]").nth(1).fill("2026-10-16");
+      else
+        await preview
+          .locator("select")
+          .filter({ has: page.locator('option[value="biweekly"]') })
+          .selectOption("biweekly");
+    }
+    // Mutate outside this page's query client, as another household member would.
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await live.mutate({
+          action: "edit",
+          scope: "all",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          title: "Remote title",
+          notes: "Remote notes",
+        })
+      ).status,
+    ).toBe(200);
+    const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(preview).toContainText("Completed");
+    if (field !== "title")
+      await expect(
+        preview.getByRole("button", { name: "Remote title", exact: true }),
+      ).toBeVisible();
+    if (field !== "notes") await expect(preview).toContainText("Remote notes");
+    if (field === "title") {
+      await expect(preview.getByPlaceholder("Chore title")).toHaveValue("Unsaved title draft");
+      await preview.getByPlaceholder("Chore title").press("Enter");
+    } else if (field === "notes") {
+      await expect(preview.getByPlaceholder("Add Notes")).toHaveValue("Unsaved notes draft");
+      await preview.locator("button[aria-expanded]").click();
+    } else if (field === "dates") {
+      await expect(preview.locator("input[type=date]").nth(1)).toHaveValue("2026-10-16");
+      await expect(page.getByText("Apply date changes", { exact: true })).toBeVisible();
+    } else {
+      await expect(
+        preview.locator("select").filter({ has: page.locator('option[value="biweekly"]') }),
+      ).toHaveValue("biweekly");
+      await expect(page.getByText("Apply repeat changes", { exact: true })).toBeVisible();
+    }
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+    );
+    await page
+      .getByRole("button", {
+        name: field === "repeat" ? "All future chores" : "Only current chore",
+        exact: true,
+      })
+      .click();
+    const response = await saved;
+    expect(response.status()).toBe(200);
+    const replacementId = (await response.json()).createdChoreId;
+    const stored = (
+      await live.db.query(
+        "select title, notes, to_char(end_date,'YYYY-MM-DD') end_date, repeat_rule from chores where id=$1",
+        [replacementId],
+      )
+    ).rows[0];
+    expect(stored).toMatchObject(
+      field === "title"
+        ? { title: "Unsaved title draft" }
+        : field === "notes"
+          ? { notes: "Unsaved notes draft" }
+          : field === "dates"
+            ? { end_date: "2026-10-17" }
+            : { repeat_rule: "biweek" },
+    );
+  });
+}
+
 test("#31 invalid calendar dates return validation errors", async ({ live }) => {
   const response = await live.mutate({
     action: "create",

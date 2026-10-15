@@ -55,6 +55,8 @@ Sunday/Monday week rollover, pinned navigation, 23/25-hour New York DST days, an
 focus and visibility resumption. Clock contexts are isolated and install fake time after hydration.
 Havana's repeated midnight advances Today at its first occurrence. Hook integration tests also hold a
 stale query response across pending successful/failed completions to check cancellation, refetch deferral and reconciliation.
+Browser cases also preserve and save unsent title, notes, date and repeat edits after a remote status
+change is fetched at midnight.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,
