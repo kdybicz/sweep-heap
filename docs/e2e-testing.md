@@ -59,6 +59,8 @@ Browser cases also preserve and save unsent title, notes, date and repeat edits 
 change is fetched at midnight.
 Normalized-save cases cover title/notes whitespace and 501-character notes on both one-off and repeating
 chores, including no-op or unchanged-value saves followed by a remote update.
+Typing regressions retain unsent trailing spaces/newlines through a status refresh; keyboard regressions
+retain focus on date/repeat fields and their scope buttons.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

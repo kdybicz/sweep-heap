@@ -1973,6 +1973,99 @@ for (const repeatRule of ["none", "week"]) {
   }
 }
 
+for (const field of ["title", "notes"]) {
+  test(`#28 status refresh preserves unfinished ${field} whitespace while typing`, async ({
+    live,
+  }) => {
+    const id = await live.chore({
+      title: "Buy milk",
+      notes: "Remember milk",
+      startDate: "2026-10-14",
+      endDate: "2026-10-15",
+    });
+    const page = await openClockBoard(live, "2026-10-14T23:59:00Z");
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    await preview
+      .getByRole("button", { name: field === "title" ? "Buy milk" : "Remember milk", exact: true })
+      .click();
+    const input = preview.getByPlaceholder(field === "title" ? "Chore title" : "Add Notes");
+    const draft = field === "title" ? "Buy milk " : "Remember milk\n";
+    await input.fill(draft);
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(preview).toContainText("Completed");
+    await expect(input).toHaveValue(draft);
+    await expect(input).toBeFocused();
+    await input.press("Control+End");
+    await input.pressSequentially("and bread");
+    await expect(input).toHaveValue(`${draft}and bread`);
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+    );
+    if (field === "title") await input.press("Enter");
+    else await preview.locator("button[aria-expanded]").click();
+    expect((await saved).status()).toBe(200);
+    const stored = (await live.db.query("select title,notes from chores where id=$1", [id]))
+      .rows[0];
+    expect(stored[field]).toBe(`${draft}and bread`);
+  });
+}
+
+for (const control of ["date", "repeat", "date-scope", "repeat-scope"]) {
+  test(`#28 status refresh retains keyboard focus on the ${control} control`, async ({ live }) => {
+    const id = await live.chore({
+      title: "Keyboard refresh fixture",
+      startDate: "2026-10-07",
+      endDate: "2026-10-08",
+      repeatRule: "week",
+    });
+    const page = await openClockBoard(live, "2026-10-14T23:59:00Z");
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    await preview.locator("button[aria-expanded]").click();
+    let focused;
+    if (control.startsWith("date")) {
+      focused = preview.locator("input[type=date]").nth(1);
+      if (control === "date-scope") await focused.fill("2026-10-16");
+    } else {
+      focused = preview.locator("select").filter({ has: page.locator('option[value="biweekly"]') });
+      if (control === "repeat-scope") await focused.selectOption("biweekly");
+    }
+    if (control.endsWith("scope"))
+      focused = page.getByRole("button", { name: "Only current chore", exact: true });
+    await focused.focus();
+    await expect(focused).toBeFocused();
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(preview).toContainText("Completed");
+    await expect(focused).toBeFocused();
+  });
+}
+
 test("#31 invalid calendar dates return validation errors", async ({ live }) => {
   const response = await live.mutate({
     action: "create",

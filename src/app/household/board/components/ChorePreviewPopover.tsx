@@ -1109,15 +1109,10 @@ export default function ChorePreviewPopover({
       // Background updates replace the chore object, not the user's selection. Adopt
       // refreshed clean fields while preserving dirty drafts and the active editor/scope popup.
       const previousState = getChorePreviewFormState(previousChore);
-      setTitleDraft((value) =>
-        value === previousChore.title || value.trim() === chore.title ? chore.title : value,
-      );
+      setTitleDraft((value) => (value === previousChore.title ? chore.title : value));
       setType((value) => (value === previousChore.type ? chore.type : value));
       setNotesDraft((value) =>
-        value === (previousChore.notes ?? "") ||
-        normalizeChoreNotes(value) === (chore.notes ?? null)
-          ? (chore.notes ?? "")
-          : value,
+        value === (previousChore.notes ?? "") ? (chore.notes ?? "") : value,
       );
       setStartDate((value) => (value === previousState.startDate ? nextState.startDate : value));
       setEndDate((value) => (value === previousState.endDate ? nextState.endDate : value));
@@ -1209,6 +1204,12 @@ export default function ChorePreviewPopover({
       return;
     }
 
+    if (
+      popoverRef.current?.contains(document.activeElement) ||
+      scopePopupRef.current?.contains(document.activeElement)
+    ) {
+      return;
+    }
     popoverRef.current?.focus();
   }, [chore, isEditingNotes, isEditingTitle, selectionKey]);
 
