@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { DateTime } from "luxon";
 import {
@@ -16,9 +16,6 @@ import { day, expect, monday, test, today } from "./support.mjs";
 test.beforeEach(async ({ household }) => {
   expect(household).toBeGreaterThan(0);
 });
-const knownFailure = (issue) =>
-  test.fail(true, `https://github.com/kdybicz/sweep-heap/issues/${issue}`);
-
 test("#19 ordinary members cannot invite administrators through public auth", async ({
   live,
   household,
@@ -3260,8 +3257,254 @@ test("#34 monthly recurrence restores the anchor after a short month", async ({ 
   const march = (await live.list(`${year}-03-01`, `${year}-03-31`))
     .filter((chore) => chore.id === id)
     .map((chore) => chore.occurrence_start_date);
-  knownFailure(34);
   expect(march).toEqual([`${year}-03-31`]);
+});
+
+test("#34 yearly leap-day recurrences restore leap days and reject drifted targets", async ({
+  live,
+}) => {
+  const id = await live.chore({
+    title: "Leap-day anchor",
+    startDate: "2024-02-29",
+    endDate: "2024-03-01",
+    repeatRule: "year",
+  });
+  for (const [date, expected] of [
+    ["2025-02-28", true],
+    ["2028-02-28", false],
+    ["2028-02-29", true],
+    ["2100-02-28", true],
+    ["2400-02-29", true],
+  ]) {
+    const response = await live.mutate({
+      action: "set",
+      choreId: id,
+      occurrenceStartDate: date,
+      status: "closed",
+    });
+    expect(response.status).toBe(expected ? 200 : 409);
+    if (expected)
+      expect((await live.list(date)).find((row) => row.id === id)).toMatchObject({
+        closed_reason: "done",
+      });
+  }
+});
+
+for (const repeatRule of ["month", "year"]) {
+  test(`#34 ${repeatRule} following splits and repeated edits retain inherited anchors and exceptions`, async ({
+    live,
+  }) => {
+    const monthly = repeatRule === "month";
+    const origin = monthly ? "2026-01-31" : "2024-02-29";
+    const selected = monthly ? "2026-02-28" : "2025-02-28";
+    const future = monthly ? "2026-03-31" : "2028-02-29";
+    const canceled = monthly ? "2026-04-30" : "2029-02-28";
+    const id = await live.chore({
+      title: "Anchored source",
+      startDate: origin,
+      endDate: day(origin, 1),
+      repeatRule,
+    });
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: future,
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await live.mutate({
+          action: "cancel",
+          scope: "single",
+          choreId: id,
+          occurrenceStartDate: canceled,
+        })
+      ).status,
+    ).toBe(200);
+    const split = await live.mutate({
+      action: "edit",
+      scope: "following",
+      choreId: id,
+      occurrenceStartDate: selected,
+      notes: "Split at the clamped instance",
+    });
+    expect(split.status).toBe(200);
+    const target = split.body.createdChoreId;
+    expect(
+      (await live.db.query("select recurrence_anchor_day from chores where id=$1", [target]))
+        .rows[0].recurrence_anchor_day,
+    ).toBe(monthly ? 31 : 29);
+    expect((await live.list(future)).find((row) => row.id === target)).toMatchObject({
+      status: "closed",
+      closed_reason: "done",
+    });
+    expect((await live.list(canceled)).some((row) => row.id === target)).toBe(false);
+    expect((await live.list(origin)).some((row) => row.id === id)).toBe(true);
+    expect(
+      (
+        await live.mutate({
+          action: "edit",
+          scope: "all",
+          choreId: target,
+          occurrenceStartDate: future,
+          dateBasis: "occurrence",
+          notes: "Retain anchor again",
+        })
+      ).status,
+    ).toBe(200);
+    expect((await live.list(future)).find((row) => row.id === target)).toMatchObject({
+      notes: "Retain anchor again",
+      closed_reason: "done",
+    });
+    const single = await live.mutate({
+      action: "edit",
+      scope: "single",
+      choreId: target,
+      occurrenceStartDate: future,
+      title: "Detached anchored occurrence",
+    });
+    expect(single.status).toBe(200);
+    expect(
+      (await live.list(future)).find((row) => row.id === single.body.createdChoreId),
+    ).toMatchObject({
+      title: "Detached anchored occurrence",
+      closed_reason: "done",
+      is_repeating: false,
+    });
+    const replacementStart = day(selected, -1);
+    expect(
+      (
+        await live.mutate({
+          action: "edit",
+          scope: "all",
+          choreId: target,
+          occurrenceStartDate: selected,
+          startDate: replacementStart,
+          endDate: day(replacementStart, 1),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await live.db.query("select recurrence_anchor_day from chores where id=$1", [target]))
+        .rows[0].recurrence_anchor_day,
+    ).toBeNull();
+    expect(
+      (await live.list(monthly ? "2026-03-27" : "2028-02-27")).some((row) => row.id === target),
+    ).toBe(false); // detached/canceled ordinal remains canceled after re-anchoring
+  });
+}
+
+const withLegacyCalendarTables = async (live, task) => {
+  const client = await live.db.connect();
+  try {
+    await client.query("begin");
+    await client.query(
+      "create temp table chores (like public.chores including all) on commit drop",
+    );
+    await client.query("alter table chores drop column recurrence_anchor_day");
+    await client.query(
+      "create temp table chore_occurrence_exceptions (like public.chore_occurrence_exceptions including all) on commit drop",
+    );
+    const migration = await readFile(
+      new URL("../drizzle/0001_polite_korvac.sql", import.meta.url),
+      "utf8",
+    );
+    await task(client, migration);
+  } finally {
+    await client.query("rollback");
+    client.release();
+  }
+};
+
+test("#34 deployment migration preserves sparse legacy exception ordinals and metadata across a Gregorian cycle", async ({
+  live,
+}) => {
+  await withLegacyCalendarTables(live, async (client, migration) => {
+    const expectedDates = [];
+    let nextId = 1;
+    for (const [id, origin, repeatRule, count] of [
+      [1, "2000-01-31", "month", 4801],
+      [2, "2000-02-29", "year", 401],
+      [3, "2000-01-30", "month", 36],
+    ]) {
+      await client.query(
+        "insert into chores(id,household_id,title,type,start_date,end_date,repeat_rule,status) values($1,0,'Legacy fixture','stay_open',$2::date,$2::date+1,$3,'active')",
+        [id, origin, repeatRule],
+      );
+      const start = DateTime.fromISO(origin, { zone: "UTC" });
+      const end = start
+        .plus(repeatRule === "month" ? { months: count - 1 } : { years: count - 1 })
+        .toISODate();
+      const old = generateOccurrencesByStepping({
+        startDate: origin,
+        endDate: day(origin, 1),
+        rangeStart: origin,
+        rangeEnd: end,
+        repeatRule,
+        seriesEndDate: null,
+        timeZone: "UTC",
+      }).map((row) => row.occurrenceStartDate);
+      const expected = Array.from({ length: count }, (_, ordinal) =>
+        start.plus(repeatRule === "month" ? { months: ordinal } : { years: ordinal }).toISODate(),
+      );
+      await client.query(
+        "insert into chore_occurrence_exceptions(id,chore_id,occurrence_start_date,kind,status,closed_reason) select $1::integer+ordinal::integer-1,$2::integer,date::date,case when ordinal%3=0 then 'canceled' else 'state' end,case when ordinal%3=0 then null when ordinal%3=1 then 'closed' else 'open' end,case when ordinal%3=0 then null else 'done' end from unnest($3::text[]) with ordinality as dates(date,ordinal)",
+        [nextId, id, old],
+      );
+      nextId += old.length;
+      expectedDates.push(...expected);
+    }
+    // Orphan and unsupported keys are retained for the staged invariant audit, not guessed at.
+    await client.query(
+      "insert into chore_occurrence_exceptions(id,chore_id,occurrence_start_date,kind) values($1,1,'2000-03-30','canceled'),($1+1,1,'10000-01-01','canceled')",
+      [nextId],
+    );
+    expectedDates.push("2000-03-30", "10000-01-01");
+    const query =
+      "select id,chore_id,to_char(occurrence_start_date,'YYYY-MM-DD') as date,kind,status,closed_reason,created_at,updated_at from chore_occurrence_exceptions order by id";
+    const before = (await client.query(query)).rows;
+    await client.query(migration);
+    expect((await client.query(query)).rows).toEqual(
+      before.map((row, index) => ({ ...row, date: expectedDates[index] })),
+    );
+    expect(
+      (await client.query("select recurrence_anchor_day from chores")).rows.every(
+        (row) => row.recurrence_anchor_day === null,
+      ),
+    ).toBe(true);
+  });
+});
+
+test("#34 deployment migration collisions roll back without merging completion or cancellation state", async ({
+  live,
+}) => {
+  await withLegacyCalendarTables(live, async (client, migration) => {
+    await client.query(
+      "insert into chores(id,household_id,title,type,start_date,end_date,repeat_rule,status) values(1,0,'Collision fixture','close_on_done','2026-01-31','2026-02-01','month','active')",
+    );
+    await client.query(
+      "insert into chore_occurrence_exceptions(id,chore_id,occurrence_start_date,kind,status,closed_reason) values(1,1,'2026-03-28','state','closed','done'),(2,1,'2026-03-31','canceled',null,null)",
+    );
+    const before = (await client.query("select * from chore_occurrence_exceptions order by id"))
+      .rows;
+    await client.query("savepoint migration_attempt");
+    await expect(client.query(migration)).rejects.toMatchObject({ code: "23505" });
+    await client.query("rollback to savepoint migration_attempt");
+    expect(
+      (await client.query("select * from chore_occurrence_exceptions order by id")).rows,
+    ).toEqual(before);
+    expect(
+      (
+        await client.query(
+          "select count(*) from pg_attribute where attrelid='pg_temp.chores'::regclass and attname='recurrence_anchor_day' and not attisdropped",
+        )
+      ).rows[0].count,
+    ).toBe("0");
+  });
 });
 
 const failChoreRead = (route) =>

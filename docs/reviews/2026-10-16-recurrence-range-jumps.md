@@ -18,7 +18,7 @@ Within each overlapping occurrence, generation calculates the first and last vis
 
 `isOccurrenceStartInSeries()` is shared by the service and benchmark. At this report's capture, it used the same generator for a single-date range and checked occurrence-start identity. The subsequent [#31](https://github.com/kdybicz/sweep-heap/issues/31) validation work replaced span expansion with direct start-membership checks and bounded calendar stepping. Reruns use the current helper; the timings below preserve the #30 capture.
 
-Month/year steps retain their iterative calendar clamping. Original-anchor corrections remain tracked in [#34](https://github.com/kdybicz/sweep-heap/issues/34). This change does not optimize the separate ordinal-migration walk in `mapOccurrenceStarts()`.
+At this report's capture, month/year steps retained iterative calendar clamping. The subsequent [#34](https://github.com/kdybicz/sweep-heap/issues/34) change restores original-day anchors in each period and preserves inherited anchors across splits. Calendar seeking and the separate ordinal-migration walk remain bounded iterative work; this report's fixed-interval timings are unchanged.
 
 ## Civil dates and DST
 

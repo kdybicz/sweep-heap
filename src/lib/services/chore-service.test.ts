@@ -147,6 +147,48 @@ describe("mutateChore", () => {
     expect(insertChoreMock).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["all", { notes: "New notes" }, 31],
+    ["following", { notes: "New notes" }, 31],
+    ["following", { endDate: "2026-05-02" }, 31],
+    ["following", { startDate: "2026-04-30" }, 31],
+    ["all", { dateBasis: "occurrence", endDate: "2026-05-02" }, 31],
+    ["following", { startDate: "2026-05-01", endDate: "2026-05-02" }, null],
+    ["all", { startDate: "2026-02-27", endDate: "2026-02-28" }, null],
+    ["following", { repeatRule: "year" }, null],
+    ["single", { notes: "Detached" }, null],
+  ] as const)(
+    "handles inherited calendar days for %s edits with %j",
+    async (scope, changes, expectedDay) => {
+      getChoreInHouseholdMock.mockResolvedValue({
+        id: 3,
+        title: "Inherited anchor",
+        type: "close_on_done",
+        start_date: "2026-02-28",
+        end_date: "2026-03-01",
+        repeat_rule: "month",
+        series_end_date: null,
+        recurrence_anchor_day: 31,
+        notes: null,
+      });
+      insertChoreMock.mockResolvedValue(44);
+      const result = await mutateChore({
+        householdId: 11,
+        payload: {
+          action: "edit",
+          scope,
+          choreId: 3,
+          occurrenceStartDate: "2026-04-30",
+          ...changes,
+        },
+      });
+      expect(result.ok).toBe(true);
+      expect(scope === "all" ? updateChoreSeriesMock : insertChoreMock).toHaveBeenCalledWith(
+        expect.objectContaining({ recurrenceAnchorDay: expectedDay }),
+      );
+    },
+  );
+
   it("performs reads and writes only inside the shared household transaction", async () => {
     let inTransaction = false;
     withHouseholdMutationLockMock.mockImplementationOnce(async ({ task }) => {
@@ -672,6 +714,7 @@ describe("mutateChore", () => {
       },
     });
     expect(updateChoreSeriesMock).toHaveBeenCalledWith({
+      recurrenceAnchorDay: null,
       choreId: 3,
       title: "Kitchen reset",
       type: "close_on_done",
@@ -718,6 +761,7 @@ describe("mutateChore", () => {
       },
     });
     expect(updateChoreSeriesMock).toHaveBeenCalledWith({
+      recurrenceAnchorDay: null,
       choreId: 3,
       title: "Kitchen reset",
       type: "close_on_done",
@@ -983,6 +1027,7 @@ describe("mutateChore", () => {
       closedReason: null,
     });
     expect(insertChoreMock).toHaveBeenCalledWith({
+      recurrenceAnchorDay: null,
       householdId: 11,
       title: "Kitchen deep clean",
       type: "close_on_done",
@@ -1083,6 +1128,7 @@ describe("mutateChore", () => {
       seriesEndDate: "2026-01-04",
     });
     expect(insertChoreMock).toHaveBeenCalledWith({
+      recurrenceAnchorDay: null,
       householdId: 11,
       title: "Kitchen weekends",
       type: "close_on_done",
@@ -1206,6 +1252,7 @@ describe("mutateChore", () => {
       },
     });
     expect(updateChoreSeriesMock).toHaveBeenCalledWith({
+      recurrenceAnchorDay: null,
       choreId: 3,
       title: "Kitchen",
       type: "close_on_done",
@@ -1254,6 +1301,7 @@ describe("mutateChore", () => {
       },
     });
     expect(updateChoreSeriesMock).toHaveBeenCalledWith({
+      recurrenceAnchorDay: null,
       choreId: 3,
       title: "Kitchen reset",
       type: "close_on_done",

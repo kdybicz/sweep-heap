@@ -165,6 +165,7 @@ export const listChores = async ({
         seriesEndDate: normalizeDate(row.series_end_date, timeZone),
         timeZone,
         budget,
+        anchorDay: row.recurrence_anchor_day,
       });
     } catch (error) {
       if (!(error instanceof OccurrenceLimitExceededError)) throw error;
@@ -365,6 +366,7 @@ const mutateChoreInTransaction = async ({
     startDate: chore.start_date,
     endDate: chore.end_date,
     budget,
+    anchorDay: chore.recurrence_anchor_day,
   });
 
   if (!occurrenceInSeries) {
@@ -464,6 +466,13 @@ const mutateChoreInTransaction = async ({
     const nextTitle = title || chore.title;
     const nextType = inputType ?? choreType;
     const nextNotes = typeof input.notes === "string" ? notes : (chore.notes ?? null);
+    // A split at a clamped instance must not turn an unchanged Jan-31 chain into a 28th chain.
+    const nextAnchorDay =
+      (nextRepeatRule === "month" || nextRepeatRule === "year") &&
+      nextRepeatRule === choreRepeatRule &&
+      nextStartDate === defaultStartDate
+        ? (chore.recurrence_anchor_day ?? DateTime.fromISO(chore.start_date, { zone: "UTC" }).day)
+        : null;
 
     const fieldErrors = validateChoreCreate({
       title: nextTitle,
@@ -512,6 +521,8 @@ const mutateChoreInTransaction = async ({
         targetRepeatRule: nextRepeatRule as RepeatRule,
         targetSeriesEndDate: nextSeriesEndDate,
         budget,
+        sourceAnchorDay: chore.recurrence_anchor_day,
+        targetAnchorDay: nextAnchorDay,
       });
       if ([...mapping.values()].some((date) => !isValidChoreDateKey(date)))
         throw new ChoreDateValidationError({
@@ -542,6 +553,7 @@ const mutateChoreInTransaction = async ({
         seriesEndDate: nextSeriesEndDate,
         repeatRule: nextRepeatRule,
         notes: nextNotes,
+        recurrenceAnchorDay: nextAnchorDay,
       });
 
       await migrateExceptions(choreId);
@@ -584,6 +596,7 @@ const mutateChoreInTransaction = async ({
       seriesEndDate: nextSeriesEndDate,
       repeatRule: nextRepeatRule,
       notes: nextNotes,
+      recurrenceAnchorDay: nextAnchorDay,
     });
 
     if (editScope === "following") {

@@ -56,7 +56,7 @@ describe("series exception ordinal mapping", () => {
       }),
     ]).toEqual([["2026-01-01", "2026-01-02"]]);
   });
-  it("uses iterative month-end stepping on both schedules", () => {
+  it("restores month-end anchors on both schedules", () => {
     expect([
       ...mapOccurrenceStarts({
         ...base,
@@ -69,7 +69,7 @@ describe("series exception ordinal mapping", () => {
       }),
     ]).toEqual([
       ["2026-02-28", "2026-04-30"],
-      ["2026-03-28", "2026-05-30"],
+      ["2026-03-31", "2026-05-31"],
     ]);
   });
   it("ignores exceptions beyond the original cutoff", () => {
