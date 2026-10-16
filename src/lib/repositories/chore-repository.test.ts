@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 const { query } = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("@/lib/db", () => ({ pool: { query } }));
 
-import { insertChore } from "@/lib/repositories/chore-repository";
+import { insertChore, listActiveChoreSeriesByHousehold } from "@/lib/repositories/chore-repository";
+import { listActiveChoreSeriesQuery } from "@/lib/repositories/chore-series-query";
 
 const input = {
   householdId: 11,
@@ -23,5 +24,22 @@ describe("chore insertion contract", () => {
   it("returns the successfully inserted id", async () => {
     query.mockResolvedValueOnce({ rows: [{ id: 42 }] });
     expect(await insertChore(input)).toBe(42);
+  });
+});
+
+describe("chore series selection contract", () => {
+  it("uses the integration-tested SQL with household and date-range bindings", async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    await listActiveChoreSeriesByHousehold({
+      householdId: 11,
+      rangeStart: "2026-10-12",
+      rangeEnd: "2026-10-18",
+    });
+    // The API discards non-overlapping series later, so its output alone cannot catch SQL overfetch.
+    expect(query).toHaveBeenLastCalledWith(listActiveChoreSeriesQuery, [
+      11,
+      "2026-10-12",
+      "2026-10-18",
+    ]);
   });
 });

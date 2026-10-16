@@ -61,6 +61,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Repeat rules: `none`, `day`, `week`, `biweek`, `month`, `year`.
 - Create validation enforces required fields, date ordering, and repeat/end compatibility.
 - Occurrences are generated lazily from series (date-only, household timezone) and merged with sparse occurrence exceptions keyed by `occurrenceStartDate`.
+- SQL excludes expired one-offs using their exclusive end date while retaining recurring origins and clipped spans that can overlap the requested dates.
 
 ### Done and cancel
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.

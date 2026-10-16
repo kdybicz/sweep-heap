@@ -1,4 +1,6 @@
+import { writeFile } from "node:fs/promises";
 import { DateTime } from "luxon";
+import { listActiveChoreSeriesQuery } from "../src/lib/repositories/chore-series-query.ts";
 import { baseURL } from "./config.mjs";
 import { day, expect, monday, test, today } from "./support.mjs";
 
@@ -2189,6 +2191,230 @@ test("#28 a successful type-change retry reconciles a failed raw title draft", a
   expect((await live.db.query("select title from chores where id=$1", [id])).rows[0].title).toBe(
     "Remote type title",
   );
+});
+
+test("#29 SQL excludes expired one-offs and retains overlapping recurring and clipped spans", async ({
+  live,
+  household,
+}) => {
+  const start = "2026-10-12";
+  const end = "2026-10-18";
+  const fixtures = [
+    { title: "Old one-off", startDate: "2026-01-01", endDate: "2026-01-02", included: false },
+    { title: "Ends at left boundary", startDate: "2026-10-10", endDate: start, included: false },
+    { title: "Clipped left", startDate: "2026-10-10", endDate: "2026-10-13", included: true },
+    { title: "Clipped right", startDate: "2026-10-17", endDate: "2026-10-21", included: true },
+    { title: "Starts at right boundary", startDate: end, endDate: "2026-10-19", included: true },
+    {
+      title: "Starts after range",
+      startDate: "2026-10-19",
+      endDate: "2026-10-20",
+      included: false,
+    },
+    { title: "Spans entire range", startDate: "2026-10-01", endDate: "2026-10-24", included: true },
+    {
+      title: "Single day at left boundary",
+      startDate: start,
+      endDate: "2026-10-13",
+      included: true,
+    },
+    {
+      title: "Open-ended weekly",
+      startDate: "2026-10-05",
+      endDate: "2026-10-06",
+      repeatRule: "week",
+      included: true,
+    },
+    {
+      title: "Expired finite weekly",
+      startDate: "2026-10-05",
+      endDate: "2026-10-06",
+      repeatRule: "week",
+      seriesEndDate: "2026-10-11",
+      included: false,
+    },
+    {
+      title: "Final recurring span overlaps",
+      startDate: "2026-10-11",
+      endDate: "2026-10-14",
+      repeatRule: "week",
+      seriesEndDate: "2026-10-11",
+      included: true,
+    },
+    {
+      title: "Final recurring span ends at boundary",
+      startDate: "2026-10-09",
+      endDate: start,
+      repeatRule: "week",
+      seriesEndDate: "2026-10-09",
+      included: false,
+    },
+    {
+      title: "Daily origin ended before range",
+      startDate: "2026-10-05",
+      endDate: "2026-10-06",
+      repeatRule: "day",
+      included: true,
+    },
+    {
+      title: "Biweekly origin ended before range",
+      startDate: "2026-09-28",
+      endDate: "2026-09-29",
+      repeatRule: "biweek",
+      included: true,
+    },
+    {
+      title: "Monthly origin ended before range",
+      startDate: "2026-09-12",
+      endDate: "2026-09-13",
+      repeatRule: "month",
+      included: true,
+    },
+    {
+      title: "Yearly origin ended before range",
+      startDate: "2025-10-12",
+      endDate: "2025-10-13",
+      repeatRule: "year",
+      included: true,
+    },
+  ];
+  const expectedIds = [];
+  for (const { included, ...fields } of fixtures) {
+    const id = await live.chore(fields);
+    if (included) expectedIds.push(id);
+  }
+  const canceledId = await live.chore({
+    title: "Canceled series",
+    startDate: start,
+    endDate: "2026-10-13",
+  });
+  expect(
+    (
+      await live.mutate({
+        action: "cancel",
+        scope: "all",
+        choreId: canceledId,
+        occurrenceStartDate: start,
+      })
+    ).status,
+  ).toBe(200);
+  const otherHousehold = await live.createHousehold("Other SQL overlap household");
+  try {
+    await live.chore({
+      title: "Another household's overlapping chore",
+      startDate: start,
+      endDate: "2026-10-13",
+    });
+    await live.activate(live.owner, household);
+    const selected = (await live.db.query(listActiveChoreSeriesQuery, [household, start, end]))
+      .rows;
+    expect(selected.map((row) => row.id).sort((a, b) => a - b)).toEqual(
+      expectedIds.sort((a, b) => a - b),
+    );
+    const visible = await live.list(start, end);
+    expect([...new Set(visible.map((row) => row.id))].sort((a, b) => a - b)).toEqual(expectedIds);
+    expect(
+      visible.filter((row) => row.title === "Clipped left").map((row) => row.occurrence_date),
+    ).toEqual([start]);
+    expect(
+      visible.filter((row) => row.title === "Clipped right").map((row) => row.occurrence_date),
+    ).toEqual(["2026-10-17", end]);
+    expect(
+      visible
+        .filter((row) => row.title === "Final recurring span overlaps")
+        .map((row) => row.occurrence_date),
+    ).toEqual([start, "2026-10-13"]);
+    expect(
+      visible
+        .filter((row) => row.title === "Starts at right boundary")
+        .map((row) => row.occurrence_date),
+    ).toEqual([end]);
+  } finally {
+    await live.db.query("delete from households where id=$1", [otherHousehold]);
+  }
+});
+
+test("#29 before/after query plans exclude historical rows before serialization", async ({
+  live,
+}, testInfo) => {
+  // Historical baseline from before #29. The fixed query is imported from production code.
+  const beforeQuery =
+    "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, status, notes from chores where status = 'active' and household_id = $1 and start_date <= $3::date and (coalesce(series_end_date, $3::date) + (end_date - start_date - 1)) >= $2::date";
+  const params = [1, "2026-10-12", "2026-10-18"];
+  const client = await live.db.connect();
+  try {
+    await client.query("begin");
+    await client.query("set local statement_timeout = '30s'");
+    // A session-private copy preserves the deployed table/index shape without adding fixture
+    // volume or indexes to the shared app table. Explicit ids avoid consuming its serial sequence.
+    await client.query(
+      "create temporary table chores (like public.chores including all) on commit drop",
+    );
+    const indexes = (
+      await client.query(
+        "select indexdef from pg_indexes where schemaname = pg_my_temp_schema()::regnamespace::text and tablename = 'chores' order by indexname",
+      )
+    ).rows;
+    await client.query(
+      "insert into chores (id,household_id,title,type,start_date,end_date,repeat_rule,status) select n,case when n <= 20000 then 1 else 2 end,'Historical one-off fixture','close_on_done','2025-01-01'::date,'2025-01-02'::date,'none','active' from generate_series(1,100000) n",
+    );
+    await client.query(
+      "insert into chores (id,household_id,title,type,start_date,end_date,repeat_rule,status) select 100005+n,1,'Canceled fixture','close_on_done','2026-10-12'::date,'2026-10-13'::date,'none','canceled' from generate_series(1,20000) n",
+    );
+    await client.query(
+      "insert into chores (id,household_id,title,type,start_date,end_date,repeat_rule,status,series_end_date) values (100001,1,'Current single','close_on_done','2026-10-12','2026-10-13','none','active',null),(100002,1,'Left clipped','close_on_done','2026-10-10','2026-10-13','none','active',null),(100003,1,'Right boundary','close_on_done','2026-10-18','2026-10-19','none','active',null),(100004,1,'Open weekly','close_on_done','2026-10-05','2026-10-06','week','active',null),(100005,1,'Final clipped weekly','close_on_done','2026-10-11','2026-10-14','week','active','2026-10-11')",
+    );
+    await client.query("analyze chores");
+    const explain = async (query) =>
+      (await client.query(`explain (analyze, buffers, format json, timing off) ${query}`, params))
+        .rows[0]["QUERY PLAN"][0];
+    const before = [];
+    const after = [];
+    await explain(beforeQuery);
+    await explain(listActiveChoreSeriesQuery);
+    for (let sample = 0; sample < 3; sample += 1) {
+      before.push(await explain(beforeQuery));
+      after.push(await explain(listActiveChoreSeriesQuery));
+    }
+    // Assess household/status indexing independently of the predicate change, then roll it back.
+    await client.query(
+      "create index issue29_active_household_candidate on chores (household_id) where status = 'active'",
+    );
+    await client.query("analyze chores");
+    const indexed = [];
+    for (let sample = 0; sample < 3; sample += 1)
+      indexed.push(await explain(listActiveChoreSeriesQuery));
+    expect(before.every((plan) => plan.Plan["Actual Rows"] === 20005)).toBe(true);
+    expect([...after, ...indexed].every((plan) => plan.Plan["Actual Rows"] === 5)).toBe(true);
+    const evidence = {
+      issue: 29,
+      serverVersion: (await client.query("show server_version")).rows[0].server_version,
+      fixture: {
+        rows: 120005,
+        targetHistoricalActiveOneOffs: 20000,
+        otherHouseholdActiveOneOffs: 80000,
+        canceledOneOffs: 20000,
+        matchingSeries: 5,
+      },
+      params,
+      indexes,
+      beforeQuery,
+      afterQuery: listActiveChoreSeriesQuery,
+      candidateIndex: "(household_id) WHERE status = 'active' (temporary benchmark only)",
+      before,
+      after,
+      indexed,
+    };
+    const path = testInfo.outputPath("issue29-query-plans.json");
+    await writeFile(path, JSON.stringify(evidence, null, 2));
+    await testInfo.attach("issue29-query-plans", { path, contentType: "application/json" });
+  } finally {
+    try {
+      await client.query("rollback");
+    } finally {
+      client.release();
+    }
+  }
 });
 
 test("#31 invalid calendar dates return validation errors", async ({ live }) => {

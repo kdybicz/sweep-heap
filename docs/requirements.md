@@ -146,6 +146,7 @@
 
 ### Occurrence generation behavior
 - Occurrences are generated lazily from series plus sparse occurrence exceptions.
+- The SQL series prefilter excludes non-repeating chores whose exclusive `end_date` is on or before the requested start date. Repeating origins may have older end dates and remain eligible when their recurrence cutoff plus duration can overlap the requested range. One-off spans clipped at either query boundary remain eligible.
 - Generation is date-only and timezone-aware (household timezone).
 - API/storage `endDate` is exclusive and defines span length (`startDate=2026-01-01`, `endDate=2026-01-02` is a one-day occurrence).
 - `repeatRule = none` still supports multi-day span via `endDate`.
