@@ -9,7 +9,7 @@ import {
 } from "../src/lib/chore-date-validation.ts";
 import { generateOccurrenceDayEntries, isOccurrenceStartInSeries } from "../src/lib/occurrences.ts";
 import { listActiveChoreSeriesQuery } from "../src/lib/repositories/chore-series-query.ts";
-import { baseURL } from "./config.mjs";
+import { baseURL, mailpitURL } from "./config.mjs";
 import { generateOccurrencesByStepping } from "./legacy-occurrences.ts";
 import { day, expect, monday, test, today } from "./support.mjs";
 
@@ -3505,6 +3505,69 @@ test("#34 deployment migration collisions roll back without merging completion o
       ).rows[0].count,
     ).toBe("0");
   });
+});
+
+test("#35 React Email delivers HTML and plain text for all transactional templates", async ({
+  live,
+}) => {
+  expect(
+    (
+      await live.api(live.owner, "/api/auth/sign-in/magic-link", "POST", {
+        email: live.owner.email,
+        callbackURL: "/household",
+      })
+    ).status,
+  ).toBe(200);
+  await live.invite();
+  expect((await live.api(live.alternate, "/api/me/delete-request", "POST")).status).toBe(200);
+  for (const [email, path, action] of [
+    [live.owner.email, "/magic-link/verify", "Open sign-in link"],
+    [live.member.email, "/household/invite?", "Accept household invite"],
+    [live.alternate.email, "/user/delete/confirm?", "Confirm deletion"],
+  ]) {
+    // Assert booleans so failed checks cannot print live sign-in/invitation/deletion tokens.
+    await expect
+      .poll(
+        async () => {
+          const list = await (
+            await fetch(`${mailpitURL}/api/v1/messages?limit=100`, {
+              signal: AbortSignal.timeout(10000),
+            })
+          ).json();
+          for (const message of list.messages.filter((item) =>
+            item.To.some((to) => to.Address === email),
+          )) {
+            const detail = await (
+              await fetch(`${mailpitURL}/api/v1/message/${message.ID}`, {
+                signal: AbortSignal.timeout(10000),
+              })
+            ).json();
+            if (!detail.HTML.includes(path) || !detail.Text.includes(path)) continue;
+            return (
+              detail.HTML.includes("The Sweep Heap") &&
+              detail.Text.includes("The Sweep Heap") &&
+              detail.HTML.includes(action) &&
+              detail.Text.includes(action) &&
+              detail.HTML.includes("<html") &&
+              !detail.Text.includes("<html")
+            );
+          }
+          return false;
+        },
+        { message: `Both MIME parts contain the ${action} action` },
+      )
+      .toBe(true);
+  }
+  // Consume the extra verification token instead of leaving an unused sign-in record behind.
+  const magicLink = new URL(await live.emailLink(live.owner.email, "/magic-link/verify"));
+  let status;
+  try {
+    status = (await live.owner.context.request.get(magicLink.href, { maxRedirects: 0 })).status();
+  } catch {
+    // Request errors can contain the token URL; report only a fixed message.
+    throw new Error("Could not verify the delivered magic link");
+  }
+  expect(status).toBe(302);
 });
 
 const failChoreRead = (route) =>

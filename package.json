@@ -33,8 +33,6 @@
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.1",
-    "@react-email/components": "1.0.12",
-    "@react-email/render": "2.1.0",
     "@tanstack/react-query": "5.101.4",
     "better-auth": "1.6.26",
     "drizzle-orm": "0.45.2",
@@ -44,12 +42,13 @@
     "pg": "8.22.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-email": "6.11.1",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
     "@playwright/test": "1.64.0",
-    "@react-email/preview-server": "5.2.11",
+    "@react-email/ui": "6.11.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/luxon": "3.7.3",
     "@types/node": "24.13.3",
@@ -59,13 +58,12 @@
     "@types/react-dom": "19.2.4",
     "drizzle-kit": "0.31.10",
     "jsdom": "29.1.1",
-    "react-email": "5.2.11",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
     "vitest": "4.1.11"
   },
   "resolutions": {
-    "@react-email/preview-server/next": "16.3.8",
+    "@react-email/ui/next": "16.3.8",
     "postcss": "8.5.25",
     "socket.io-parser": "4.2.7",
     "tar": "7.5.22",
