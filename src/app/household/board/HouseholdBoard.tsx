@@ -179,7 +179,9 @@ function HouseholdBoardContent() {
       <main className="mx-auto grid w-full max-w-[1480px] grid-cols-1 gap-5 px-4 pb-12 pt-6 lg:grid-cols-[292px_1fr] lg:gap-6 lg:px-6 lg:pt-8">
         <HouseholdSidebar
           doneChores={board.sidebar.doneChores}
-          loadingToday={board.sidebar.loadingToday}
+          weekLoadState={board.sidebar.weekLoadState}
+          todayLoadState={board.sidebar.todayLoadState}
+          onRetryToday={board.sidebar.onRetryToday}
           openChores={board.sidebar.openChores}
           progress={board.sidebar.progress}
           today={board.sidebar.today}
@@ -199,7 +201,8 @@ function HouseholdBoardContent() {
             canManageChores={canManageChores}
             chores={board.week.chores}
             days={board.week.days}
-            loading={board.week.loading}
+            loadState={board.week.loadState}
+            onRetry={board.week.onRetry}
             onAddChoreForDate={board.week.onAddChoreForDate}
             onNextWeek={board.week.onNextWeek}
             onPreviousWeek={board.week.onPreviousWeek}

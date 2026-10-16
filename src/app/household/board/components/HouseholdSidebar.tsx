@@ -1,6 +1,8 @@
 import type { DateTime } from "luxon";
 import { StateIcon } from "@/app/household/board/components/ChoreIcons";
+import ChoresLoadError from "@/app/household/board/components/ChoresLoadError";
 import type { ChoreItem } from "@/app/household/board/types";
+import type { ChoresLoadState } from "@/app/household/board/useHouseholdChoresData.types";
 import { getChoreStateLabel, isChoreCompleted } from "@/lib/chore-ui-state";
 
 type HouseholdSidebarProps = {
@@ -9,7 +11,9 @@ type HouseholdSidebarProps = {
   openChores: number;
   progress: number;
   today: DateTime;
-  loadingToday: boolean;
+  weekLoadState: ChoresLoadState;
+  todayLoadState: ChoresLoadState;
+  onRetryToday: () => void;
   todayChores: ChoreItem[];
 };
 
@@ -32,7 +36,9 @@ export default function HouseholdSidebar({
   openChores,
   progress,
   today,
-  loadingToday,
+  weekLoadState,
+  todayLoadState,
+  onRetryToday,
   todayChores,
 }: HouseholdSidebarProps) {
   const sidebarTodayChores = getTodaySidebarChores(todayChores);
@@ -59,36 +65,51 @@ export default function HouseholdSidebar({
       <div className="rounded-[var(--radius-md)] border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">Week progress</span>
-          <span className="text-xs text-[var(--muted)]">
-            {doneChores}/{totalChores} done
-          </span>
+          {weekLoadState.hasData ? (
+            <span className="text-xs text-[var(--muted)]">
+              {doneChores}/{totalChores} done
+            </span>
+          ) : null}
         </div>
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-[var(--radius-full)] bg-[var(--surface-strong)]">
-          <div
-            className="h-full rounded-[var(--radius-full)] bg-[linear-gradient(90deg,var(--accent),var(--accent-secondary),var(--accent-tertiary))] transition-[width] duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2 py-3">
-            <div className="font-display text-lg font-semibold">{totalChores}</div>
-            <div className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-              Total
+        {!weekLoadState.hasData ? (
+          <p className="mt-3 text-xs text-[var(--muted)]">
+            {weekLoadState.hasError ? "Week progress unavailable" : "Loading week progress..."}
+          </p>
+        ) : (
+          <>
+            {weekLoadState.hasError ? (
+              <p className="mt-3 text-xs text-[var(--muted)]">
+                Last-known progress. Retry the week to update.
+              </p>
+            ) : null}
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-[var(--radius-full)] bg-[var(--surface-strong)]">
+              <div
+                className="h-full rounded-[var(--radius-full)] bg-[linear-gradient(90deg,var(--accent),var(--accent-secondary),var(--accent-tertiary))] transition-[width] duration-500"
+                style={{ width: `${progress}%` }}
+              />
             </div>
-          </div>
-          <div className="rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--accent-gold-soft)] px-2 py-3">
-            <div className="font-display text-lg font-semibold">{openChores}</div>
-            <div className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-              Open
+            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--surface-weak)] px-2 py-3">
+                <div className="font-display text-lg font-semibold">{totalChores}</div>
+                <div className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Total
+                </div>
+              </div>
+              <div className="rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--accent-gold-soft)] px-2 py-3">
+                <div className="font-display text-lg font-semibold">{openChores}</div>
+                <div className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Open
+                </div>
+              </div>
+              <div className="rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--accent-tertiary-soft)] px-2 py-3">
+                <div className="font-display text-lg font-semibold">{progress}%</div>
+                <div className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Done
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="rounded-[var(--radius-sm)] border border-[var(--stroke-soft)] bg-[var(--accent-tertiary-soft)] px-2 py-3">
-            <div className="font-display text-lg font-semibold">{progress}%</div>
-            <div className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-              Done
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       <div className="rounded-[var(--radius-md)] border border-[var(--stroke)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
@@ -97,7 +118,8 @@ export default function HouseholdSidebar({
           <span className="text-xs text-[var(--muted)]">{today.toFormat("ccc, LLL d")}</span>
         </div>
         <div className="mt-4 flex flex-col gap-2">
-          {loadingToday ? (
+          <ChoresLoadError scope="today" loadState={todayLoadState} onRetry={onRetryToday} />
+          {todayLoadState.loading ? (
             <div className="text-xs text-[var(--muted)]">Loading chores...</div>
           ) : sidebarTodayChores.length ? (
             <>
@@ -131,9 +153,9 @@ export default function HouseholdSidebar({
                 </div>
               ) : null}
             </>
-          ) : (
+          ) : todayLoadState.hasData && !todayLoadState.hasError ? (
             <div className="text-xs text-[var(--muted)]">No chores scheduled</div>
-          )}
+          ) : null}
         </div>
       </div>
     </aside>

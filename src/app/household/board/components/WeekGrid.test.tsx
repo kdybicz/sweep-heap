@@ -53,7 +53,8 @@ describe("WeekGrid", () => {
           }),
         ]}
         days={days}
-        loading={false}
+        loadState={{ loading: false, fetching: false, hasData: true, hasError: false }}
+        onRetry={noop}
         onAddChoreForDate={noop}
         onNextWeek={noop}
         onPreviousWeek={noop}
@@ -73,4 +74,30 @@ describe("WeekGrid", () => {
     ).toBeGreaterThanOrEqual(6);
     expect(markup).toContain("No chores scheduled");
   });
+  it.each([false, true])(
+    "shows a load error without empty states, with cached data=%s",
+    (hasData) => {
+      const markup = renderToStaticMarkup(
+        <WeekGrid
+          canManageChores
+          chores={hasData ? [createChore({ title: "Cached chore" })] : []}
+          days={days}
+          loadState={{ loading: false, fetching: false, hasData, hasError: true }}
+          onRetry={noop}
+          onAddChoreForDate={noop}
+          onNextWeek={noop}
+          onPreviousWeek={noop}
+          onPreviewChore={noop}
+          onResetWeek={noop}
+          rangeLabel="Mar 2 - Mar 8"
+          today={days[0]}
+        />,
+      );
+      expect(markup).toContain('role="alert"');
+      expect(markup).toContain("Retry week");
+      expect(markup).not.toContain("No chores scheduled");
+      expect(markup.includes("Cached chore")).toBe(hasData);
+      expect(markup.includes("Showing last-known chores")).toBe(hasData);
+    },
+  );
 });

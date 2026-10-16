@@ -20,9 +20,16 @@ export type FetchChoresFn = (
 export type UseHouseholdChoresDataModel = {
   chores: ChoreItem[];
   setChores: Dispatch<SetStateAction<ChoreItem[]>>;
-  loading: boolean;
+  weekLoadState: ChoresLoadState;
   todayChores: ChoreItem[];
-  loadingToday: boolean;
+  todayLoadState: ChoresLoadState;
   loadChores: LoadChoresFn;
   loadTodayChores: () => Promise<void>;
+};
+
+export type ChoresLoadState = {
+  loading: boolean;
+  fetching: boolean;
+  hasData: boolean;
+  hasError: boolean;
 };

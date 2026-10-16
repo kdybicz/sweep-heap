@@ -85,6 +85,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Chores clipped by the current week use a clipped edge treatment at the left and/or right edge (no outer corner radius and no outer vertical border).
 - The sidebar Today list collapses multi-day chores to one entry per occurrence.
 - Week progress counts each visible `(chore id, occurrence_start_date)` once, including clipped spans and distinct overlapping recurrences. Logged stay-open chores count as done; empty weeks show 0%.
+- Week/Today load failures show independent accessible errors and retry controls. Fresh failures suppress empty schedules/zero progress; refresh failures retain same-range cached chores/progress marked out of date. Retry updates only its query, and context recovery still redirects.
 - Today updates at household-local midnight and on focus/visibility resumption, refreshing Today/week data without reloading. DST uses the next calendar midnight. The default week follows Today; Previous/Next pins the chosen week until Today is clicked. Week queries use explicit date ranges.
 - Single click or keyboard activation opens a compact chore preview popover; the popover shows status, primary completion/log actions, delete for viewers who can manage chores, notes, and inline editing for title/date/repeat fields when expanded, including whole-series edit scopes where applicable.
 

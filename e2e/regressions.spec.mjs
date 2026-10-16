@@ -3264,20 +3264,197 @@ test("#34 monthly recurrence restores the anchor after a short month", async ({ 
   expect(march).toEqual([`${year}-03-31`]);
 });
 
-test("#32 failed loads show an error instead of an empty schedule", async ({ live }) => {
-  const page = await live.owner.context.newPage();
-  await page.route("**/api/chores?**", (route) =>
-    route.fulfill({
-      status: 500,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ok: false,
-        code: "INTERNAL_SERVER_ERROR",
-        error: "Failed to load chores",
-      }),
+const failChoreRead = (route) =>
+  route.fulfill({
+    status: 500,
+    contentType: "application/json",
+    body: JSON.stringify({
+      ok: false,
+      code: "INTERNAL_SERVER_ERROR",
+      error: "Failed to load chores",
     }),
+  });
+const isTodayRead = (request) => {
+  const params = new URL(request.url()).searchParams;
+  return params.get("start") === params.get("end");
+};
+
+for (const failure of ["server", "network", "invalid-json"]) {
+  test(`#32 fresh ${failure} failures show separate errors and retry to real data`, async ({
+    live,
+  }, testInfo) => {
+    await live.chore({ title: "Recovered chore", startDate: today(), endDate: day(today(), 1) });
+    const page = await live.owner.context.newPage();
+    const attempts = { week: 0, today: 0 };
+    let failing = true;
+    await page.route("**/api/chores?**", (route) => {
+      attempts[isTodayRead(route.request()) ? "today" : "week"] += 1;
+      if (!failing) return route.continue();
+      if (failure === "network") return route.abort("failed");
+      if (failure === "invalid-json")
+        return route.fulfill({ status: 500, contentType: "application/json", body: "{broken" });
+      return failChoreRead(route);
+    });
+    await page.goto(`${baseURL}/household`, { waitUntil: "networkidle", timeout: 90000 });
+    const weekError = page.getByRole("alert", { name: "Week chores load error" });
+    const todayError = page.getByRole("alert", { name: "Today chores load error" });
+    await expect(weekError).toBeVisible();
+    await expect(todayError).toBeVisible();
+    await expect(page.getByText("No chores scheduled", { exact: true })).toHaveCount(0);
+    await expect(page.locator("aside")).toContainText("Week progress unavailable");
+    await expect(page.locator("aside")).not.toContainText("0/0 done");
+    // A second failed attempt must restore its retry affordance.
+    const firstWeekAttempts = attempts.week;
+    await weekError.getByRole("button", { name: "Retry week" }).click();
+    await expect.poll(() => attempts.week).toBeGreaterThan(firstWeekAttempts);
+    await expect(weekError.getByRole("button", { name: "Retry week" })).toBeVisible();
+    if (failure === "server") {
+      await page.setViewportSize({ width: 390, height: 844 });
+      const screenshotPath = testInfo.outputPath("load-errors-mobile.png");
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      await testInfo.attach("fresh-load-errors-mobile", {
+        path: screenshotPath,
+        contentType: "image/png",
+      });
+      await page.setViewportSize({ width: 1440, height: 1100 });
+    }
+    failing = false;
+    const todayAttempts = attempts.today;
+    const weekAttempts = attempts.week;
+    await weekError.getByRole("button", { name: "Retry week" }).click();
+    await expect(weekError).toHaveCount(0);
+    await expect(page.locator("[data-chore-preview-id]")).toContainText(["Recovered chore"]);
+    await expect(page.locator("aside")).toContainText("0/1 done");
+    await expect(todayError).toBeVisible();
+    expect(attempts.today).toBe(todayAttempts);
+    await todayError.getByRole("button", { name: "Retry today" }).click();
+    await expect(todayError).toHaveCount(0);
+    await expect(page.locator("aside")).toContainText("Recovered chore");
+    expect(attempts.week).toBeGreaterThan(weekAttempts);
+  });
+}
+
+for (const scope of ["week", "today"]) {
+  test(`#32 failed ${scope} refresh preserves last-known data and recovers independently`, async ({
+    live,
+  }) => {
+    await live.chore({ title: "Cached chore", startDate: today(), endDate: day(today(), 1) });
+    const page = await live.board();
+    await expect(page.locator("aside")).toContainText("Cached chore");
+    await expect(page.locator("[data-chore-preview-id]")).toContainText(["Cached chore"]);
+    let failing = true;
+    let releaseRetry;
+    const retryGate = new Promise((resolve) => {
+      releaseRetry = resolve;
+    });
+    let holdRetry = false;
+    await page.route("**/api/chores?**", async (route) => {
+      if (failing && isTodayRead(route.request()) === (scope === "today"))
+        return failChoreRead(route);
+      if (holdRetry && isTodayRead(route.request()) === (scope === "today")) await retryGate;
+      return route.continue();
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    const error = page.getByRole("alert", {
+      name: scope === "week" ? "Week chores load error" : "Today chores load error",
+    });
+    await expect(error).toContainText("Showing last-known chores");
+    await expect(page.locator("main").getByRole("alert")).toHaveCount(1);
+    await expect(page.locator("[data-chore-preview-id]")).toContainText(["Cached chore"]);
+    await expect(page.locator("aside")).toContainText("Cached chore");
+    await expect(page.locator("aside")).toContainText("0/1 done");
+    if (scope === "week") await expect(page.locator("aside")).toContainText("Last-known progress");
+    await live.chore({ title: "New after refresh", startDate: today(), endDate: day(today(), 1) });
+    failing = false;
+    holdRetry = true;
+    await error
+      .getByRole("button", { name: scope === "week" ? "Retry week" : "Retry today" })
+      .click();
+    await expect(error.getByRole("button", { name: "Retrying..." })).toBeDisabled();
+    releaseRetry();
+    await expect(error).toHaveCount(0);
+    if (scope === "week") {
+      await expect(page.locator("[data-chore-preview-id]")).toHaveCount(2);
+      await expect(page.locator("aside")).toContainText("0/2 done");
+    } else await expect(page.locator("aside")).toContainText("New after refresh");
+  });
+}
+
+test("#32 empty schedules appear only after successful reads and recover after failed refreshes", async ({
+  live,
+}) => {
+  const page = await live.board();
+  await expect(page.getByText("No chores scheduled", { exact: true })).toHaveCount(8);
+  await expect(page.locator("aside")).toContainText("0/0 done");
+  let failing = true;
+  await page.route("**/api/chores?**", (route) =>
+    failing ? failChoreRead(route) : route.continue(),
   );
-  await page.goto(`${baseURL}/household`, { waitUntil: "networkidle", timeout: 90000 });
-  knownFailure(32);
-  await expect(page.locator("main").getByRole("alert")).toBeVisible({ timeout: 2000 });
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.locator("main").getByRole("alert")).toHaveCount(2);
+  await expect(page.getByText("No chores scheduled", { exact: true })).toHaveCount(0);
+  await expect(page.locator("aside")).toContainText("Last-known progress");
+  failing = false;
+  await page.getByRole("button", { name: "Retry week" }).click();
+  await page.getByRole("button", { name: "Retry today" }).click();
+  await expect(page.locator("main").getByRole("alert")).toHaveCount(0);
+  await expect(page.getByText("No chores scheduled", { exact: true })).toHaveCount(8);
 });
+
+test("#32 a failed new week does not reuse the previous week's chores or progress", async ({
+  live,
+}) => {
+  await live.chore({ title: "This week only", startDate: today(), endDate: day(today(), 1) });
+  await live.chore({
+    title: "Next week only",
+    startDate: day(monday(), 7),
+    endDate: day(monday(), 8),
+  });
+  const page = await live.board();
+  await expect(page.locator("[data-chore-preview-id]")).toContainText(["This week only"]);
+  let failing = true;
+  await page.route("**/api/chores?**", (route) => {
+    if (failing && new URL(route.request().url()).searchParams.get("start") === day(monday(), 7))
+      return failChoreRead(route);
+    return route.continue();
+  });
+  await page.getByRole("button", { name: "Next week" }).click();
+  const error = page.getByRole("alert", { name: "Week chores load error" });
+  await expect(error).toBeVisible();
+  await expect(error).not.toContainText("Showing last-known chores");
+  await expect(page.locator("[data-chore-preview-id]")).toHaveCount(0);
+  await expect(page.locator("aside")).toContainText("Week progress unavailable");
+  await expect(page.locator("aside")).toContainText("This week only");
+  failing = false;
+  await error.getByRole("button", { name: "Retry week" }).click();
+  await expect(error).toHaveCount(0);
+  await expect(page.locator("[data-chore-preview-id]")).toContainText(["Next week only"]);
+  await expect(page.locator("aside")).toContainText("0/1 done");
+});
+
+for (const scope of ["week", "today"]) {
+  for (const [code, path, status] of [
+    ["UNAUTHORIZED", "/auth", 401],
+    ["HOUSEHOLD_REQUIRED", "/household/setup", 403],
+    ["HOUSEHOLD_NOT_FOUND", "/household/select", 404],
+    ["HOUSEHOLD_SELECTION_REQUIRED", "/household/select", 409],
+  ]) {
+    test(`#32 ${scope} ${code} responses retain context recovery redirects`, async ({ live }) => {
+      const page = await live.owner.context.newPage();
+      await page.route("**/api/chores?**", (route) => {
+        if (isTodayRead(route.request()) !== (scope === "today")) return route.continue();
+        return route.fulfill({
+          status,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: false, code, error: "Context recovery required" }),
+        });
+      });
+      // Record navigation even when the auth page immediately redirects an authenticated fixture.
+      const recovery = page.waitForRequest(
+        (request) => request.isNavigationRequest() && new URL(request.url()).pathname === path,
+      );
+      await page.goto(`${baseURL}/household`, { waitUntil: "domcontentloaded", timeout: 90000 });
+      await recovery;
+    });
+  }
+}

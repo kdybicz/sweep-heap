@@ -1,10 +1,11 @@
 import type { DateTime } from "luxon";
 import { useMemo } from "react";
-
+import ChoresLoadError from "@/app/household/board/components/ChoresLoadError";
 import DayColumn from "@/app/household/board/components/DayColumn";
 import MultiDayChoreLanes from "@/app/household/board/components/MultiDayChoreLanes";
 import { buildWeekGridLayout } from "@/app/household/board/multi-day-chore-layout";
 import type { ChoreItem } from "@/app/household/board/types";
+import type { ChoresLoadState } from "@/app/household/board/useHouseholdChoresData.types";
 
 type WeekGridProps = {
   canManageChores: boolean;
@@ -14,7 +15,8 @@ type WeekGridProps = {
   onResetWeek: () => void;
   days: DateTime[];
   chores: ChoreItem[];
-  loading: boolean;
+  loadState: ChoresLoadState;
+  onRetry: () => void;
   today: DateTime;
   onPreviewChore: (chore: ChoreItem, anchorElement: HTMLElement) => void;
   onAddChoreForDate: (dayKey: string | null) => void;
@@ -28,7 +30,8 @@ export default function WeekGrid({
   onResetWeek,
   days,
   chores,
-  loading,
+  loadState,
+  onRetry,
   today,
   onPreviewChore,
   onAddChoreForDate,
@@ -41,6 +44,11 @@ export default function WeekGrid({
 
   return (
     <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--stroke)] bg-[color-mix(in_srgb,var(--surface)_86%,white_14%)] p-3 shadow-[var(--shadow)] sm:p-4">
+      {loadState.hasError ? (
+        <div className="mb-3">
+          <ChoresLoadError scope="week" loadState={loadState} onRetry={onRetry} />
+        </div>
+      ) : null}
       <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--stroke-soft)] bg-[var(--card)]">
         <div className="overflow-x-auto">
           <div className="min-w-[980px]">
@@ -138,8 +146,12 @@ export default function WeekGrid({
                         canManageChores={canManageChores}
                         dayKey={dayKey}
                         key={day.toISO()}
-                        loading={loading}
-                        showEmptyState={dayKey ? !occupiedDayKeys.has(dayKey) : false}
+                        loading={loadState.loading}
+                        showEmptyState={
+                          loadState.hasData &&
+                          !loadState.hasError &&
+                          Boolean(dayKey && !occupiedDayKeys.has(dayKey))
+                        }
                         onAddChoreForDate={onAddChoreForDate}
                       />
                     );

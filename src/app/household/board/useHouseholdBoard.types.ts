@@ -11,6 +11,7 @@ import type {
   SaveChoreRepeatChangesParams,
   SaveChoreTitleTypeChangesParams,
 } from "@/app/household/board/useHouseholdChoreActions.types";
+import type { ChoresLoadState } from "@/app/household/board/useHouseholdChoresData.types";
 import type { ChoreType } from "@/lib/chore-ui-state";
 
 export type SidebarModel = {
@@ -19,7 +20,9 @@ export type SidebarModel = {
   openChores: number;
   progress: number;
   today: DateTime;
-  loadingToday: boolean;
+  weekLoadState: ChoresLoadState;
+  todayLoadState: ChoresLoadState;
+  onRetryToday: () => void;
   todayChores: ChoreItem[];
   onResetWeek: () => void;
 };
@@ -30,7 +33,8 @@ export type WeekModel = {
   onNextWeek: () => void;
   days: DateTime[];
   chores: ChoreItem[];
-  loading: boolean;
+  loadState: ChoresLoadState;
+  onRetry: () => void;
   onAddChoreForDate: (dayKey: string | null) => void;
 };
 

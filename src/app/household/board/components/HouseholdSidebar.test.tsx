@@ -22,7 +22,9 @@ describe("HouseholdSidebar", () => {
     const markup = renderToStaticMarkup(
       <HouseholdSidebar
         doneChores={0}
-        loadingToday={false}
+        weekLoadState={{ loading: false, fetching: false, hasData: true, hasError: false }}
+        todayLoadState={{ loading: false, fetching: false, hasData: true, hasError: false }}
+        onRetryToday={() => undefined}
         openChores={3}
         progress={0}
         today={DateTime.fromISO("2026-03-10", { zone: "UTC" })}
@@ -44,4 +46,29 @@ describe("HouseholdSidebar", () => {
     expect(markup.match(/Trip/g)).toHaveLength(1);
     expect(markup).toContain("Single");
   });
+  it.each([false, true])(
+    "distinguishes failed loads from empty data, with cached data=%s",
+    (hasData) => {
+      const state = { loading: false, fetching: false, hasData, hasError: true };
+      const markup = renderToStaticMarkup(
+        <HouseholdSidebar
+          doneChores={1}
+          totalChores={2}
+          openChores={1}
+          progress={50}
+          today={DateTime.fromISO("2026-03-10", { zone: "UTC" })}
+          todayChores={hasData ? [createChore({ title: "Cached chore" })] : []}
+          weekLoadState={state}
+          todayLoadState={state}
+          onRetryToday={() => undefined}
+        />,
+      );
+      expect(markup).toContain("Retry today");
+      expect(markup).not.toContain("No chores scheduled");
+      expect(markup.includes("1/2 done")).toBe(hasData);
+      expect(markup.includes("Cached chore")).toBe(hasData);
+      expect(markup.includes("Last-known progress")).toBe(hasData);
+      expect(markup.includes("Week progress unavailable")).toBe(!hasData);
+    },
+  );
 });
