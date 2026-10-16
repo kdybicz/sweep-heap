@@ -1,6 +1,12 @@
 import { writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { DateTime } from "luxon";
+import {
+  MAX_CHORE_DURATION_DAYS,
+  MAX_CHORE_EXCEPTION_MIGRATIONS,
+  MAX_CHORE_QUERY_DAYS,
+  MAX_CHORE_QUERY_ROWS,
+} from "../src/lib/chore-date-validation.ts";
 import { generateOccurrenceDayEntries, isOccurrenceStartInSeries } from "../src/lib/occurrences.ts";
 import { listActiveChoreSeriesQuery } from "../src/lib/repositories/chore-series-query.ts";
 import { baseURL } from "./config.mjs";
@@ -411,7 +417,7 @@ test("#22 partial edits preserve completion behavior across every scope", async 
       expect(edited.status, `${scope} ${field}`).toBe(200);
       const targetId = edited.body.createdChoreId ?? id;
       expect((await live.choreRow(targetId)).type).toBe("stay_open");
-      const instance = (await live.list(start, day(selected, 28))).find(
+      const instance = (await live.list(start, day(selected, 21))).find(
         (row) => row.id === targetId,
       );
       expect(instance).toBeDefined();
@@ -2601,7 +2607,16 @@ test("#30 records range and occurrence-validation benchmarks across series ages"
   await testInfo.attach("issue30-recurrence-benchmark", { path, contentType: "application/json" });
 });
 
-test("#31 invalid calendar dates return validation errors", async ({ live }) => {
+const expectChoreDateError = (response, field) => {
+  expect(response.status).toBe(400);
+  expect(response.body).toMatchObject({
+    ok: false,
+    code: "VALIDATION_FAILED",
+    fieldErrors: { [field]: expect.any(String) },
+  });
+};
+
+test("#31 invalid calendar dates return validation errors", async ({ live, household }) => {
   const response = await live.mutate({
     action: "create",
     title: "Invalid date fixture",
@@ -2609,8 +2624,542 @@ test("#31 invalid calendar dates return validation errors", async ({ live }) => 
     endDate: "2026-03-02",
     repeatRule: "none",
   });
-  knownFailure(31);
-  expect(response.status).toBe(400);
+  expectChoreDateError(response, "startDate");
+  expect(
+    (await live.db.query("select count(*) from chores where household_id=$1", [household])).rows[0]
+      .count,
+  ).toBe("0");
+});
+
+test("#31 malformed create fields never reach a chore insert", async ({ live, household }) => {
+  for (const [field, value, errorField] of [
+    ["endDate", "2026-04-31", "endDate"],
+    ["seriesEndDate", "2026-02-29", "repeatEnd"],
+    ["startDate", "0000-01-01", "startDate"],
+    ["endDate", "+010000-01-01", "endDate"],
+    ["startDate", "2026-01", "startDate"],
+    ["startDate", 42, "startDate"],
+    ["seriesEndDate", "", "repeatEnd"],
+    ["startDate", "2026-02-30T12:00:00Z", "startDate"],
+    ["startDate", "2026-01-01T12:00:00+99:00", "startDate"],
+    ["endDate", "2026-01-02T12:00:00+01:99", "endDate"],
+  ]) {
+    expectChoreDateError(
+      await live.mutate({
+        action: "create",
+        title: "Invalid create fixture",
+        startDate: "2026-01-01",
+        endDate: "2026-01-02",
+        repeatRule: "day",
+        [field]: value,
+      }),
+      errorField,
+    );
+  }
+  expect(
+    (await live.db.query("select count(*) from chores where household_id=$1", [household])).rows[0]
+      .count,
+  ).toBe("0");
+});
+
+test("#31 invalid targets and scoped edit dates preserve schedules and completion", async ({
+  live,
+  household,
+}) => {
+  const id = await live.chore({
+    title: "Date validation source",
+    startDate: "2026-01-01",
+    endDate: "2026-01-02",
+    repeatRule: "day",
+    seriesEndDate: "2026-12-31",
+  });
+  expect(
+    (
+      await live.mutate({
+        action: "set",
+        choreId: id,
+        occurrenceStartDate: "2026-01-02",
+        status: "closed",
+      })
+    ).status,
+  ).toBe(200);
+  const original = (await live.db.query("select * from chores where id=$1", [id])).rows[0];
+  const exceptions = (
+    await live.db.query("select * from chore_occurrence_exceptions where chore_id=$1 order by id", [
+      id,
+    ])
+  ).rows;
+  for (const scope of ["single", "following", "all"]) {
+    for (const [changes, field] of [
+      [{ startDate: "2026-02-30" }, "startDate"],
+      [{ endDate: "2026-04-31" }, "endDate"],
+      [{ seriesEndDate: "bad" }, "repeatEnd"],
+      [{ startDate: null }, "startDate"],
+      [{ endDate: "2028-01-01" }, "endDate"],
+    ]) {
+      expectChoreDateError(
+        await live.mutate({
+          action: "edit",
+          scope,
+          dateBasis: "occurrence",
+          choreId: id,
+          occurrenceStartDate: "2026-01-02",
+          title: "Must not persist",
+          ...changes,
+        }),
+        field,
+      );
+      expect((await live.db.query("select * from chores where id=$1", [id])).rows[0]).toEqual(
+        original,
+      );
+      expect(
+        (
+          await live.db.query(
+            "select * from chore_occurrence_exceptions where chore_id=$1 order by id",
+            [id],
+          )
+        ).rows,
+      ).toEqual(exceptions);
+    }
+  }
+  for (const action of ["set", "cancel", "edit"])
+    expectChoreDateError(
+      await live.mutate({
+        action,
+        scope: "all",
+        status: "closed",
+        choreId: id,
+        occurrenceStartDate: "2026-02-30",
+      }),
+      "occurrenceStartDate",
+    );
+  expect(
+    (await live.db.query("select count(*) from chores where household_id=$1", [household])).rows[0]
+      .count,
+  ).toBe("1");
+});
+
+test("#31 query ordering, pairing and widths return 400 while exact limits remain supported", async ({
+  live,
+  household,
+}) => {
+  await live.db.query("update households set time_zone='America/New_York' where id=$1", [
+    household,
+  ]);
+  const id = await live.chore({
+    title: "Leap-year duration fixture",
+    startDate: "2024-01-01",
+    endDate: "2025-01-01",
+  });
+  for (const [start, end, field] of [
+    ["2026-02-30", "2026-03-01", "start"],
+    ["2026-01-02", "2026-01-01", "end"],
+    ["2026-01-01", "2026-02-01", "end"],
+    ["0001-01-01", "9999-12-31", "end"],
+    ["", "", "start"],
+    ["2026-01-01", null, "end"],
+    [null, "2026-01-01", "start"],
+  ]) {
+    const params = new URLSearchParams();
+    if (start !== null) params.set("start", start);
+    if (end !== null) params.set("end", end);
+    const response = await live.api(live.owner, `/api/chores?${params}`);
+    expectChoreDateError(response, field);
+    expect(response.body.chores).toBeUndefined();
+  }
+  const valid = await live.api(live.owner, "/api/chores?start=2024-01-01&end=2024-01-31");
+  expect(valid.status).toBe(200);
+  expect(valid.body.chores.filter((row) => row.id === id)).toHaveLength(MAX_CHORE_QUERY_DAYS);
+  expect(valid.body.chores[0].duration_days).toBe(MAX_CHORE_DURATION_DAYS);
+  const timestamps = new URLSearchParams({
+    start: "2024-01-01T23:00:00Z",
+    end: "2024-02-01T00:00:00Z",
+  });
+  const normalized = await live.api(live.owner, `/api/chores?${timestamps}`);
+  expect(normalized.status).toBe(200);
+  expect(normalized.body).toMatchObject({
+    rangeStart: "2024-01-01",
+    rangeEnd: "2024-01-31",
+    timeZone: "America/New_York",
+  });
+  expectChoreDateError(
+    await live.mutate({
+      action: "create",
+      title: "Overlong leap fixture",
+      startDate: "2024-01-01",
+      endDate: "2025-01-02",
+      repeatRule: "none",
+    }),
+    "endDate",
+  );
+});
+
+test("#31 timestamp writes retain household normalization and reject resolved year overflow", async ({
+  live,
+  household,
+}) => {
+  await live.db.query("update households set time_zone='Asia/Tokyo' where id=$1", [household]);
+  const id = await live.chore({
+    title: "Timestamp fixture",
+    startDate: "2026-01-01T23:30:00Z",
+    endDate: "2026-01-02T23:30:00Z",
+  });
+  expect(await live.choreRow(id)).toMatchObject({
+    start_date: "2026-01-02",
+    end_date: "2026-01-03",
+  });
+  await live.db.query("update households set time_zone='Pacific/Kiritimati' where id=$1", [
+    household,
+  ]);
+  expectChoreDateError(
+    await live.mutate({
+      action: "create",
+      title: "Overflow fixture",
+      startDate: "9999-12-31T23:00:00Z",
+      endDate: "9999-12-31T23:30:00Z",
+      repeatRule: "none",
+    }),
+    "startDate",
+  );
+  expect(
+    (await live.db.query("select count(*) from chores where household_id=$1", [household])).rows[0]
+      .count,
+  ).toBe("1");
+});
+
+test("#31 interpreted defaults and translated series dates stay in supported years", async ({
+  live,
+  household,
+}) => {
+  const lower = await live.chore({
+    title: "Lower-bound source",
+    startDate: "0001-01-01",
+    endDate: "0001-01-02",
+    repeatRule: "day",
+  });
+  const upper = await live.chore({
+    title: "Upper-bound source",
+    startDate: "9999-12-30",
+    endDate: "9999-12-31",
+  });
+  const before = (
+    await live.db.query("select * from chores where household_id=$1 order by id", [household])
+  ).rows;
+  expectChoreDateError(
+    await live.mutate({
+      action: "edit",
+      scope: "all",
+      dateBasis: "occurrence",
+      choreId: lower,
+      occurrenceStartDate: "0001-01-02",
+      startDate: "0001-01-01",
+      endDate: "0001-01-02",
+    }),
+    "startDate",
+  );
+  expectChoreDateError(
+    await live.mutate({
+      action: "edit",
+      scope: "all",
+      choreId: upper,
+      occurrenceStartDate: "9999-12-30",
+      startDate: "9999-12-31",
+    }),
+    "endDate",
+  );
+  expect(
+    (await live.db.query("select * from chores where household_id=$1 order by id", [household]))
+      .rows,
+  ).toEqual(before);
+});
+
+test("#31 aggregate generation and SQL selection limits reject overflow instead of truncating", async ({
+  live,
+  household,
+}) => {
+  const id = await live.chore({
+    title: "Dense overlap fixture",
+    startDate: "2024-01-01",
+    endDate: "2025-01-01",
+    repeatRule: "day",
+  });
+  const dense = await live.api(live.owner, "/api/chores?start=2026-01-01&end=2026-01-31");
+  expectChoreDateError(dense, "range");
+  expect(dense.body.fieldErrors.range).toContain("generated day entries");
+  expect((await live.list("2026-01-01")).filter((row) => row.id === id)).toHaveLength(
+    MAX_CHORE_DURATION_DAYS,
+  );
+  expect(
+    (
+      await live.mutate({
+        action: "cancel",
+        scope: "all",
+        choreId: id,
+        occurrenceStartDate: "2024-01-01",
+      })
+    ).status,
+  ).toBe(200);
+  await live.db.query(
+    "insert into chores(household_id,title,type,start_date,end_date,repeat_rule,status) select $1,'Selection-limit fixture','close_on_done','2026-01-01'::date,'2026-01-02'::date,'none','active' from generate_series(1,$2)",
+    [household, MAX_CHORE_QUERY_ROWS + 1],
+  );
+  const selected = await live.api(live.owner, "/api/chores?start=2026-01-01&end=2026-01-01");
+  expectChoreDateError(selected, "range");
+  expect(selected.body.fieldErrors.range).toContain("selection limit");
+  expect(selected.body.chores).toBeUndefined();
+});
+
+test("#31 remaining calendar seek work is bounded for reads and target validation", async ({
+  live,
+}) => {
+  const id = await live.chore({
+    title: "Ancient calendar fixture",
+    startDate: "0001-01-01",
+    endDate: "0001-01-02",
+    repeatRule: "month",
+  });
+  const read = await live.api(live.owner, "/api/chores?start=9999-01-02&end=9999-01-02");
+  expectChoreDateError(read, "range");
+  expect(read.body.fieldErrors.range).toContain("50000");
+  const write = await live.mutate({
+    action: "set",
+    choreId: id,
+    occurrenceStartDate: "9999-01-01",
+    status: "closed",
+  });
+  expectChoreDateError(write, "occurrenceStartDate");
+  expect(
+    (
+      await live.db.query("select count(*) from chore_occurrence_exceptions where chore_id=$1", [
+        id,
+      ])
+    ).rows[0].count,
+  ).toBe("0");
+});
+
+for (const scope of ["all", "following"]) {
+  test(`#31 ${scope} migration work limits roll back source changes and replacements`, async ({
+    live,
+    household,
+  }) => {
+    const date = monday();
+    const id = await live.chore({
+      title: "Work-budget source",
+      startDate: "1800-01-01",
+      endDate: "1800-01-02",
+      repeatRule: "day",
+    });
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: date,
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const before = (await live.db.query("select * from chores where id=$1", [id])).rows[0];
+    const exceptions = (
+      await live.db.query(
+        "select * from chore_occurrence_exceptions where chore_id=$1 order by id",
+        [id],
+      )
+    ).rows;
+    const result = await live.mutate({
+      action: "edit",
+      scope,
+      choreId: id,
+      occurrenceStartDate: date,
+      title: "Must roll back work limit",
+    });
+    expectChoreDateError(result, "scope");
+    expect(result.body.fieldErrors.scope).toContain("50000");
+    expect((await live.db.query("select * from chores where id=$1", [id])).rows[0]).toEqual(before);
+    expect(
+      (
+        await live.db.query(
+          "select * from chore_occurrence_exceptions where chore_id=$1 order by id",
+          [id],
+        )
+      ).rows,
+    ).toEqual(exceptions);
+    expect(
+      (await live.db.query("select count(*) from chores where household_id=$1", [household]))
+        .rows[0].count,
+    ).toBe("1");
+  });
+
+  test(`#31 ${scope} exception-row limits roll back before partial migration`, async ({
+    live,
+    household,
+  }) => {
+    const date = monday();
+    const id = await live.chore({
+      title: "Exception-budget source",
+      startDate: "2000-01-01",
+      endDate: "2000-01-02",
+      repeatRule: "day",
+    });
+    await live.db.query(
+      "insert into chore_occurrence_exceptions(chore_id,occurrence_start_date,kind,status,closed_reason) select $1,$2::date+n,'state','closed','done' from generate_series(0,$3) n",
+      [id, date, MAX_CHORE_EXCEPTION_MIGRATIONS],
+    );
+    const before = (await live.db.query("select * from chores where id=$1", [id])).rows[0];
+    const summary = async () =>
+      (
+        await live.db.query(
+          "select count(*),min(created_at) first_created,max(updated_at) last_updated from chore_occurrence_exceptions where chore_id=$1",
+          [id],
+        )
+      ).rows[0];
+    const originalExceptions = await summary();
+    const result = await live.mutate({
+      action: "edit",
+      scope,
+      choreId: id,
+      occurrenceStartDate: date,
+      title: "Must roll back exception limit",
+    });
+    expectChoreDateError(result, "scope");
+    expect(result.body.fieldErrors.scope).toContain("10000");
+    expect((await live.db.query("select * from chores where id=$1", [id])).rows[0]).toEqual(before);
+    expect(await summary()).toEqual(originalExceptions);
+    expect(
+      (await live.db.query("select count(*) from chores where household_id=$1", [household]))
+        .rows[0].count,
+    ).toBe("1");
+  });
+
+  test(`#31 ${scope} cadence edits reject mapped exception dates beyond supported years atomically`, async ({
+    live,
+    household,
+  }) => {
+    const id = await live.chore({
+      title: "Mapped-year source",
+      startDate: "2026-01-01",
+      endDate: "2026-01-02",
+      repeatRule: "day",
+    });
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "2026-01-03",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const before = (await live.db.query("select * from chores where id=$1", [id])).rows[0];
+    const exceptions = (
+      await live.db.query(
+        "select * from chore_occurrence_exceptions where chore_id=$1 order by id",
+        [id],
+      )
+    ).rows;
+    const result = await live.mutate({
+      action: "edit",
+      scope,
+      choreId: id,
+      occurrenceStartDate: "2026-01-02",
+      startDate: "9999-01-01",
+      endDate: "9999-01-02",
+      repeatRule: "year",
+      title: "Must roll back mapped year",
+    });
+    expectChoreDateError(result, "repeatRule");
+    expect((await live.db.query("select * from chores where id=$1", [id])).rows[0]).toEqual(before);
+    expect(
+      (
+        await live.db.query(
+          "select * from chore_occurrence_exceptions where chore_id=$1 order by id",
+          [id],
+        )
+      ).rows,
+    ).toEqual(exceptions);
+    expect(
+      (await live.db.query("select count(*) from chores where household_id=$1", [household]))
+        .rows[0].count,
+    ).toBe("1");
+  });
+}
+
+test("#31 edits preserve unsupported legacy exception dates for staged remediation", async ({
+  live,
+}) => {
+  const id = await live.chore({
+    title: "Legacy exception horizon source",
+    startDate: "2026-01-01",
+    endDate: "2026-01-02",
+    repeatRule: "day",
+  });
+  await live.db.query(
+    "insert into chore_occurrence_exceptions(chore_id,occurrence_start_date,kind,status,closed_reason) values($1,'10000-01-01'::date,'state','closed','done')",
+    [id],
+  );
+  const before = (await live.db.query("select * from chores where id=$1", [id])).rows[0];
+  const exceptions = (
+    await live.db.query(
+      "select id,to_char(occurrence_start_date,'YYYY-MM-DD') as occurrence_date,kind,status,closed_reason from chore_occurrence_exceptions where chore_id=$1",
+      [id],
+    )
+  ).rows;
+  expectChoreDateError(
+    await live.mutate({
+      action: "edit",
+      scope: "all",
+      choreId: id,
+      occurrenceStartDate: "2026-01-01",
+      title: "Must not discard legacy state",
+    }),
+    "scope",
+  );
+  expect((await live.db.query("select * from chores where id=$1", [id])).rows[0]).toEqual(before);
+  expect(
+    (
+      await live.db.query(
+        "select id,to_char(occurrence_start_date,'YYYY-MM-DD') as occurrence_date,kind,status,closed_reason from chore_occurrence_exceptions where chore_id=$1",
+        [id],
+      )
+    ).rows,
+  ).toEqual(exceptions);
+});
+
+test("#31 legacy long one-offs remain readable and can be completed or canceled", async ({
+  live,
+  household,
+}) => {
+  const id = (
+    await live.db.query(
+      "insert into chores(household_id,title,type,start_date,end_date,repeat_rule,status) values($1,'Legacy long-span fixture','close_on_done','1950-01-01','2050-01-01','none','active') returning id",
+      [household],
+    )
+  ).rows[0].id;
+  expect((await live.list("2026-10-12", "2026-10-18")).filter((row) => row.id === id)).toHaveLength(
+    7,
+  );
+  expect(
+    (
+      await live.mutate({
+        action: "set",
+        choreId: id,
+        occurrenceStartDate: "1950-01-01",
+        status: "closed",
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await live.mutate({
+        action: "cancel",
+        scope: "all",
+        choreId: id,
+        occurrenceStartDate: "1950-01-01",
+      })
+    ).status,
+  ).toBe(200);
+  expect(await live.list("2026-10-12", "2026-10-18")).toEqual([]);
 });
 
 test("#34 monthly recurrence restores the anchor after a short month", async ({ live }) => {

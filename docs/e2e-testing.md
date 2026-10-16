@@ -76,6 +76,13 @@ the production generator and validation helper at 1/10/26/75-year ages. It attac
 outputs across DST/boundary matrices and assert bounded date-operation counts; timings are evidence,
 not CI thresholds. `e2e/legacy-occurrences.ts` is a frozen test/benchmark oracle, not app code.
 The algorithm, DST correction and captured results are documented in [`reviews/2026-10-16-recurrence-range-jumps.md`](reviews/2026-10-16-recurrence-range-jumps.md).
+The #31 date cases pass normally and cover real calendar/year validation, timestamp normalization,
+paired/ordered/31-day query bounds, leap-year 366-day durations, partial/translated edit defaults,
+bounded aggregate generation and SQL selections, and bounded calendar validation. Migration work,
+row-count and mapped-year failures verify complete rollback in all/following scopes. Legacy long
+one-offs stay readable/completable/cancelable, while unsupported legacy exception dates are preserved
+for the separate #10 remediation. Default unit tests also verify invalid fields are rejected before
+chore SQL and that validation responses retain reconciliation cookies.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

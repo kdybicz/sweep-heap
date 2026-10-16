@@ -2,6 +2,20 @@ import { DateTime } from "luxon";
 import { API_ERROR_CODE, type ApiErrorCode } from "@/lib/api-error";
 import { type ChorePatchPayload, validateChorePatchIntent } from "@/lib/api-payload-validation";
 import { getStoredChoreDurationDays } from "@/lib/chore-date-range";
+import {
+  ChoreDateValidationError,
+  getChoreDateSpanErrors,
+  getChorePatchDateErrors,
+  getChoreQueryInputErrors,
+  getChoreQueryRangeErrors,
+  isValidChoreDateKey,
+  MAX_CHORE_EXCEPTION_MIGRATIONS,
+  MAX_CHORE_GENERATED_ENTRIES,
+  MAX_CHORE_GENERATION_STEPS,
+  MAX_CHORE_QUERY_ROWS,
+  MAX_CHORE_WEEK_OFFSET,
+  normalizeChoreDate as normalizeDate,
+} from "@/lib/chore-date-validation";
 import { translateOccurrenceSeriesDates } from "@/lib/chore-edit-dates";
 import type { ChoreMutationData, ChoreMutationFailure } from "@/lib/chore-mutation-response";
 import { normalizeChoreNotes as normalizeNotes } from "@/lib/chore-notes";
@@ -13,6 +27,7 @@ import {
   generateOccurrenceDayEntries,
   isOccurrenceStartInSeries,
   mapOccurrenceStarts,
+  OccurrenceLimitExceededError,
 } from "@/lib/occurrences";
 import {
   deleteChoreOccurrenceException,
@@ -53,34 +68,10 @@ const choreMutationFailure = ({
   ...(fieldErrors ? { fieldErrors } : {}),
 });
 
-const toDateString = (value: string | null, timeZone: string) => {
-  if (!value) {
-    return null;
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value;
-  }
-  const parsed = DateTime.fromISO(value, { zone: timeZone });
-  return parsed.isValid ? parsed.toISODate() : null;
-};
-
-const normalizeDate = (value: unknown, timeZone: string) => {
-  if (!value) {
-    return null;
-  }
-  if (typeof value === "string") {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      return value;
-    }
-    const parsed = DateTime.fromISO(value, { zone: timeZone });
-    return parsed.isValid ? parsed.toISODate() : null;
-  }
-  if (value instanceof Date) {
-    const parsed = DateTime.fromJSDate(value, { zone: timeZone });
-    return parsed.isValid ? parsed.toISODate() : null;
-  }
-  return null;
-};
+const generationBudget = (remainingEntries = MAX_CHORE_GENERATED_ENTRIES) => ({
+  remainingEntries,
+  remainingSteps: MAX_CHORE_GENERATION_STEPS,
+});
 
 const addDays = (value: string, days: number) =>
   DateTime.fromISO(value, { zone: "UTC" }).plus({ days }).toISODate();
@@ -96,20 +87,49 @@ export const listChores = async ({
   start: string | null;
   end: string | null;
 }) => {
+  const inputErrors = getChoreQueryInputErrors(start, end);
+  if (
+    start === null &&
+    end === null &&
+    (!Number.isSafeInteger(weekOffset) || Math.abs(weekOffset) > MAX_CHORE_WEEK_OFFSET)
+  )
+    inputErrors.weekOffset = `Week offset must be an integer between -${MAX_CHORE_WEEK_OFFSET} and ${MAX_CHORE_WEEK_OFFSET}`;
+  if (Object.keys(inputErrors).length) throw new ChoreDateValidationError(inputErrors);
   const timeZone = await getHouseholdTimeZoneById(householdId);
-  const rangeStartInput = toDateString(start, timeZone);
-  const rangeEndInput = toDateString(end, timeZone);
-
-  const today = DateTime.now().setZone(timeZone).startOf("day");
-  const defaultWeekStart = today.minus({ days: today.weekday - 1 }).plus({ weeks: weekOffset });
-  const defaultWeekEnd = defaultWeekStart.plus({ days: 6 });
-  const rangeStart = rangeStartInput ?? defaultWeekStart.toISODate() ?? "";
-  const rangeEnd = rangeEndInput ?? defaultWeekEnd.toISODate() ?? "";
+  let rangeStart: string;
+  let rangeEnd: string;
+  if (start === null && end === null) {
+    const today = DateTime.now().setZone(timeZone).startOf("day");
+    if (!today.isValid) throw new Error("Invalid household timezone");
+    const defaultWeekStart = today.minus({ days: today.weekday - 1 }).plus({ weeks: weekOffset });
+    rangeStart = defaultWeekStart.toISODate() ?? "";
+    rangeEnd = defaultWeekStart.plus({ days: 6 }).toISODate() ?? "";
+  } else {
+    rangeStart = normalizeDate(start, timeZone) ?? "";
+    rangeEnd = normalizeDate(end, timeZone) ?? "";
+  }
+  const rangeErrors = getChoreQueryRangeErrors(rangeStart, rangeEnd);
+  if (Object.keys(rangeErrors).length) throw new ChoreDateValidationError(rangeErrors);
 
   const [seriesRows, exceptionRows] = await Promise.all([
-    listActiveChoreSeriesByHousehold({ householdId, rangeStart, rangeEnd }),
-    listChoreExceptionsByHousehold({ householdId, rangeStart, rangeEnd }),
+    listActiveChoreSeriesByHousehold({
+      householdId,
+      rangeStart,
+      rangeEnd,
+      maxResults: MAX_CHORE_QUERY_ROWS + 1,
+    }),
+    listChoreExceptionsByHousehold({
+      householdId,
+      rangeStart,
+      rangeEnd,
+      maxResults: MAX_CHORE_QUERY_ROWS + 1,
+    }),
   ]);
+  if (seriesRows.length > MAX_CHORE_QUERY_ROWS || exceptionRows.length > MAX_CHORE_QUERY_ROWS)
+    throw new ChoreDateValidationError({
+      range: `Date range exceeds the ${MAX_CHORE_QUERY_ROWS}-row selection limit`,
+    });
+  const budget = generationBudget();
 
   const exceptions = new Map<
     string,
@@ -134,15 +154,27 @@ export const listChores = async ({
     if (!rowStartDate || !rowEndDate) {
       return [];
     }
-    const occurrenceDayEntries = generateOccurrenceDayEntries({
-      startDate: rowStartDate,
-      endDate: rowEndDate,
-      rangeStart,
-      rangeEnd,
-      repeatRule: normalizeRepeatRule(row.repeat_rule) as RepeatRule,
-      seriesEndDate: normalizeDate(row.series_end_date, timeZone),
-      timeZone,
-    });
+    let occurrenceDayEntries: ReturnType<typeof generateOccurrenceDayEntries>;
+    try {
+      occurrenceDayEntries = generateOccurrenceDayEntries({
+        startDate: rowStartDate,
+        endDate: rowEndDate,
+        rangeStart,
+        rangeEnd,
+        repeatRule: normalizeRepeatRule(row.repeat_rule) as RepeatRule,
+        seriesEndDate: normalizeDate(row.series_end_date, timeZone),
+        timeZone,
+        budget,
+      });
+    } catch (error) {
+      if (!(error instanceof OccurrenceLimitExceededError)) throw error;
+      throw new ChoreDateValidationError({
+        range:
+          error.kind === "entries"
+            ? `Date range exceeds ${MAX_CHORE_GENERATED_ENTRIES} generated day entries`
+            : `Date range exceeds ${MAX_CHORE_GENERATION_STEPS} recurrence steps`,
+      });
+    }
 
     return occurrenceDayEntries
       .filter((occurrenceDayEntry) => {
@@ -217,6 +249,23 @@ const mutateChoreInTransaction = async ({
       });
     }
   }
+  const inputDateErrors = getChorePatchDateErrors(input);
+  if (Object.keys(inputDateErrors).length)
+    return choreMutationFailure({
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Validation failed",
+      fieldErrors: inputDateErrors,
+    });
+  const timeZone =
+    action === "create" || action === "edit" ? await getHouseholdTimeZoneById(householdId) : "UTC";
+  const localDateErrors = getChorePatchDateErrors(input, timeZone);
+  if (Object.keys(localDateErrors).length)
+    return choreMutationFailure({
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Validation failed",
+      fieldErrors: localDateErrors,
+    });
+  const budget = generationBudget(MAX_CHORE_EXCEPTION_MIGRATIONS);
   const rawStatus = input.status ?? null;
   const rawScope = input.scope ?? null;
 
@@ -230,9 +279,18 @@ const mutateChoreInTransaction = async ({
       : typeof input.type === "string"
         ? input.type.trim().toLowerCase()
         : "";
-  let startDate = normalizeDate(input.startDate, "UTC");
-  let exclusiveEndDate = normalizeDate(input.endDate, "UTC");
-  let seriesEndDate = normalizeDate(input.seriesEndDate, "UTC");
+  const startDate = normalizeDate(input.startDate, timeZone);
+  const exclusiveEndDate = normalizeDate(input.endDate, timeZone);
+  const seriesEndDate = normalizeDate(input.seriesEndDate, timeZone);
+  if (action === "create" || action === "edit") {
+    const spanErrors = getChoreDateSpanErrors(startDate, exclusiveEndDate);
+    if (Object.keys(spanErrors).length)
+      return choreMutationFailure({
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: "Validation failed",
+        fieldErrors: spanErrors,
+      });
+  }
   const repeatRule =
     typeof input.repeatRule === "string" ? normalizeRepeatRule(input.repeatRule) : "none";
   const notes = normalizeNotes(input.notes);
@@ -240,21 +298,13 @@ const mutateChoreInTransaction = async ({
 
   if (action === "create") {
     const createType = inputType ?? "close_on_done";
-    const timeZone = await getHouseholdTimeZoneById(householdId);
-    const startDateLocal = normalizeDate(input.startDate, timeZone);
-    const exclusiveEndDateLocal = normalizeDate(input.endDate, timeZone);
-    const seriesEndDateLocal = normalizeDate(input.seriesEndDate, timeZone);
-    startDate = startDateLocal;
-    exclusiveEndDate = exclusiveEndDateLocal;
-    seriesEndDate = seriesEndDateLocal;
-
     const fieldErrors = validateChoreCreate({
       title,
       type: createType,
-      startDate: startDateLocal,
-      exclusiveEndDate: exclusiveEndDateLocal,
+      startDate,
+      exclusiveEndDate,
       repeatRule,
-      seriesEndDate: seriesEndDateLocal,
+      seriesEndDate,
     });
 
     if (Object.keys(fieldErrors).length) {
@@ -314,6 +364,7 @@ const mutateChoreInTransaction = async ({
     seriesEndDate: chore.series_end_date,
     startDate: chore.start_date,
     endDate: chore.end_date,
+    budget,
   });
 
   if (!occurrenceInSeries) {
@@ -360,7 +411,6 @@ const mutateChoreInTransaction = async ({
     const editScope = scope as ChoreMutationScope;
     const treatFollowingAsAll =
       editScope === "following" && occurrenceStartDate === chore.start_date;
-    const timeZone = await getHouseholdTimeZoneById(householdId);
     const originalDurationDays = getStoredChoreDurationDays({
       startDate: chore.start_date,
       exclusiveEndDate: chore.end_date,
@@ -441,7 +491,17 @@ const mutateChoreInTransaction = async ({
 
     const exceptionFromDate = useWholeSeriesDefaults ? "0001-01-01" : occurrenceStartDate;
     const migrateExceptions = async (targetChoreId: number) => {
-      const rows = await listChoreOccurrenceExceptions({ choreId, fromDate: exceptionFromDate });
+      const rows = await listChoreOccurrenceExceptions({
+        choreId,
+        fromDate: exceptionFromDate,
+        maxResults: MAX_CHORE_EXCEPTION_MIGRATIONS + 1,
+      });
+      if (rows.length > MAX_CHORE_EXCEPTION_MIGRATIONS)
+        throw new OccurrenceLimitExceededError("entries");
+      if (rows.some((row) => !isValidChoreDateKey(row.occurrence_start_date)))
+        throw new ChoreDateValidationError({
+          scope: "Edit includes occurrence exceptions outside supported calendar years",
+        });
       const mapping = mapOccurrenceStarts({
         occurrenceStarts: rows.map((row) => row.occurrence_start_date),
         sourceStartDate: chore.start_date,
@@ -451,7 +511,12 @@ const mutateChoreInTransaction = async ({
         targetStartDate: nextStartDate,
         targetRepeatRule: nextRepeatRule as RepeatRule,
         targetSeriesEndDate: nextSeriesEndDate,
+        budget,
       });
+      if ([...mapping.values()].some((date) => !isValidChoreDateKey(date)))
+        throw new ChoreDateValidationError({
+          repeatRule: "Edited recurrence moves exceptions outside supported calendar years",
+        });
       // Clear every old key first: a shifted target may occupy another source key.
       await deleteChoreOccurrenceExceptions({ choreId, fromDate: exceptionFromDate });
       for (const row of rows) {
@@ -624,10 +689,31 @@ const mutateChoreInTransaction = async ({
 };
 
 /** All writers share one household transaction so edits cannot interleave with completion/cancellation. */
-export const mutateChore = (
+export const mutateChore = async (
   input: ChoreMutationInput,
-): Promise<ChoreMutationSuccess | ChoreMutationFailure> =>
-  withHouseholdMutationLock({
-    householdId: input.householdId,
-    task: () => mutateChoreInTransaction(input),
-  });
+): Promise<ChoreMutationSuccess | ChoreMutationFailure> => {
+  try {
+    return await withHouseholdMutationLock({
+      householdId: input.householdId,
+      task: () => mutateChoreInTransaction(input),
+    });
+  } catch (error) {
+    if (error instanceof ChoreDateValidationError)
+      return choreMutationFailure({
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: error.message,
+        fieldErrors: error.fieldErrors,
+      });
+    if (!(error instanceof OccurrenceLimitExceededError)) throw error;
+    // Convert only after the transaction rolls back: migration may already have updated its source.
+    const message =
+      error.kind === "entries"
+        ? `Edit may affect at most ${MAX_CHORE_EXCEPTION_MIGRATIONS} occurrence exceptions`
+        : `Chore operation exceeds ${MAX_CHORE_GENERATION_STEPS} recurrence steps`;
+    return choreMutationFailure({
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: message,
+      fieldErrors: { [input.payload.action === "edit" ? "scope" : "occurrenceStartDate"]: message },
+    });
+  }
+};

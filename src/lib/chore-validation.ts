@@ -1,3 +1,5 @@
+import { getChoreDateSpanErrors, isValidChoreDateKey } from "@/lib/chore-date-validation";
+
 export type StoredChoreValidationInput = {
   title: string;
   type: string;
@@ -42,16 +44,20 @@ export const validateChoreCreate = ({
   if (!exclusiveEndDate) {
     fieldErrors.endDate = "End date is required";
   }
-  if (startDate && exclusiveEndDate && exclusiveEndDate <= startDate) {
-    fieldErrors.endDate = "End date must be after start date";
-  }
+  Object.assign(fieldErrors, getChoreDateSpanErrors(startDate || null, exclusiveEndDate || null));
   if (!allowedRepeatRules.has(repeatRule)) {
     fieldErrors.repeatRule = "Invalid repeat rule";
   }
-  if (repeatRule === "none" && seriesEndDate) {
+  if (seriesEndDate !== null && !isValidChoreDateKey(seriesEndDate))
+    fieldErrors.repeatEnd = "Invalid repeat end date";
+  if (repeatRule === "none" && seriesEndDate && isValidChoreDateKey(seriesEndDate)) {
     fieldErrors.repeatEnd = "Repeat end is only allowed when repeating";
   }
-  if (seriesEndDate && startDate && seriesEndDate < startDate) {
+  if (
+    isValidChoreDateKey(seriesEndDate) &&
+    isValidChoreDateKey(startDate) &&
+    seriesEndDate < startDate
+  ) {
     fieldErrors.repeatEnd = "Repeat end must be on or after start date";
   }
 

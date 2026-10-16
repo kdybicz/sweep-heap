@@ -16,7 +16,7 @@ Starting at the duration-adjusted lower bound retains occurrences that start bef
 
 Within each overlapping occurrence, generation calculates the first and last visible day offsets. A narrow query does not walk every hidden day of a long span. Work depends on visible occurrences/day entries and their necessary overlap lookbehind, rather than the number of historical recurrence intervals.
 
-`isOccurrenceStartInSeries()` is shared by the service and benchmark. It uses the same generator for a single-date range and checks occurrence-start identity, so a day inside another occurrence's span does not become a valid start.
+`isOccurrenceStartInSeries()` is shared by the service and benchmark. At this report's capture, it used the same generator for a single-date range and checked occurrence-start identity. The subsequent [#31](https://github.com/kdybicz/sweep-heap/issues/31) validation work replaced span expansion with direct start-membership checks and bounded calendar stepping. Reruns use the current helper; the timings below preserve the #30 capture.
 
 Month/year steps retain their iterative calendar clamping. Original-anchor corrections remain tracked in [#34](https://github.com/kdybicz/sweep-heap/issues/34). This change does not optimize the separate ordinal-migration walk in `mapOccurrenceStarts()`.
 

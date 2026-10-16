@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ERROR_CODE } from "@/lib/api-error";
+import { ChoreDateValidationError } from "@/lib/chore-date-validation";
 import { HouseholdMutationBusyError } from "@/lib/household-mutation-error";
 import { HouseholdNotFoundError } from "@/lib/repositories";
 
@@ -157,6 +158,34 @@ describe("GET /api/chores", () => {
       error: "Household not found",
     });
   });
+  it("returns stable 400 field errors and healing cookies for rejected ranges", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11, role: "owner" },
+    });
+    reconcileActiveHouseholdSessionMock.mockResolvedValue(
+      new Headers({ "set-cookie": "session=healed" }),
+    );
+    listChoresMock.mockRejectedValue(
+      new ChoreDateValidationError({ end: "Date range must contain at most 31 days" }),
+    );
+    const response = await GET(
+      new Request("http://localhost/api/chores?start=2026-01-01&end=2026-03-01"),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      ok: false,
+      code: "VALIDATION_FAILED",
+      error: "Date range must contain at most 31 days",
+      fieldErrors: { end: "Date range must contain at most 31 days" },
+    });
+    expect(response.headers.get("set-cookie")).toBe("session=healed");
+  });
 });
 
 describe("PATCH /api/chores", () => {
@@ -168,6 +197,41 @@ describe("PATCH /api/chores", () => {
     resolveActiveHouseholdMock.mockReset();
 
     reconcileActiveHouseholdSessionMock.mockResolvedValue(new Headers());
+  });
+
+  it.each([
+    [{ action: "create", startDate: "2026-02-30", endDate: "2026-03-02" }, "startDate"],
+    [{ action: "edit", scope: "following", endDate: "2026-04-31" }, "endDate"],
+    [{ action: "edit", scope: "single", seriesEndDate: "bad" }, "repeatEnd"],
+    [{ action: "set", status: "closed", occurrenceStartDate: "0000-01-01" }, "occurrenceStartDate"],
+  ])("rejects malformed patch dates before service work", async (payload, field) => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "21" },
+      session: { activeOrganizationId: "11" },
+    });
+    resolveActiveHouseholdMock.mockResolvedValue({
+      status: "resolved",
+      source: "session",
+      household: { id: 11, role: "owner" },
+    });
+    reconcileActiveHouseholdSessionMock.mockResolvedValue(
+      new Headers({ "set-cookie": "session=healed" }),
+    );
+    const response = await PATCH(
+      new Request("http://localhost/api/chores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      code: "VALIDATION_FAILED",
+      fieldErrors: { [field]: expect.any(String) },
+    });
+    expect(mutateChoreMock).not.toHaveBeenCalled();
+    expect(response.headers.get("set-cookie")).toBe("session=healed");
   });
 
   it("allows repeated stay-open log calls", async () => {

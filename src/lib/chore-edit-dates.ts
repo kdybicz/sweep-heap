@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { getChoreDateSpanErrors, isValidChoreDateKey } from "@/lib/chore-date-validation";
 
 /** Translate an occurrence's edited dates to stored series dates without re-anchoring on that instance. */
 export const translateOccurrenceSeriesDates = ({
@@ -18,9 +19,14 @@ export const translateOccurrenceSeriesDates = ({
   const occurrence = DateTime.fromISO(occurrenceStartDate, { zone: "UTC" }).startOf("day");
   const start = DateTime.fromISO(startDate ?? "", { zone: "UTC" }).startOf("day");
   const end = DateTime.fromISO(exclusiveEndDate ?? "", { zone: "UTC" }).startOf("day");
-  if (!series.isValid || !occurrence.isValid)
+  if (
+    !series.isValid ||
+    !occurrence.isValid ||
+    !isValidChoreDateKey(seriesStartDate) ||
+    !isValidChoreDateKey(occurrenceStartDate)
+  )
     throw new Error("Invalid stored chore schedule dates");
-  const fieldErrors: Record<string, string> = {};
+  const fieldErrors: Record<string, string> = getChoreDateSpanErrors(startDate, exclusiveEndDate);
   if (!start.isValid) fieldErrors.startDate = "Invalid start date";
   if (!end.isValid) fieldErrors.endDate = "Invalid end date";
   if (start.isValid && end.isValid && end <= start)
@@ -34,5 +40,7 @@ export const translateOccurrenceSeriesDates = ({
   const nextEnd = mappedEnd.toISODate();
   if (!nextStart || !nextEnd)
     return { ok: false, fieldErrors: { startDate: "Invalid translated series dates" } };
+  const mappedErrors = getChoreDateSpanErrors(nextStart, nextEnd);
+  if (Object.keys(mappedErrors).length) return { ok: false, fieldErrors: mappedErrors };
   return { ok: true, startDate: nextStart, exclusiveEndDate: nextEnd };
 };

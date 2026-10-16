@@ -36,18 +36,23 @@ type HouseholdDateRange = {
   householdId: number;
   rangeStart: string;
   rangeEnd: string;
+  maxResults?: number;
 };
 
 export const listActiveChoreSeriesByHousehold = async ({
   householdId,
   rangeStart,
   rangeEnd,
+  maxResults,
 }: HouseholdDateRange) => {
-  const result = await pool.query<ChoreSeriesRow>(listActiveChoreSeriesQuery, [
-    householdId,
-    rangeStart,
-    rangeEnd,
-  ]);
+  const result = await pool.query<ChoreSeriesRow>(
+    maxResults === undefined
+      ? listActiveChoreSeriesQuery
+      : `${listActiveChoreSeriesQuery} limit $4`,
+    maxResults === undefined
+      ? [householdId, rangeStart, rangeEnd]
+      : [householdId, rangeStart, rangeEnd, maxResults],
+  );
   return result.rows;
 };
 
@@ -55,10 +60,11 @@ export const listChoreExceptionsByHousehold = async ({
   householdId,
   rangeStart,
   rangeEnd,
+  maxResults,
 }: HouseholdDateRange) => {
   const result = await pool.query<ChoreExceptionRow>(
-    "select e.chore_id, to_char(e.occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date, e.kind, e.status, e.closed_reason from chore_occurrence_exceptions e join chores c on c.id = e.chore_id where c.household_id = $1 and c.status = 'active' and e.occurrence_start_date <= $3::date and (e.occurrence_start_date + (c.end_date - c.start_date - 1)) >= $2::date",
-    [householdId, rangeStart, rangeEnd],
+    "select e.chore_id, to_char(e.occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date, e.kind, e.status, e.closed_reason from chore_occurrence_exceptions e join chores c on c.id = e.chore_id where c.household_id = $1 and c.status = 'active' and e.occurrence_start_date <= $3::date and (e.occurrence_start_date + (c.end_date - c.start_date - 1)) >= $2::date limit $4",
+    [householdId, rangeStart, rangeEnd, maxResults ?? null],
   );
   return result.rows;
 };
@@ -135,13 +141,15 @@ export const deleteChoreOccurrenceException = async ({
 export const listChoreOccurrenceExceptions = async ({
   choreId,
   fromDate,
+  maxResults,
 }: {
   choreId: number;
   fromDate: string;
+  maxResults?: number;
 }) => {
   const result = await pool.query<ChoreExceptionRow>(
-    "select chore_id, to_char(occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date, kind, status, closed_reason from chore_occurrence_exceptions where chore_id = $1 and occurrence_start_date >= $2::date order by occurrence_start_date",
-    [choreId, fromDate],
+    "select chore_id, to_char(occurrence_start_date, 'YYYY-MM-DD') as occurrence_start_date, kind, status, closed_reason from chore_occurrence_exceptions where chore_id = $1 and occurrence_start_date >= $2::date order by occurrence_start_date limit $3",
+    [choreId, fromDate, maxResults ?? null],
   );
   return result.rows;
 };

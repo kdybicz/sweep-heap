@@ -75,7 +75,7 @@ describe("validateChoreCreate", () => {
     expect(errors.endDate).toBeUndefined();
   });
 
-  it("requires repeat end when repeating", () => {
+  it("rejects repeat end when not repeating", () => {
     const errors = validateChoreCreate({
       title: "Sweep",
       type: "close_on_done",
@@ -112,5 +112,47 @@ describe("validateChoreCreate", () => {
     });
 
     expect(errors.type).toBe("Invalid chore type");
+  });
+
+  it.each(["startDate", "exclusiveEndDate", "seriesEndDate"] as const)(
+    "rejects an invalid calendar value in %s",
+    (field) => {
+      const errors = validateChoreCreate({
+        title: "Calendar fixture",
+        type: "close_on_done",
+        startDate: "2026-01-01",
+        exclusiveEndDate: "2026-01-02",
+        repeatRule: "day",
+        seriesEndDate: null,
+        [field]: "2026-02-30",
+      });
+      expect(
+        errors[
+          field === "exclusiveEndDate"
+            ? "endDate"
+            : field === "seriesEndDate"
+              ? "repeatEnd"
+              : "startDate"
+        ],
+      ).toContain("Invalid");
+    },
+  );
+  it("enforces supported years, duration cap and required empty values", () => {
+    const input = {
+      title: "Bounded",
+      type: "close_on_done",
+      startDate: "2024-01-01",
+      exclusiveEndDate: "2025-01-01",
+      repeatRule: "none",
+      seriesEndDate: null,
+    };
+    expect(validateChoreCreate(input)).toEqual({});
+    expect(validateChoreCreate({ ...input, exclusiveEndDate: "2025-01-02" })).toHaveProperty(
+      "endDate",
+    );
+    expect(validateChoreCreate({ ...input, startDate: "0000-01-01" })).toHaveProperty("startDate");
+    expect(validateChoreCreate({ ...input, startDate: "" }).startDate).toBe(
+      "Start date is required",
+    );
   });
 });
