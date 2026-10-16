@@ -104,26 +104,18 @@ export const mapOccurrenceStarts = ({
   if (!last) return mapping;
   const lastDate = toDate(last, "UTC");
   if (!lastDate.isValid) return mapping;
+  const sourceCutoff = sourceSeriesEndDate ? toDate(sourceSeriesEndDate, "UTC") : null;
+  const targetCutoff = targetSeriesEndDate ? toDate(targetSeriesEndDate, "UTC") : null;
   let source: DateTime = toDate(sourceStartDate, "UTC");
   let target: DateTime = toDate(targetStartDate, "UTC");
   let targetAvailable = true;
   while (source.isValid) {
     consumeStep(budget);
     const sourceDate = source.toISODate();
-    if (
-      !sourceDate ||
-      source > lastDate ||
-      (sourceSeriesEndDate && sourceDate > sourceSeriesEndDate)
-    )
-      break;
+    if (!sourceDate || source > lastDate || (sourceCutoff && source > sourceCutoff)) break;
     if (sourceDate >= fromDate) {
       const targetDate = target.toISODate();
-      if (
-        !targetAvailable ||
-        !targetDate ||
-        (targetSeriesEndDate && targetDate > targetSeriesEndDate)
-      )
-        break;
+      if (!targetAvailable || !targetDate || (targetCutoff && target > targetCutoff)) break;
       if (wanted.has(sourceDate)) {
         consumeEntry(budget);
         mapping.set(sourceDate, targetDate);

@@ -158,6 +158,21 @@ describe("bounded occurrence work", () => {
       }),
     ).toEqual(new Map());
   });
+  it("discards target exceptions beyond a finite cutoff before applying supported-year guards", () => {
+    expect(
+      mapOccurrenceStarts({
+        occurrenceStarts: ["2026-01-02"],
+        sourceStartDate: "2026-01-01",
+        sourceRepeatRule: "day",
+        sourceSeriesEndDate: null,
+        fromDate: "2026-01-01",
+        targetStartDate: "9999-01-01",
+        targetRepeatRule: "year",
+        targetSeriesEndDate: "9999-12-31",
+        budget: budget(1, 3),
+      }),
+    ).toEqual(new Map());
+  });
   it.each(["none", "day", "week", "biweek", "month", "year"] as const)(
     "keeps direct %s membership equivalent to generated start identities",
     (repeatRule) => {

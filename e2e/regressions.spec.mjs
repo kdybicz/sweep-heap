@@ -3126,6 +3126,52 @@ test("#31 unbounded yearly edits preserve final supported-year exceptions", asyn
   }
 });
 
+test("#31 finite upper-year cutoffs discard exceptions outside the edited schedule", async ({
+  live,
+}) => {
+  for (const scope of ["all", "following"]) {
+    const id = await live.chore({
+      title: "Finite upper-year source",
+      startDate: scope === "all" ? "2026-01-01" : "2025-12-31",
+      endDate: scope === "all" ? "2026-01-02" : "2026-01-01",
+      repeatRule: "day",
+    });
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "2026-01-02",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const edited = await live.mutate({
+      action: "edit",
+      scope,
+      choreId: id,
+      occurrenceStartDate: "2026-01-01",
+      startDate: "9999-01-01",
+      endDate: "9999-01-02",
+      repeatRule: "year",
+      seriesEndDate: "9999-12-31",
+    });
+    expect(edited.status).toBe(200);
+    const targetId = edited.body.createdChoreId ?? id;
+    expect((await live.list("9999-01-01")).find((row) => row.id === targetId)).toMatchObject({
+      status: "open",
+      closed_reason: null,
+    });
+    expect(
+      (
+        await live.db.query("select count(*) from chore_occurrence_exceptions where chore_id=$1", [
+          targetId,
+        ])
+      ).rows[0].count,
+    ).toBe("0");
+  }
+});
+
 test("#31 edits preserve unsupported legacy exception dates for staged remediation", async ({
   live,
 }) => {
