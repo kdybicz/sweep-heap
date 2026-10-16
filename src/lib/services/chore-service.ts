@@ -9,7 +9,11 @@ import { normalizeRepeatRule, validateChoreCreate } from "@/lib/chore-validation
 import { withHouseholdMutationLock } from "@/lib/household-mutation-lock";
 import { canManageHouseholdChores } from "@/lib/household-roles";
 import type { RepeatRule } from "@/lib/occurrences";
-import { generateOccurrenceDayEntries, mapOccurrenceStarts } from "@/lib/occurrences";
+import {
+  generateOccurrenceDayEntries,
+  isOccurrenceStartInSeries,
+  mapOccurrenceStarts,
+} from "@/lib/occurrences";
 import {
   deleteChoreOccurrenceException,
   deleteChoreOccurrenceExceptions,
@@ -80,29 +84,6 @@ const normalizeDate = (value: unknown, timeZone: string) => {
 
 const addDays = (value: string, days: number) =>
   DateTime.fromISO(value, { zone: "UTC" }).plus({ days }).toISODate();
-
-const isOccurrenceStartInSeries = ({
-  occurrenceStartDate,
-  repeatRule,
-  seriesEndDate,
-  startDate,
-  endDate,
-}: {
-  occurrenceStartDate: string;
-  repeatRule: string;
-  seriesEndDate: string | null;
-  startDate: string;
-  endDate: string;
-}) =>
-  generateOccurrenceDayEntries({
-    startDate,
-    endDate,
-    rangeStart: occurrenceStartDate,
-    rangeEnd: occurrenceStartDate,
-    repeatRule: normalizeRepeatRule(repeatRule) as RepeatRule,
-    seriesEndDate,
-    timeZone: "UTC",
-  }).some((dayEntry) => dayEntry.occurrenceStartDate === occurrenceStartDate);
 
 export const listChores = async ({
   householdId,
@@ -329,7 +310,7 @@ const mutateChoreInTransaction = async ({
 
   const occurrenceInSeries = isOccurrenceStartInSeries({
     occurrenceStartDate,
-    repeatRule: chore.repeat_rule,
+    repeatRule: normalizeRepeatRule(chore.repeat_rule) as RepeatRule,
     seriesEndDate: chore.series_end_date,
     startDate: chore.start_date,
     endDate: chore.end_date,

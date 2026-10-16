@@ -148,6 +148,9 @@
 - Occurrences are generated lazily from series plus sparse occurrence exceptions.
 - The SQL series prefilter excludes non-repeating chores whose exclusive `end_date` is on or before the requested start date. Repeating origins may have older end dates and remain eligible when their recurrence cutoff plus duration can overlap the requested range. One-off spans clipped at either query boundary remain eligible.
 - Generation is date-only and timezone-aware (household timezone).
+- Recurrence arithmetic uses civil calendar dates represented internally in UTC, not elapsed hours between household-local midnights. Date-only inputs retain their literal date; timestamp inputs first resolve to a date in the household timezone. This avoids persistent hour/phase drift after skipped or repeated midnights.
+- Daily, weekly and biweekly generation jumps from the origin to the requested range's duration-adjusted lower bound using 1/7/14-day intervals, then generates the overlapping occurrences. Occurrence-start validation uses the same generator and keeps its work independent of origin age for these rules. Month/year steps retain their current iterative clamping; original-anchor corrections are tracked in [#34](https://github.com/kdybicz/sweep-heap/issues/34).
+- Span expansion visits only the day offsets inside the requested range, including one-off and long overlapping spans; it does not iterate every hidden day of each occurrence.
 - API/storage `endDate` is exclusive and defines span length (`startDate=2026-01-01`, `endDate=2026-01-02` is a one-day occurrence).
 - `repeatRule = none` still supports multi-day span via `endDate`.
 - `seriesEndDate = null` means no explicit repeat end, but returned data is still bounded by requested query range.

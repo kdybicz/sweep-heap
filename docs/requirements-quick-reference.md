@@ -62,6 +62,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Create validation enforces required fields, date ordering, and repeat/end compatibility.
 - Occurrences are generated lazily from series (date-only, household timezone) and merged with sparse occurrence exceptions keyed by `occurrenceStartDate`.
 - SQL excludes expired one-offs using their exclusive end date while retaining recurring origins and clipped spans that can overlap the requested dates.
+- Day/week/biweek generation and start validation jump near the requested range rather than walking from the origin. Civil-date arithmetic avoids midnight/DST drift; month/year rules retain iterative clamping.
 
 ### Done and cancel
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.

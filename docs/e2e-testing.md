@@ -69,6 +69,13 @@ boundaries, clipped spans and every repeat cadence. A session-private 120,005-ro
 `issue29-query-plans.json` attachment lives under `.e2e/test-results/regressions/`; the copy and candidate
 index are rolled back without changing the app table's data or indexes.
 The captured plan results and index assessment are in [`reviews/2026-10-16-chore-prefilter.md`](reviews/2026-10-16-chore-prefilter.md).
+The #30 cases list and mutate old day/week/biweek series with overlapping spans and finite cutoffs,
+including Havana/Apia midnight history. A Node benchmark compares the pre-#30 stepping oracle with
+the production generator and validation helper at 1/10/26/75-year ages. It attaches
+`issue30-recurrence-benchmark.json` under `.e2e/test-results/regressions/`. Default unit tests compare
+outputs across DST/boundary matrices and assert bounded date-operation counts; timings are evidence,
+not CI thresholds. `e2e/legacy-occurrences.ts` is a frozen test/benchmark oracle, not app code.
+The algorithm, DST correction and captured results are documented in [`reviews/2026-10-16-recurrence-range-jumps.md`](reviews/2026-10-16-recurrence-range-jumps.md).
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,
