@@ -169,3 +169,146 @@ describe("background refresh during chore completion", () => {
     },
   );
 });
+
+describe("board query failures and retries", () => {
+  const mount = async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        <QueryClientProvider client={client}>
+          <Harness />
+        </QueryClientProvider>,
+      ),
+    );
+    await flush();
+  };
+  const isToday = (input: RequestInfo | URL) => {
+    const params = new URL(String(input), "http://localhost").searchParams;
+    return params.get("start") === params.get("end");
+  };
+  it.each(["week", "today"] as const)(
+    "exposes fresh %s errors and retries only the failed query",
+    async (scope) => {
+      let fail = true;
+      const retry = deferred<Response>();
+      let holdRetry = false;
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        const target = isToday(input) === (scope === "today");
+        if (target && holdRetry) return retry.promise;
+        return Promise.resolve(
+          response(target && fail ? { ok: false, error: "Load failed" } : { ok: true, chores: [] }),
+        );
+      });
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      vi.stubGlobal("fetch", fetchMock);
+      await mount();
+      const loadState = () =>
+        scope === "week" ? board.week.loadState : board.sidebar.todayLoadState;
+      expect(loadState()).toMatchObject({
+        hasError: true,
+        hasData: false,
+        fetching: false,
+        loading: false,
+      });
+      const otherCalls = () =>
+        fetchMock.mock.calls.filter(([input]) => isToday(input) !== (scope === "today")).length;
+      const before = otherCalls();
+      fail = false;
+      holdRetry = true;
+      await act(async () => {
+        if (scope === "week") board.week.onRetry();
+        else board.sidebar.onRetryToday();
+      });
+      await flush();
+      expect(loadState().fetching).toBe(true);
+      retry.resolve(response({ ok: true, chores: [] }));
+      await flush();
+      expect(loadState()).toMatchObject({
+        hasError: false,
+        hasData: true,
+        fetching: false,
+        loading: false,
+      });
+      expect(otherCalls()).toBe(before);
+    },
+  );
+  it("keeps cached chores and progress after refetch failure and replaces them after retry", async () => {
+    let fail = false;
+    let done = false;
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          response(
+            fail
+              ? { ok: false, error: "Offline" }
+              : {
+                  ok: true,
+                  chores: [
+                    {
+                      id: 1,
+                      title: "Cached chore",
+                      type: "close_on_done",
+                      occurrence_date: "2026-10-15",
+                      occurrence_start_date: "2026-10-15",
+                      status: done ? "closed" : "open",
+                      closed_reason: done ? "done" : null,
+                    },
+                  ],
+                },
+          ),
+        ),
+      ),
+    );
+    await mount();
+    expect(board.sidebar.totalChores).toBe(1);
+    fail = true;
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    await flush();
+    expect(board.week.loadState).toMatchObject({ hasError: true, hasData: true });
+    expect(board.sidebar.todayLoadState).toMatchObject({ hasError: true, hasData: true });
+    expect(board.week.chores[0].title).toBe("Cached chore");
+    expect(board.sidebar.todayChores).toHaveLength(1);
+    expect(board.sidebar.totalChores).toBe(1);
+    fail = false;
+    done = true;
+    await act(async () => {
+      board.week.onRetry();
+      board.sidebar.onRetryToday();
+    });
+    await flush();
+    expect(board.week.loadState.hasError).toBe(false);
+    expect(board.sidebar.todayLoadState.hasError).toBe(false);
+    expect(board.sidebar.doneChores).toBe(1);
+    expect(board.sidebar.todayChores[0].closed_reason).toBe("done");
+  });
+  it("does not reuse another week's data when navigation fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) =>
+        Promise.resolve(
+          response(
+            String(input).includes("start=2026-10-19")
+              ? { ok: false, error: "Failed next week" }
+              : { ok: true, chores: [] },
+          ),
+        ),
+      ),
+    );
+    await mount();
+    expect(board.week.loadState.hasData).toBe(true);
+    await act(async () => {
+      board.week.onNextWeek();
+    });
+    await flush();
+    expect(board.week.loadState).toMatchObject({ hasData: false, hasError: true });
+    expect(board.sidebar.weekLoadState.hasData).toBe(false);
+    expect(board.sidebar.todayLoadState).toMatchObject({ hasData: true, hasError: false });
+  });
+});

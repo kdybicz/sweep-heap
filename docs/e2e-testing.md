@@ -85,6 +85,10 @@ cutoffs discard exceptions beyond the edited schedule. Legacy long
 one-offs stay readable/completable/cancelable, while unsupported legacy exception dates are preserved
 for the separate #10 remediation. Default unit tests also verify invalid fields are rejected before
 chore SQL and that validation responses retain reconciliation cookies.
+The #32 board-load cases pass normally: fresh server/network/malformed JSON failures, repeated failed
+retries, independent week/Today recovery, cached refresh failures, range-navigation isolation and all
+auth/household-context redirect codes from both query paths. A mobile error-state screenshot is attached
+to the fresh server-failure case. The remaining expected-failure regression covers #34 anchoring.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

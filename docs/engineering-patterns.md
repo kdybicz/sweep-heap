@@ -67,6 +67,7 @@ the provider's response formats, including native text `404` responses for disab
 - Chore date/range/duration/work failures use `400 VALIDATION_FAILED` plus `fieldErrors`. Shared format/year normalization and all numeric limits live in `src/lib/chore-date-validation.ts`. Reject malformed fields before chore reads; normalize timestamp fields with household context before checking civil-day ordering/width. Explicit read bounds are a pair, and supplied edit dates must not fall through to defaults when invalid.
 - Include a stable machine-readable `code` field on every business API failure response (for example `code: "HOUSEHOLD_REQUIRED"`) so UI behavior is never tied to user-facing message text.
 - Client and server control flow must branch on `code` (and optional HTTP status), not on `error` message text.
+- Board query models expose loading, fetching, data presence and non-context errors separately. Render empty states only after successful reads; keep same-key cached chores on refresh failure and label them stale. Scope retry invalidation to the exact week/Today key. Treat `HouseholdContextRedirectError` as recovery navigation, not a retryable board error.
 - Keep route handlers wrapped in top-level `try/catch` so unexpected throws still return the same envelope.
 
 Use status codes consistently:

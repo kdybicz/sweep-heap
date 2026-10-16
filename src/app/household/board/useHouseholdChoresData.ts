@@ -170,15 +170,19 @@ export default function useHouseholdChoresData({
 
   const chores = weekChoresQuery.data?.chores ?? [];
   const todayChores = todayChoresQuery.data?.chores ?? [];
-  const loading = weekChoresQuery.isPending;
-  const loadingToday = todayChoresQuery.isPending;
+  const loadState = (query: typeof weekChoresQuery) => ({
+    loading: query.isPending,
+    fetching: query.isFetching,
+    hasData: query.data !== undefined,
+    hasError: query.isError && !(query.error instanceof HouseholdContextRedirectError),
+  });
 
   return {
     chores,
     setChores,
-    loading,
+    weekLoadState: loadState(weekChoresQuery),
     todayChores,
-    loadingToday,
+    todayLoadState: loadState(todayChoresQuery),
     loadChores,
     loadTodayChores,
   };
