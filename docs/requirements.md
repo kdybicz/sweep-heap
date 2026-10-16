@@ -15,7 +15,6 @@
 - Target (product intent): deterministic calendar recurrence, explicit conflict handling, and auditable state history.
 - Current (implemented): lazy series generation + one sparse occurrence-exceptions table, optimistic UI updates, and replace-in-place exception writes.
 - Important deltas to keep visible:
-  - Recurrence can drift in some month/year edge cases.
   - There is no append-only chore event history yet.
   - Chore-write conflicts are not surfaced as explicit retryable responses; household lock contention returns `HOUSEHOLD_MUTATION_BUSY`.
 - Working rule for contributors: preserve current behavior unless a change is intentional, tested, and documented here.
@@ -159,7 +158,10 @@
 - The SQL series prefilter excludes non-repeating chores whose exclusive `end_date` is on or before the requested start date. Repeating origins may have older end dates and remain eligible when their recurrence cutoff plus duration can overlap the requested range. One-off spans clipped at either query boundary remain eligible.
 - Generation is date-only and timezone-aware (household timezone).
 - Recurrence arithmetic uses civil calendar dates represented internally in UTC, not elapsed hours between household-local midnights. Date-only inputs retain their literal date; timestamp inputs first resolve to a date in the household timezone. This avoids persistent hour/phase drift after skipped or repeated midnights.
-- Daily, weekly and biweekly generation jumps from the origin to the requested range's duration-adjusted lower bound using 1/7/14-day intervals, then generates the overlapping occurrences. Start validation uses direct membership checks for one-offs and fixed intervals without expanding spans. Month/year validation shares the iterative clamping sequence within the request work budget; original-anchor corrections are tracked in [#34](https://github.com/kdybicz/sweep-heap/issues/34).
+- Daily, weekly and biweekly generation jumps from the origin to the requested range's duration-adjusted lower bound using 1/7/14-day intervals, then generates the overlapping occurrences. Start validation uses direct membership checks for one-offs and fixed intervals without expanding spans. Month/year generation, validation and ordinal mapping share bounded calendar stepping that restores the original day after each independent clamp.
+- Monthly recurrence uses the original day of month, clamping only periods where that day is missing: Jan 31 → Feb 28/29 → Mar 31 → Apr 30. A start on Apr 30 remains a 30th-day pattern, not a last-day-of-month flag. Yearly Feb 29 clamps to Feb 28 in common years and returns to Feb 29 in leap years, including Gregorian century rules.
+- `recurrence_anchor_day` optionally carries the inherited calendar day across following-scope splits; null derives the day from `start_date`. Unchanged start/cadence edits (including duration-only changes) preserve that anchor. A changed start date or cadence establishes a new anchor from the resulting start; single edits detach a one-off and do not alter the source pattern.
+- Existing legacy month/year exception keys are remapped by calendar ordinal during deployment, preserving kind/status/reason and row metadata. Collisions abort the transaction; unsupported/orphan keys are retained for audit. Cutoffs remain absolute dates. Pre-existing split branches use their own stored start as the original anchor because older storage did not retain lineage. See [calendar recurrence migration](calendar-recurrence-migration.md) for rollout and stale-client identity policy.
 - Span expansion visits only the day offsets inside the requested range, including one-off and long overlapping spans; it does not iterate every hidden day of each occurrence.
 - API/storage `endDate` is exclusive and defines span length (`startDate=2026-01-01`, `endDate=2026-01-02` is a one-day occurrence).
 - `repeatRule = none` still supports multi-day span via `endDate`.
@@ -326,7 +328,6 @@
 - Chore concurrency conflicts are not implemented as explicit retryable conflicts; exception upserts remain last-write-wins. Household lock contention has a retryable `409 HOUSEHOLD_MUTATION_BUSY` response.
 - No dedicated event/audit history table exists for chore state transitions; only latest exception state is stored.
 - `closed_reason = schedule_end` lifecycle is not currently persisted by background process; closure is mostly represented by derived listing behavior.
-- Monthly/yearly recurrence currently advances from the previous generated date; this can drift from original start-date anchoring in edge cases (for example 31st or leap-day patterns).
 - Cancel actions are available from the board chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
 - Completion undo UI is currently disabled; `UndoToastStack` is not wired into the board. The API still accepts `action=set` with `status=open` and removes the stored completion exception.
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in [#10](https://github.com/kdybicz/sweep-heap/issues/10).

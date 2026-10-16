@@ -27,10 +27,10 @@ make test/e2e/regressions
 make test/e2e/contention
 ```
 
-The regression suite asserts intended behavior for the confirmed issues. Each current defect has
-an issue-linked `test.fail()` marker. A reproduced assertion failure is reported as expected;
-when a fix makes the test pass, Playwright reports an **unexpected pass** and exits nonzero until
-the marker is removed. Setup failures before the marker remain ordinary failures.
+The regression suite asserts intended behavior for the reviewed issues. All current cases pass
+normally; there are no remaining expected-failure markers. For a newly confirmed defect, use an
+issue-linked `test.fail()` marker until its fix lands: an unexpected pass then forces its removal.
+Setup failures before such a marker remain ordinary failures.
 The #19 organization-boundary cases are passing regressions without expected-failure markers. They
 verify blocked public auth routes have no database side effects while guarded member, invitation,
 ownership-transfer and household workflows continue to work.
@@ -88,7 +88,12 @@ chore SQL and that validation responses retain reconciliation cookies.
 The #32 board-load cases pass normally: fresh server/network/malformed JSON failures, repeated failed
 retries, independent week/Today recovery, cached refresh failures, range-navigation isolation and all
 auth/household-context redirect codes from both query paths. A mobile error-state screenshot is attached
-to the fresh server-failure case. The remaining expected-failure regression covers #34 anchoring.
+to the fresh server-failure case.
+The #34 calendar cases restore month-end/leap-day anchors, preserve inherited anchors and exceptions
+through following/all/single edits, and exercise the exact deployment SQL in transaction-private table
+copies. A full Gregorian-cycle legacy dataset verifies exception-date remapping without metadata loss;
+key collisions verify rollback of both the schema addition and all state changes. Default calendar
+tests also cover day-of-month versus month-end semantics, clipped spans, cutoffs and DST zones.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

@@ -163,6 +163,7 @@ export const chores = pgTable("chores", {
   title: text("title").notNull(),
   type: text("type").notNull(),
   startDate: date("start_date").notNull(),
+  recurrenceAnchorDay: integer("recurrence_anchor_day"),
   endDate: date("end_date").notNull(),
   seriesEndDate: date("series_end_date"),
   repeatRule: text("repeat_rule").notNull(),

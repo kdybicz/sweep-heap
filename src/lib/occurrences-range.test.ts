@@ -203,29 +203,26 @@ describe("fixed-interval range jumps", () => {
     },
   );
 
-  it.each(["none", "month", "year"] as RepeatRule[])(
-    "retains iterative calendar-clamping semantics for %s",
-    (repeatRule) => {
-      const input: OccurrenceInput = {
-        startDate: "2024-01-31",
-        endDate: "2024-02-02",
-        rangeStart: "2025-02-01",
-        rangeEnd: "2026-04-03",
-        repeatRule,
-        seriesEndDate: null,
-        timeZone: "UTC",
-      };
-      expect(generateOccurrenceDayEntries(input)).toEqual(generateOccurrencesByStepping(input));
-      const leap: OccurrenceInput = {
-        ...input,
-        startDate: "2024-02-29",
-        endDate: "2024-03-02",
-        rangeStart: "2027-02-27",
-        rangeEnd: "2028-03-02",
-      };
-      expect(generateOccurrenceDayEntries(leap)).toEqual(generateOccurrencesByStepping(leap));
-    },
-  );
+  it.each(["none"] as RepeatRule[])("retains non-repeating semantics for %s", (repeatRule) => {
+    const input: OccurrenceInput = {
+      startDate: "2024-01-31",
+      endDate: "2024-02-02",
+      rangeStart: "2025-02-01",
+      rangeEnd: "2026-04-03",
+      repeatRule,
+      seriesEndDate: null,
+      timeZone: "UTC",
+    };
+    expect(generateOccurrenceDayEntries(input)).toEqual(generateOccurrencesByStepping(input));
+    const leap: OccurrenceInput = {
+      ...input,
+      startDate: "2024-02-29",
+      endDate: "2024-03-02",
+      rangeStart: "2027-02-27",
+      rangeEnd: "2028-03-02",
+    };
+    expect(generateOccurrenceDayEntries(leap)).toEqual(generateOccurrencesByStepping(leap));
+  });
 
   it("still interprets timestamp input in the household zone before doing civil-date arithmetic", () => {
     expect(

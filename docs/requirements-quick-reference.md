@@ -64,7 +64,8 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - List work is capped at 10,000 rows per selection, 10,000 generated day entries and 50,000 recurrence/span steps; edits migrate at most 10,000 exceptions within the same work budget. Overflows return `400 VALIDATION_FAILED` with field errors, without truncation or partial writes. DB constraints/backfill are staged separately in #10.
 - Occurrences are generated lazily from series (date-only, household timezone) and merged with sparse occurrence exceptions keyed by `occurrenceStartDate`.
 - SQL excludes expired one-offs using their exclusive end date while retaining recurring origins and clipped spans that can overlap the requested dates.
-- Day/week/biweek generation jumps near the requested range; start membership is checked directly without expanding spans. Civil-date arithmetic avoids midnight/DST drift; month/year rules retain bounded iterative clamping.
+- Day/week/biweek generation jumps near the requested range; start membership is checked directly without expanding spans. Civil-date arithmetic avoids midnight/DST drift. Month/year rules clamp each period independently and restore the original day (31st/leap day); a 30th-day origin remains the 30th, not month end.
+- Following splits retain `recurrence_anchor_day` when start/cadence are unchanged; duration-only edits preserve it, changed starts/cadences reset it, and single edits detach a one-off. The deployment migration remaps legacy exception identities by ordinal without merging collisions; see [rollout policy](calendar-recurrence-migration.md).
 
 ### Done and cancel
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.
@@ -124,7 +125,6 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## Known Gaps (Do Not Forget)
 - No append-only chore event log yet (only latest exception state).
 - Chore-write conflicts are not exposed as explicit retryable responses; household lock contention returns `HOUSEHOLD_MUTATION_BUSY`.
-- Month/year recurrence edge cases can drift from strict start-date anchoring.
 - Board UI exposes cancel actions from the chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
 
 ## Backlog Links

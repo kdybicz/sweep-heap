@@ -6,6 +6,7 @@ type ChoreSeriesRow = {
   title: string;
   type: string;
   start_date: string;
+  recurrence_anchor_day: number | null;
   end_date: string;
   series_end_date: string | null;
   repeat_rule: string;
@@ -26,6 +27,7 @@ type ChoreInHouseholdRow = {
   title: string;
   type: "close_on_done" | "stay_open";
   start_date: string;
+  recurrence_anchor_day: number | null;
   end_date: string;
   series_end_date: string | null;
   repeat_rule: string;
@@ -78,6 +80,7 @@ export const insertChore = async ({
   seriesEndDate,
   repeatRule,
   notes,
+  recurrenceAnchorDay = null,
 }: {
   householdId: number;
   title: string;
@@ -87,10 +90,21 @@ export const insertChore = async ({
   seriesEndDate: string | null;
   repeatRule: string;
   notes: string | null;
+  recurrenceAnchorDay?: number | null;
 }) => {
   const result = await pool.query<{ id: number }>(
-    "insert into chores (household_id, title, type, start_date, end_date, series_end_date, repeat_rule, status, notes) values ($1, $2, $3, $4, $5, $6, $7, 'active', $8) returning id",
-    [householdId, title, type, startDate, endDate, seriesEndDate, repeatRule, notes],
+    "insert into chores (household_id, title, type, start_date, end_date, series_end_date, repeat_rule, status, notes, recurrence_anchor_day) values ($1, $2, $3, $4, $5, $6, $7, 'active', $8, $9) returning id",
+    [
+      householdId,
+      title,
+      type,
+      startDate,
+      endDate,
+      seriesEndDate,
+      repeatRule,
+      notes,
+      recurrenceAnchorDay,
+    ],
   );
   const id = result.rows[0]?.id;
   if (!id) throw new Error("Chore insertion did not return an id");
@@ -105,7 +119,7 @@ export const getChoreInHousehold = async ({
   householdId: number;
 }) => {
   const result = await pool.query<ChoreInHouseholdRow>(
-    "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, notes from chores where id = $1 and household_id = $2 and status = 'active'",
+    "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, recurrence_anchor_day, repeat_rule, notes from chores where id = $1 and household_id = $2 and status = 'active'",
     [choreId, householdId],
   );
   return result.rows[0] ?? null;
@@ -218,6 +232,7 @@ export const updateChoreSeries = async ({
   seriesEndDate,
   repeatRule,
   notes,
+  recurrenceAnchorDay = null,
 }: {
   choreId: number;
   title: string;
@@ -227,9 +242,20 @@ export const updateChoreSeries = async ({
   seriesEndDate: string | null;
   repeatRule: string;
   notes: string | null;
+  recurrenceAnchorDay?: number | null;
 }) => {
   await pool.query(
-    "update chores set title = $2, type = $3, start_date = $4, end_date = $5, series_end_date = $6, repeat_rule = $7, notes = $8 where id = $1",
-    [choreId, title, type, startDate, endDate, seriesEndDate, repeatRule, notes],
+    "update chores set title = $2, type = $3, start_date = $4, end_date = $5, series_end_date = $6, repeat_rule = $7, notes = $8, recurrence_anchor_day = $9 where id = $1",
+    [
+      choreId,
+      title,
+      type,
+      startDate,
+      endDate,
+      seriesEndDate,
+      repeatRule,
+      notes,
+      recurrenceAnchorDay,
+    ],
   );
 };

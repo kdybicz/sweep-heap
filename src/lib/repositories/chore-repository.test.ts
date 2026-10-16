@@ -8,6 +8,7 @@ import {
   listActiveChoreSeriesByHousehold,
   listChoreExceptionsByHousehold,
   listChoreOccurrenceExceptions,
+  updateChoreSeries,
 } from "@/lib/repositories/chore-repository";
 import { listActiveChoreSeriesQuery } from "@/lib/repositories/chore-series-query";
 
@@ -29,6 +30,33 @@ describe("chore insertion contract", () => {
   it("returns the successfully inserted id", async () => {
     query.mockResolvedValueOnce({ rows: [{ id: 42 }] });
     expect(await insertChore(input)).toBe(42);
+  });
+  it("persists an inherited calendar day on insert and clears it on re-anchoring updates", async () => {
+    query.mockResolvedValueOnce({ rows: [{ id: 43 }] });
+    await insertChore({ ...input, recurrenceAnchorDay: 31 });
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining("recurrence_anchor_day"), [
+      11,
+      input.title,
+      input.type,
+      input.startDate,
+      input.endDate,
+      null,
+      "none",
+      null,
+      31,
+    ]);
+    await updateChoreSeries({ ...input, choreId: 43, recurrenceAnchorDay: null });
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining("recurrence_anchor_day = $9"), [
+      43,
+      input.title,
+      input.type,
+      input.startDate,
+      input.endDate,
+      null,
+      "none",
+      null,
+      null,
+    ]);
   });
 });
 
