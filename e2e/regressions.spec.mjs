@@ -1,7 +1,10 @@
 import { writeFile } from "node:fs/promises";
+import { performance } from "node:perf_hooks";
 import { DateTime } from "luxon";
+import { generateOccurrenceDayEntries, isOccurrenceStartInSeries } from "../src/lib/occurrences.ts";
 import { listActiveChoreSeriesQuery } from "../src/lib/repositories/chore-series-query.ts";
 import { baseURL } from "./config.mjs";
+import { generateOccurrencesByStepping } from "./legacy-occurrences.ts";
 import { day, expect, monday, test, today } from "./support.mjs";
 
 test.beforeEach(async ({ household }) => {
@@ -2415,6 +2418,187 @@ test("#29 before/after query plans exclude historical rows before serialization"
       client.release();
     }
   }
+});
+
+for (const repeatRule of ["day", "week", "biweek"]) {
+  test(`#30 old ${repeatRule} series list and validate starts with overlap and finite cutoffs`, async ({
+    live,
+  }) => {
+    const interval = repeatRule === "day" ? 1 : repeatRule === "week" ? 7 : 14;
+    const origin = DateTime.fromISO("2000-01-03", { zone: "UTC" });
+    const from = DateTime.fromISO("2026-10-12", { zone: "UTC" });
+    const target = origin.plus({
+      days: Math.floor(from.diff(origin, "days").days / interval) * interval,
+    });
+    const cutoff = target.plus({ days: interval });
+    const id = await live.chore({
+      title: `Old ${repeatRule} range fixture`,
+      startDate: origin.toISODate(),
+      endDate: origin.plus({ days: 3 }).toISODate(),
+      repeatRule,
+      seriesEndDate: cutoff.toISODate(),
+    });
+    const rows = (await live.list(target.toISODate(), cutoff.plus({ days: 3 }).toISODate())).filter(
+      (row) => row.id === id,
+    );
+    expect(
+      rows
+        .filter((row) => row.occurrence_start_date === cutoff.toISODate())
+        .map((row) => row.occurrence_date),
+    ).toEqual([0, 1, 2].map((days) => cutoff.plus({ days }).toISODate()));
+    expect(rows.every((row) => row.occurrence_start_date <= cutoff.toISODate())).toBe(true);
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: cutoff.toISODate(),
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const offSchedule = interval === 1 ? origin.minus({ days: 1 }) : target.plus({ days: 1 });
+    for (const date of [offSchedule, cutoff.plus({ days: interval })]) {
+      const rejected = await live.mutate({
+        action: "set",
+        choreId: id,
+        occurrenceStartDate: date.toISODate(),
+        status: "closed",
+      });
+      expect(rejected.status).toBe(409);
+      expect(rejected.body.code).toBe("OCCURRENCE_OUTSIDE_SCHEDULE");
+    }
+    expect(
+      (await live.list(cutoff.toISODate())).find(
+        (row) => row.id === id && row.occurrence_start_date === cutoff.toISODate(),
+      ),
+    ).toMatchObject({ status: "closed", closed_reason: "done" });
+  });
+}
+
+for (const timeZone of ["America/Havana", "Pacific/Apia"]) {
+  test(`#30 ${timeZone} midnight history does not omit the requested civil day`, async ({
+    live,
+    household,
+  }) => {
+    await live.db.query("update households set time_zone=$1 where id=$2", [timeZone, household]);
+    const id = await live.chore({
+      title: "Old local-midnight fixture",
+      startDate: "2000-01-01",
+      endDate: "2000-01-04",
+      repeatRule: "day",
+      seriesEndDate: "2026-10-18",
+    });
+    const rows = (await live.list("2026-10-18")).filter((row) => row.id === id);
+    expect(rows).toHaveLength(3);
+    expect(rows.map((row) => row.occurrence_start_date)).toEqual([
+      "2026-10-16",
+      "2026-10-17",
+      "2026-10-18",
+    ]);
+    expect(rows.every((row) => row.occurrence_date === "2026-10-18")).toBe(true);
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "2026-10-18",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await live.list("2026-10-18")).find(
+        (row) => row.id === id && row.occurrence_start_date === "2026-10-18",
+      ),
+    ).toMatchObject({ status: "closed", closed_reason: "done" });
+  });
+}
+
+test("#30 records range and occurrence-validation benchmarks across series ages", async ({
+  browser,
+}, testInfo) => {
+  const rangeStart = DateTime.fromISO("2026-10-12", { zone: "UTC" });
+  const median = (samples) => [...samples].sort((a, b) => a - b)[Math.floor(samples.length / 2)];
+  const measure = (run) => {
+    const started = performance.now();
+    const result = run();
+    return { milliseconds: performance.now() - started, result };
+  };
+  const measurements = [];
+  for (const repeatRule of ["day", "week", "biweek"]) {
+    const interval = repeatRule === "day" ? 1 : repeatRule === "week" ? 7 : 14;
+    for (const ageYears of [1, 10, 26, 75]) {
+      const origin = rangeStart.minus({ years: ageYears });
+      const point = origin
+        .plus({ days: Math.floor(rangeStart.diff(origin, "days").days / interval) * interval })
+        .toISODate();
+      const input = {
+        startDate: origin.toISODate(),
+        endDate: origin.plus({ days: 1 }).toISODate(),
+        rangeStart: rangeStart.toISODate(),
+        rangeEnd: rangeStart.plus({ days: 6 }).toISODate(),
+        repeatRule,
+        seriesEndDate: null,
+        timeZone: "UTC",
+      };
+      const lookup = { ...input, occurrenceStartDate: point };
+      const legacyLookup = () =>
+        generateOccurrencesByStepping({ ...input, rangeStart: point, rangeEnd: point }).some(
+          (entry) => entry.occurrenceStartDate === point,
+        );
+      for (const [path, before, after] of [
+        [
+          "generation",
+          () => generateOccurrencesByStepping(input),
+          () => generateOccurrenceDayEntries(input),
+        ],
+        ["validation", legacyLookup, () => isOccurrenceStartInSeries(lookup)],
+      ]) {
+        const expected = before();
+        expect(after()).toEqual(expected);
+        const beforeMs = [];
+        const afterMs = [];
+        for (let sample = 0; sample < 3; sample += 1) {
+          const original = measure(before);
+          const optimized = measure(after);
+          expect(optimized.result).toEqual(original.result);
+          beforeMs.push(original.milliseconds);
+          afterMs.push(optimized.milliseconds);
+        }
+        measurements.push({
+          repeatRule,
+          ageYears,
+          path,
+          input,
+          point,
+          result: path === "generation" ? { entries: expected.length } : { valid: expected },
+          beforeMs,
+          afterMs,
+          beforeMedianMs: median(beforeMs),
+          afterMedianMs: median(afterMs),
+        });
+      }
+    }
+  }
+  const path = testInfo.outputPath("issue30-recurrence-benchmark.json");
+  await writeFile(
+    path,
+    JSON.stringify(
+      {
+        issue: 30,
+        nodeVersion: process.version,
+        browserVersion: browser.version(),
+        samples: 3,
+        timeZone: "UTC",
+        spanDays: 1,
+        measurements,
+      },
+      null,
+      2,
+    ),
+  );
+  await testInfo.attach("issue30-recurrence-benchmark", { path, contentType: "application/json" });
 });
 
 test("#31 invalid calendar dates return validation errors", async ({ live }) => {

@@ -17,8 +17,18 @@ export type OccurrenceDayEntry = {
   occurrenceStartDate: string;
 };
 
-const toDate = (value: string, timeZone: string) =>
-  DateTime.fromISO(value, { zone: timeZone }).startOf("day");
+const toDate = (value: string, timeZone: string) => {
+  const parsed = DateTime.fromISO(value, { zone: timeZone });
+  if (!parsed.isValid) return parsed;
+  // Date-only values are civil dates, not instants. Use UTC calendar arithmetic so
+  // skipped/repeated midnights cannot shift the cursor's hour or recurrence phase.
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? DateTime.fromISO(value, { zone: "UTC" })
+    : parsed.setZone("UTC", { keepLocalTime: true }).startOf("day");
+};
+
+const fixedIntervalDays = (repeatRule: RepeatRule) =>
+  repeatRule === "day" ? 1 : repeatRule === "week" ? 7 : repeatRule === "biweek" ? 14 : null;
 
 const spanDaysFromDates = (start: DateTime, end: DateTime) =>
   Math.max(Math.round(end.diff(start, "days").days), 1);
@@ -164,11 +174,13 @@ export const generateOccurrenceDayEntries = ({
       return;
     }
 
-    for (let offset = 0; offset < spanDays; offset += 1) {
+    const firstOffset = Math.max(0, Math.round(clampStart.diff(occurrenceStart, "days").days));
+    const lastOffset = Math.min(
+      spanDays - 1,
+      Math.round(clampEnd.diff(occurrenceStart, "days").days),
+    );
+    for (let offset = firstOffset; offset <= lastOffset; offset += 1) {
       const day = occurrenceStart.plus({ days: offset });
-      if (day < clampStart || day > clampEnd) {
-        continue;
-      }
       const iso = day.toISODate();
       if (iso) {
         const key = `${occurrenceStartIso}:${iso}`;
@@ -199,16 +211,18 @@ export const generateOccurrenceDayEntries = ({
   const earliestRelevantStart = clampStart.minus({ days: spanDays - 1 });
   const latestStart = seriesEnd < clampEnd ? seriesEnd : clampEnd;
   let cursor = start;
-
-  while (true) {
-    const nextCursor = advance(cursor, repeatRule);
-    if (nextCursor.equals(cursor)) {
-      break;
+  const interval = fixedIntervalDays(repeatRule);
+  if (interval) {
+    const distanceDays = earliestRelevantStart.diff(start, "days").days;
+    const intervalsToSkip = Math.max(0, Math.floor(distanceDays / interval));
+    cursor = start.plus({ days: intervalsToSkip * interval });
+  } else {
+    // Month/year steps depend on preceding clamping, so retain their iterative sequence.
+    while (true) {
+      const nextCursor = advance(cursor, repeatRule);
+      if (nextCursor.equals(cursor) || nextCursor > earliestRelevantStart) break;
+      cursor = nextCursor;
     }
-    if (nextCursor > earliestRelevantStart) {
-      break;
-    }
-    cursor = nextCursor;
   }
 
   while (cursor <= latestStart) {
@@ -230,3 +244,16 @@ export const generateOccurrenceDayEntries = ({
       : a.occurrenceDay.localeCompare(b.occurrenceDay),
   );
 };
+
+export const isOccurrenceStartInSeries = ({
+  occurrenceStartDate,
+  ...series
+}: Pick<OccurrenceInput, "startDate" | "endDate" | "repeatRule" | "seriesEndDate"> & {
+  occurrenceStartDate: string;
+}) =>
+  generateOccurrenceDayEntries({
+    ...series,
+    rangeStart: occurrenceStartDate,
+    rangeEnd: occurrenceStartDate,
+    timeZone: "UTC",
+  }).some((entry) => entry.occurrenceStartDate === occurrenceStartDate);
