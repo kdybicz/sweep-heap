@@ -36,7 +36,8 @@ Template standard:
 
 - Use shared React Email templates under `src/lib/email/templates/*` instead of hand-built HTML strings.
 - Reuse the shared layout/theme in `src/lib/email/EmailLayout.tsx` so transactional emails keep one visual system and one maintenance surface.
-- Render both `html` and `text` from the same template source via `@react-email/render` to reduce copy drift between MIME parts.
+- Import components and rendering helpers from the maintained `react-email` package. Render HTML once and derive text with `toPlainText(html)` in the shared helper so MIME parts share one rendered source; do not use the deprecated `plainText` render option.
+- `react-email` is a runtime dependency; `@react-email/ui` is development-only preview tooling. Keep their exact pins aligned and use `make email-dev` / `yarn email:dev` so preview config stays under the workspace's XDG path. The scoped UI Next.js security override is tracked in [#18](https://github.com/kdybicz/sweep-heap/issues/18); see [migration assessment](react-email-migration.md).
 - Keep each previewable template file default-exported and attach `PreviewProps` so `make email-dev` can render it locally.
 
 Rules for `secure`:

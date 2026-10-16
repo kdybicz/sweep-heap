@@ -1,13 +1,7 @@
-import { render } from "@react-email/render";
 import type { ReactElement } from "react";
+import { render, toPlainText } from "react-email";
 
 export const renderEmailTemplate = async (template: ReactElement) => {
-  const [html, text] = await Promise.all([
-    render(template),
-    render(template, {
-      plainText: true,
-    }),
-  ]);
-
-  return { html, text };
+  const html = await render(template);
+  return { html, text: toPlainText(html) };
 };

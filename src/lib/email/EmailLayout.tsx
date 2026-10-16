@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from "react";
 import {
   Body,
   Button,
@@ -10,8 +11,7 @@ import {
   Preview,
   Section,
   Text,
-} from "@react-email/components";
-import type { CSSProperties, ReactNode } from "react";
+} from "react-email";
 
 import {
   type EmailTone,

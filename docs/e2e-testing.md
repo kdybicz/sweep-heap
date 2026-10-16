@@ -94,6 +94,9 @@ through following/all/single edits, and exercise the exact deployment SQL in tra
 copies. A full Gregorian-cycle legacy dataset verifies exception-date remapping without metadata loss;
 key collisions verify rollback of both the schema addition and all state changes. Default calendar
 tests also cover day-of-month versus month-end semantics, clipped spans, cutoffs and DST zones.
+The #35 email case checks actual Mailpit delivery of HTML and plain-text parts for sign-in,
+household invitations and account-deletion confirmation. It checks booleans rather than printing
+message bodies or secret URLs on failure. The smoke flow also follows the delivered action links.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

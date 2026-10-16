@@ -5,6 +5,34 @@ import { renderHouseholdInviteEmail } from "@/lib/email/templates/household-invi
 import { renderMagicLinkEmail } from "@/lib/email/templates/magic-link-email";
 
 describe("email templates", () => {
+  it.each(["magic-link", "invite", "delete"] as const)(
+    "preserves escaped content and multi-parameter action links in both %s MIME parts",
+    async (kind) => {
+      const url =
+        "https://example.com/action?identifier=fixture%2Btest&token=a-b_c&return=%2Fhousehold";
+      const host = "House <script>alert(1)</script> & Łódź";
+      const result =
+        kind === "magic-link"
+          ? await renderMagicLinkEmail({ email: "alex@example.com", host, url })
+          : kind === "invite"
+            ? await renderHouseholdInviteEmail({
+                host,
+                householdName: "Sunday House",
+                inviterName: "Alex",
+                inviteUrl: url,
+              })
+            : await renderDeleteAccountEmail({ host, expiresInMinutes: 30, confirmationUrl: url });
+      expect(result.html).toContain("&lt;script&gt;");
+      expect(result.html).not.toContain("<script>");
+      expect(result.html).toContain(`href="${url.replaceAll("&", "&amp;")}"`);
+      expect(result.text).toContain(host);
+      expect(result.text).toContain(url);
+      expect(result.text).not.toContain("<html");
+      expect(result.text).not.toContain("<table");
+      if (kind === "magic-link")
+        expect(result.text).not.toContain("Your sign-in link for The Sweep Heap");
+    },
+  );
   it("renders the magic-link email with shared framing and text fallback", async () => {
     const url = "https://example.com/auth/callback?token=abc";
     const { html, text } = await renderMagicLinkEmail({
