@@ -61,6 +61,8 @@ Normalized-save cases cover title/notes whitespace and 501-character notes on bo
 chores, including no-op or unchanged-value saves followed by a remote update.
 Typing regressions retain unsent trailing spaces/newlines through a status refresh; keyboard regressions
 retain focus on date/repeat fields and their scope buttons.
+Storage-boundary regressions preserve a persisted trailing space on no-op notes blur. A type-change retry
+case also reconciles a raw title after its initial save fails, then accepts a later remote title update.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

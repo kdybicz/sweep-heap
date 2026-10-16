@@ -2066,6 +2066,131 @@ for (const control of ["date", "repeat", "date-scope", "repeat-scope"]) {
   });
 }
 
+for (const repeatRule of ["none", "week"]) {
+  test(`#28 no-op ${repeatRule} notes blur preserves whitespace at the storage cap`, async ({
+    live,
+  }) => {
+    const label = "x".repeat(499);
+    const storedNotes = `${label} `;
+    const id = await live.chore({
+      title: "Boundary notes fixture",
+      notes: `${label} y`,
+      startDate: "2026-10-14",
+      endDate: "2026-10-15",
+      repeatRule,
+    });
+    expect((await live.db.query("select notes from chores where id=$1", [id])).rows[0].notes).toBe(
+      storedNotes,
+    );
+    const page = await openClockBoard(live, "2026-10-14T12:00:00Z");
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    await preview.locator("button[aria-expanded]").click();
+    const typeControl = preview.getByRole("combobox", { name: "Chore type" });
+    for (let blur = 0; blur < 2; blur += 1) {
+      const notesButton = preview.getByRole("button", { name: label, exact: true });
+      await notesButton.focus();
+      await notesButton.press("Enter");
+      await expect(preview.getByPlaceholder("Add Notes")).toHaveValue(storedNotes);
+      // Keep the expanded editor open on blur, rather than resetting fields by collapsing it.
+      await typeControl.focus();
+    }
+    expect(
+      (
+        await live.mutate({
+          action: "edit",
+          scope: "all",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          notes: "Remote boundary notes",
+        })
+      ).status,
+    ).toBe(200);
+    const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await refreshed;
+    const remoteNotes = preview.getByRole("button", { name: "Remote boundary notes", exact: true });
+    await remoteNotes.focus();
+    await remoteNotes.press("Enter");
+    await expect(preview.getByPlaceholder("Add Notes")).toHaveValue("Remote boundary notes");
+    await typeControl.focus();
+    expect((await live.db.query("select notes from chores where id=$1", [id])).rows[0].notes).toBe(
+      "Remote boundary notes",
+    );
+  });
+}
+
+test("#28 a successful type-change retry reconciles a failed raw title draft", async ({ live }) => {
+  const id = await live.chore({
+    title: "Type retry fixture",
+    startDate: "2026-10-14",
+    endDate: "2026-10-15",
+  });
+  const page = await openClockBoard(live, "2026-10-14T12:00:00Z");
+  let rejectTitle = true;
+  await page.route("**/api/chores", async (route) => {
+    if (route.request().method() === "PATCH" && rejectTitle) {
+      rejectTitle = false;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          code: "INTERNAL_SERVER_ERROR",
+          error: "Simulated title failure",
+        }),
+      });
+    } else await route.continue();
+  });
+  await page.locator(`[data-chore-preview-id="${id}"]`).click();
+  const preview = page.getByRole("dialog", { name: "Chore preview" });
+  await preview.getByRole("button", { name: "Type retry fixture", exact: true }).click();
+  await preview.getByPlaceholder("Chore title").fill(" Retried title ");
+  const failed = page.waitForResponse(
+    (response) => response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+  );
+  await preview.getByPlaceholder("Chore title").press("Enter");
+  expect((await failed).status()).toBe(500);
+  await expect(preview).toContainText("Simulated title failure");
+  await preview.locator("button[aria-expanded]").click();
+  const typeControl = preview.getByRole("combobox", { name: "Chore type" });
+  const saved = page.waitForResponse(
+    (response) => response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+  );
+  await typeControl.selectOption("stay_open");
+  const response = await saved;
+  expect(response.status()).toBe(200);
+  expect(response.request().postDataJSON()).toMatchObject({
+    title: " Retried title ",
+    type: "stay_open",
+  });
+  await expect(typeControl).toBeEnabled();
+  expect((await live.db.query("select title,type from chores where id=$1", [id])).rows[0]).toEqual({
+    title: "Retried title",
+    type: "stay_open",
+  });
+  expect(
+    (
+      await live.mutate({
+        action: "edit",
+        scope: "all",
+        choreId: id,
+        occurrenceStartDate: "2026-10-14",
+        title: "Remote type title",
+      })
+    ).status,
+  ).toBe(200);
+  const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await refreshed;
+  await preview.getByRole("button", { name: "Remote type title", exact: true }).click();
+  await expect(preview.getByPlaceholder("Chore title")).toHaveValue("Remote type title");
+  await preview.getByPlaceholder("Chore title").press("Enter");
+  expect((await live.db.query("select title from chores where id=$1", [id])).rows[0].title).toBe(
+    "Remote type title",
+  );
+});
+
 test("#31 invalid calendar dates return validation errors", async ({ live }) => {
   const response = await live.mutate({
     action: "create",

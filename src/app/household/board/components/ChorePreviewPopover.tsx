@@ -782,7 +782,7 @@ export default function ChorePreviewPopover({
       setIsEditingTitle(false);
 
       if (!areChorePreviewTitleTypeDirty(chore, { title: titleDraft, type })) {
-        setTitleDraft((value) => (value === titleDraft ? titleDraft.trim() : value));
+        setTitleDraft((value) => (value === titleDraft ? chore.title : value));
         if (postAction === "delete") {
           beginDeleteFlow();
           return;
@@ -883,9 +883,7 @@ export default function ChorePreviewPopover({
       setIsEditingNotes(false);
 
       if (nextNotes === savedNotes) {
-        setNotesDraft((value) =>
-          value === notesDraft ? (normalizeChoreNotes(notesDraft) ?? "") : value,
-        );
+        setNotesDraft((value) => (value === notesDraft ? (chore.notes ?? "") : value));
         if (postAction === "delete") {
           beginDeleteFlow();
           return;
@@ -1606,6 +1604,8 @@ export default function ChorePreviewPopover({
 
       if (result.error) {
         setSaveError(result.error);
+      } else {
+        setTitleDraft((value) => (value === titleDraft ? titleDraft.trim() : value));
       }
     });
   };
