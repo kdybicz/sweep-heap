@@ -29,7 +29,7 @@ export const isValidChoreDateInput = (value: unknown) => {
     !isValidChoreDateKey(value.slice(0, 10))
   )
     return false;
-  const offset = value.match(/[+-](\d{2})(?::?(\d{2}))?$/);
+  const offset = value.match(/[+-](\d{2})(?::?(\d{2}))?(?:\[[^\]]+\])?$/);
   if (offset && (Number(offset[1]) > 23 || Number(offset[2] ?? 0) > 59)) return false;
   const date = DateTime.fromISO(value, { zone: "UTC", setZone: true });
   return date.isValid && isValidChoreDateKey(date.toISODate());

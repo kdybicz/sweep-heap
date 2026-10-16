@@ -79,7 +79,8 @@ The algorithm, DST correction and captured results are documented in [`reviews/2
 The #31 date cases pass normally and cover real calendar/year validation, timestamp normalization,
 paired/ordered/31-day query bounds, leap-year 366-day durations, partial/translated edit defaults,
 bounded aggregate generation and SQL selections, and bounded calendar validation. Migration work,
-row-count and mapped-year failures verify complete rollback in all/following scopes. Legacy long
+row-count and mapped-year failures verify complete rollback in all/following scopes. Unbounded yearly
+edits preserve final supported-year exceptions without overflowing cursor bounds. Legacy long
 one-offs stay readable/completable/cancelable, while unsupported legacy exception dates are preserved
 for the separate #10 remediation. Default unit tests also verify invalid fields are rejected before
 chore SQL and that validation responses retain reconciliation cookies.

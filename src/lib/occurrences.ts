@@ -102,6 +102,8 @@ export const mapOccurrenceStarts = ({
   const wanted = new Set(occurrenceStarts);
   const last = [...wanted].sort().at(-1);
   if (!last) return mapping;
+  const lastDate = toDate(last, "UTC");
+  if (!lastDate.isValid) return mapping;
   let source: DateTime = toDate(sourceStartDate, "UTC");
   let target: DateTime = toDate(targetStartDate, "UTC");
   let targetAvailable = true;
@@ -110,7 +112,7 @@ export const mapOccurrenceStarts = ({
     const sourceDate = source.toISODate();
     if (
       !sourceDate ||
-      sourceDate > last ||
+      source > lastDate ||
       (sourceSeriesEndDate && sourceDate > sourceSeriesEndDate)
     )
       break;
@@ -125,6 +127,7 @@ export const mapOccurrenceStarts = ({
       if (wanted.has(sourceDate)) {
         consumeEntry(budget);
         mapping.set(sourceDate, targetDate);
+        if (sourceDate === last) return mapping;
       }
       if (targetRepeatRule === "none") targetAvailable = false;
       else {

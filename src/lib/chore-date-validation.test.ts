@@ -66,6 +66,8 @@ describe("chore calendar date validation", () => {
       "2026-01-01T99:00:00Z",
       "2026-01-01T12:00:00+99:00",
       "2026-01-01T12:00:00+01:99",
+      "2026-01-01T12:00:00+99:00[UTC]",
+      "2026-01-01T12:00:00+01:99[UTC]",
       `2026-01-01T00:00:00.${"1".repeat(80)}Z`,
     ])
       expect(isValidChoreDateInput(value)).toBe(false);

@@ -128,6 +128,36 @@ describe("bounded occurrence work", () => {
       ),
     ).toMatchObject({ kind: "steps" });
   });
+  it("stops upper-year mappings at the last requested start without advancing beyond it", () => {
+    const cap = budget(1, 3);
+    expect(
+      mapOccurrenceStarts({
+        occurrenceStarts: ["9999-01-01"],
+        sourceStartDate: "9998-01-01",
+        sourceRepeatRule: "year",
+        sourceSeriesEndDate: null,
+        fromDate: "9998-01-01",
+        targetStartDate: "9998-01-01",
+        targetRepeatRule: "year",
+        targetSeriesEndDate: null,
+        budget: cap,
+      }),
+    ).toEqual(new Map([["9999-01-01", "9999-01-01"]]));
+    // A legacy off-schedule exception must not make the cursor compare expanded years as strings.
+    expect(
+      mapOccurrenceStarts({
+        occurrenceStarts: ["9999-12-31"],
+        sourceStartDate: "9998-01-01",
+        sourceRepeatRule: "year",
+        sourceSeriesEndDate: null,
+        fromDate: "9998-01-01",
+        targetStartDate: "9998-01-01",
+        targetRepeatRule: "year",
+        targetSeriesEndDate: null,
+        budget: budget(1, 5),
+      }),
+    ).toEqual(new Map());
+  });
   it.each(["none", "day", "week", "biweek", "month", "year"] as const)(
     "keeps direct %s membership equivalent to generated start identities",
     (repeatRule) => {

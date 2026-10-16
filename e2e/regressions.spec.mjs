@@ -2643,6 +2643,8 @@ test("#31 malformed create fields never reach a chore insert", async ({ live, ho
     ["startDate", "2026-02-30T12:00:00Z", "startDate"],
     ["startDate", "2026-01-01T12:00:00+99:00", "startDate"],
     ["endDate", "2026-01-02T12:00:00+01:99", "endDate"],
+    ["startDate", "2026-01-01T12:00:00+99:00[UTC]", "startDate"],
+    ["endDate", "2026-01-02T12:00:00+01:99[UTC]", "endDate"],
   ]) {
     expectChoreDateError(
       await live.mutate({
@@ -2694,6 +2696,8 @@ test("#31 invalid targets and scoped edit dates preserve schedules and completio
       [{ startDate: "2026-02-30" }, "startDate"],
       [{ endDate: "2026-04-31" }, "endDate"],
       [{ seriesEndDate: "bad" }, "repeatEnd"],
+      [{ startDate: "2026-01-01T12:00:00+99:00[UTC]" }, "startDate"],
+      [{ endDate: "2026-01-02T12:00:00+01:99[UTC]" }, "endDate"],
       [{ startDate: null }, "startDate"],
       [{ endDate: "2028-01-01" }, "endDate"],
     ]) {
@@ -2753,6 +2757,8 @@ test("#31 query ordering, pairing and widths return 400 while exact limits remai
   });
   for (const [start, end, field] of [
     ["2026-02-30", "2026-03-01", "start"],
+    ["2026-01-01T12:00:00+99:00[UTC]", "2026-01-02", "start"],
+    ["2026-01-01", "2026-01-02T12:00:00+01:99[UTC]", "end"],
     ["2026-01-02", "2026-01-01", "end"],
     ["2026-01-01", "2026-02-01", "end"],
     ["0001-01-01", "9999-12-31", "end"],
@@ -3084,6 +3090,41 @@ for (const scope of ["all", "following"]) {
     ).toBe("1");
   });
 }
+
+test("#31 unbounded yearly edits preserve final supported-year exceptions", async ({ live }) => {
+  for (const scope of ["all", "following"]) {
+    const id = await live.chore({
+      title: "Upper-year source",
+      startDate: "9998-01-01",
+      endDate: "9998-01-02",
+      repeatRule: "year",
+    });
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "9999-01-01",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const edited = await live.mutate({
+      action: "edit",
+      scope,
+      choreId: id,
+      occurrenceStartDate: scope === "all" ? "9998-01-01" : "9999-01-01",
+      title: "Upper-year edited",
+    });
+    expect(edited.status).toBe(200);
+    const targetId = edited.body.createdChoreId ?? id;
+    expect((await live.list("9999-01-01")).find((row) => row.id === targetId)).toMatchObject({
+      title: "Upper-year edited",
+      status: "closed",
+      closed_reason: "done",
+    });
+  }
+});
 
 test("#31 edits preserve unsupported legacy exception dates for staged remediation", async ({
   live,
