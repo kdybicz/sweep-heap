@@ -63,6 +63,12 @@ Typing regressions retain unsent trailing spaces/newlines through a status refre
 retain focus on date/repeat fields and their scope buttons.
 Storage-boundary regressions preserve a persisted trailing space on no-op notes blur. A type-change retry
 case also reconciles a raw title after its initial save fails, then accepts a later remote title update.
+The #29 SQL cases exclude historical one-offs before JavaScript generation and retain exclusive-end
+boundaries, clipped spans and every repeat cadence. A session-private 120,005-row copy records before/after
+`EXPLAIN (ANALYZE, BUFFERS)` JSON and assesses a temporary active-household index. Its
+`issue29-query-plans.json` attachment lives under `.e2e/test-results/regressions/`; the copy and candidate
+index are rolled back without changing the app table's data or indexes.
+The captured plan results and index assessment are in [`reviews/2026-10-16-chore-prefilter.md`](reviews/2026-10-16-chore-prefilter.md).
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

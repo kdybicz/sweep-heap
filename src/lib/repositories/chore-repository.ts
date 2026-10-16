@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { listActiveChoreSeriesQuery } from "@/lib/repositories/chore-series-query";
 
 type ChoreSeriesRow = {
   id: number;
@@ -42,10 +43,11 @@ export const listActiveChoreSeriesByHousehold = async ({
   rangeStart,
   rangeEnd,
 }: HouseholdDateRange) => {
-  const result = await pool.query<ChoreSeriesRow>(
-    "select id, title, type, to_char(start_date, 'YYYY-MM-DD') as start_date, to_char(end_date, 'YYYY-MM-DD') as end_date, to_char(series_end_date, 'YYYY-MM-DD') as series_end_date, repeat_rule, status, notes from chores where status = 'active' and household_id = $1 and start_date <= $3::date and (coalesce(series_end_date, $3::date) + (end_date - start_date - 1)) >= $2::date",
-    [householdId, rangeStart, rangeEnd],
-  );
+  const result = await pool.query<ChoreSeriesRow>(listActiveChoreSeriesQuery, [
+    householdId,
+    rangeStart,
+    rangeEnd,
+  ]);
   return result.rows;
 };
 
