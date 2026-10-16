@@ -101,6 +101,7 @@ export default function WeekGrid({
                       <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
                         <span>{day.toFormat("ccc")}</span>
                         <span
+                          aria-current={isToday ? "date" : undefined}
                           className={`inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-full)] border text-xs font-semibold ${
                             isToday
                               ? "border-transparent bg-[var(--accent)] text-white"

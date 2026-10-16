@@ -1574,20 +1574,621 @@ test("#26 moving a one-off preview keeps subsequent actions on its new start", a
   await expect(preview).not.toBeVisible();
 });
 
-test("#28 Today advances across household-local midnight", async ({ live }) => {
-  const date = today();
-  // Playwright clocks affect their browser context, so isolate this clock from later tests.
+const waitForChoreRange = (page, start, end = start) =>
+  page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      url.pathname === "/api/chores" &&
+      url.searchParams.get("start") === start &&
+      url.searchParams.get("end") === end &&
+      response.status() === 200
+    );
+  });
+
+const openClockBoard = async (live, instant, timeZone = "UTC") => {
+  // Install after hydration, in an isolated context, so a fake calendar date cannot cause hydration drift.
   const context = await live.browser.newContext({
     storageState: await live.owner.context.storageState(),
+    viewport: { width: 1440, height: 1100 },
   });
   live.contexts.push(context);
   const page = await context.newPage();
-  await page.clock.install({ time: new Date(`${date}T23:59:00Z`) });
   await page.goto(`${baseURL}/household`, { waitUntil: "networkidle", timeout: 90000 });
+  await expect(page.locator("aside")).not.toContainText("Loading chores...");
+  await page.clock.install({ time: new Date(instant) });
+  const date = DateTime.fromISO(instant).setZone(timeZone).toISODate();
+  const refreshed = waitForChoreRange(page, date);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await refreshed;
+  await expect(page.locator("aside")).toContainText(
+    DateTime.fromISO(date, { zone: timeZone }).toFormat("ccc, LLL d"),
+  );
+  return page;
+};
+
+test("#28 Today advances across household-local midnight", async ({ live }) => {
+  const date = today();
+  const id = await live.chore({
+    title: "Before midnight fixture",
+    startDate: date,
+    endDate: day(date, 1),
+  });
+  await live.chore({
+    title: "After midnight fixture",
+    startDate: day(date, 1),
+    endDate: day(date, 2),
+  });
+  const page = await openClockBoard(live, `${date}T23:59:00Z`);
+  await expect(page.locator("aside")).toContainText("Before midnight fixture");
+  await page.locator(`[data-chore-preview-id="${id}"]`).click();
+  const primaryAction = page
+    .getByRole("dialog", { name: "Chore preview" })
+    .getByRole("button", { name: "Complete & close", exact: true });
+  await expect(primaryAction).toBeEnabled();
+  const refreshed = waitForChoreRange(page, day(date, 1));
   await page.clock.fastForward(120000);
+  await refreshed;
   const expectedLabel = DateTime.fromISO(day(date, 1), { zone: "UTC" }).toFormat("ccc, LLL d");
-  knownFailure(28);
-  await expect(page.locator("aside")).toContainText(expectedLabel, { timeout: 2000 });
+  await expect(page.locator("aside")).toContainText(expectedLabel);
+  await expect(page.locator("aside")).toContainText("After midnight fixture");
+  await expect(page.locator("aside")).not.toContainText("Before midnight fixture");
+  // A Sunday rollover can remove the old card; otherwise its open preview becomes past-dated.
+  if (DateTime.fromISO(date).weekday !== 7) await expect(primaryAction).toBeDisabled();
+  await expect(page.locator('[aria-current="date"]')).toHaveText(
+    String(DateTime.fromISO(day(date, 1)).day),
+  );
+});
+
+test("#28 the default week follows Sunday midnight into the new week", async ({ live }) => {
+  await live.chore({ title: "Old Sunday fixture", startDate: "2026-10-11", endDate: "2026-10-12" });
+  await live.chore({ title: "New Monday fixture", startDate: "2026-10-12", endDate: "2026-10-13" });
+  const page = await openClockBoard(live, "2026-10-11T23:59:00Z");
+  await expect(page.locator("[data-chore-preview-id]")).toHaveText([/Old Sunday fixture/]);
+  const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+  await page.clock.fastForward(120000);
+  await refreshed;
+  await expect(page.locator("[data-chore-preview-id]")).toHaveText([/New Monday fixture/]);
+  await expect(page.locator('[aria-current="date"]')).toHaveText("12");
+});
+
+for (const navigation of ["Previous week", "Next week"]) {
+  test(`#28 ${navigation} stays pinned across midnight until Today is clicked`, async ({
+    live,
+  }) => {
+    const pinnedStart = navigation === "Previous week" ? "2026-09-28" : "2026-10-12";
+    const pinnedEnd = day(pinnedStart, 6);
+    await live.chore({
+      title: "Pinned week fixture",
+      startDate: pinnedStart,
+      endDate: day(pinnedStart, 1),
+    });
+    await live.chore({
+      title: "Resumed Today fixture",
+      startDate: "2026-10-12",
+      endDate: "2026-10-13",
+    });
+    const page = await openClockBoard(live, "2026-10-11T23:59:00Z");
+    const navigated = waitForChoreRange(page, pinnedStart, pinnedEnd);
+    await page.getByRole("button", { name: navigation, exact: true }).click();
+    await navigated;
+    await expect(page.locator("main")).toContainText("Pinned week fixture");
+    const refreshed = waitForChoreRange(page, pinnedStart, pinnedEnd);
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(page.locator("main")).toContainText("Pinned week fixture");
+    await expect(page.locator("aside")).toContainText("Mon, Oct 12");
+    await expect(page.locator("aside")).toContainText("Resumed Today fixture");
+    const reset =
+      navigation === "Previous week" ? waitForChoreRange(page, "2026-10-12", "2026-10-18") : null;
+    await page.getByRole("button", { name: "Today", exact: true }).click();
+    // A pinned next week is already this calendar week after midnight, so no range fetch is needed.
+    await reset;
+    await expect(page.locator('[aria-current="date"]')).toHaveText("12");
+    await expect(page.locator("main")).toContainText("Resumed Today fixture");
+  });
+}
+
+for (const [date, hours] of [
+  ["2026-03-08", 23],
+  ["2026-11-01", 25],
+]) {
+  test(`#28 New York's ${hours}-hour DST day refreshes at local midnight`, async ({
+    live,
+    household,
+  }) => {
+    await live.db.query("update households set time_zone=$1 where id=$2", [
+      "America/New_York",
+      household,
+    ]);
+    const nextDate = day(date, 1);
+    await live.chore({
+      title: "DST next-day fixture",
+      startDate: nextDate,
+      endDate: day(nextDate, 1),
+    });
+    const instant = DateTime.fromISO(`${date}T00:00:00`, { zone: "America/New_York" }).toISO();
+    const page = await openClockBoard(live, instant, "America/New_York");
+    const label = DateTime.fromISO(date, { zone: "America/New_York" }).toFormat("ccc, LLL d");
+    await page.clock.fastForward(hours * 60 * 60 * 1000 - 60000);
+    await expect(page.locator("aside")).toContainText(label);
+    const refreshed = waitForChoreRange(page, nextDate);
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(page.locator("aside")).toContainText(
+      DateTime.fromISO(nextDate, { zone: "America/New_York" }).toFormat("ccc, LLL d"),
+    );
+    await expect(page.locator("aside")).toContainText("DST next-day fixture");
+    await expect(page.locator('[aria-current="date"]')).toHaveText(
+      String(DateTime.fromISO(nextDate).day),
+    );
+  });
+}
+
+test("#28 Havana advances Today at the first occurrence of a repeated midnight", async ({
+  live,
+  household,
+}) => {
+  await live.db.query("update households set time_zone=$1 where id=$2", [
+    "America/Havana",
+    household,
+  ]);
+  await live.chore({
+    title: "Repeated-midnight fixture",
+    startDate: "2026-11-01",
+    endDate: "2026-11-02",
+  });
+  const page = await openClockBoard(live, "2026-10-31T23:59:00-04:00", "America/Havana");
+  const refreshed = waitForChoreRange(page, "2026-11-01");
+  await page.clock.fastForward(120000);
+  await refreshed;
+  await expect(page.locator("aside")).toContainText("Sun, Nov 1");
+  await expect(page.locator("aside")).toContainText("Repeated-midnight fixture");
+  await expect(page.locator('[aria-current="date"]')).toHaveText("1");
+  await page.clock.fastForward(60 * 60 * 1000);
+  await expect(page.locator("aside")).toContainText("Sun, Nov 1");
+});
+
+for (const event of ["focus", "visibilitychange"]) {
+  test(`#28 ${event} catches up a suspended tab and refreshes same-day data`, async ({ live }) => {
+    await live.chore({
+      title: "Resumed day fixture",
+      startDate: "2026-10-29",
+      endDate: "2026-10-30",
+    });
+    const page = await openClockBoard(live, "2026-10-11T23:59:00Z");
+    await page.clock.setSystemTime(new Date("2026-10-29T12:00:00Z"));
+    await expect(page.locator("aside")).toContainText("Sun, Oct 11");
+    const refreshed = waitForChoreRange(page, "2026-10-29");
+    await page.evaluate(
+      (event) =>
+        event === "focus"
+          ? window.dispatchEvent(new Event(event))
+          : document.dispatchEvent(new Event(event)),
+      event,
+    );
+    await refreshed;
+    await expect(page.locator("aside")).toContainText("Thu, Oct 29");
+    await expect(page.locator("aside")).toContainText("Resumed day fixture");
+    await expect(page.locator("[data-chore-preview-id]")).toHaveText([/Resumed day fixture/]);
+    await live.chore({
+      title: "New same-day fixture",
+      startDate: "2026-10-29",
+      endDate: "2026-10-30",
+    });
+    const todayRefetched = waitForChoreRange(page, "2026-10-29");
+    const weekRefetched = waitForChoreRange(page, "2026-10-26", "2026-11-01");
+    await page.evaluate(
+      (event) =>
+        event === "focus"
+          ? window.dispatchEvent(new Event(event))
+          : document.dispatchEvent(new Event(event)),
+      event,
+    );
+    await Promise.all([todayRefetched, weekRefetched]);
+    await expect(page.locator("aside")).toContainText("New same-day fixture");
+    await expect(page.locator("[data-chore-preview-id]")).toHaveCount(2);
+  });
+}
+
+for (const field of ["title", "notes", "dates", "repeat"]) {
+  test(`#28 background status refresh preserves an unsaved ${field} edit`, async ({ live }) => {
+    const id = await live.chore({
+      title: "Draft refresh fixture",
+      startDate: "2026-10-07",
+      endDate: "2026-10-08",
+      repeatRule: "week",
+    });
+    const page = await openClockBoard(live, "2026-10-14T23:59:00Z");
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    if (field === "title") {
+      await preview.getByRole("button", { name: "Draft refresh fixture", exact: true }).click();
+      await preview.getByPlaceholder("Chore title").fill("Unsaved title draft");
+    } else if (field === "notes") {
+      await preview.getByRole("button", { name: "Add Notes", exact: true }).click();
+      await preview.getByPlaceholder("Add Notes").fill("Unsaved notes draft");
+    } else {
+      await preview.locator("button[aria-expanded]").click();
+      if (field === "dates") await preview.locator("input[type=date]").nth(1).fill("2026-10-16");
+      else
+        await preview
+          .locator("select")
+          .filter({ has: page.locator('option[value="biweekly"]') })
+          .selectOption("biweekly");
+    }
+    // Mutate outside this page's query client, as another household member would.
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await live.mutate({
+          action: "edit",
+          scope: "all",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          title: "Remote title",
+          notes: "Remote notes",
+        })
+      ).status,
+    ).toBe(200);
+    const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(preview).toContainText("Completed");
+    if (field !== "title")
+      await expect(
+        preview.getByRole("button", { name: "Remote title", exact: true }),
+      ).toBeVisible();
+    if (field !== "notes") await expect(preview).toContainText("Remote notes");
+    if (field === "title") {
+      await expect(preview.getByPlaceholder("Chore title")).toHaveValue("Unsaved title draft");
+      await preview.getByPlaceholder("Chore title").press("Enter");
+    } else if (field === "notes") {
+      await expect(preview.getByPlaceholder("Add Notes")).toHaveValue("Unsaved notes draft");
+      await preview.locator("button[aria-expanded]").click();
+    } else if (field === "dates") {
+      await expect(preview.locator("input[type=date]").nth(1)).toHaveValue("2026-10-16");
+      await expect(page.getByText("Apply date changes", { exact: true })).toBeVisible();
+    } else {
+      await expect(
+        preview.locator("select").filter({ has: page.locator('option[value="biweekly"]') }),
+      ).toHaveValue("biweekly");
+      await expect(page.getByText("Apply repeat changes", { exact: true })).toBeVisible();
+    }
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+    );
+    await page
+      .getByRole("button", {
+        name: field === "repeat" ? "All future chores" : "Only current chore",
+        exact: true,
+      })
+      .click();
+    const response = await saved;
+    expect(response.status()).toBe(200);
+    const replacementId = (await response.json()).createdChoreId;
+    const stored = (
+      await live.db.query(
+        "select title, notes, to_char(end_date,'YYYY-MM-DD') end_date, repeat_rule from chores where id=$1",
+        [replacementId],
+      )
+    ).rows[0];
+    expect(stored).toMatchObject(
+      field === "title"
+        ? { title: "Unsaved title draft" }
+        : field === "notes"
+          ? { notes: "Unsaved notes draft" }
+          : field === "dates"
+            ? { end_date: "2026-10-17" }
+            : { repeat_rule: "biweek" },
+    );
+  });
+}
+
+for (const repeatRule of ["none", "week"]) {
+  for (const field of ["title", "notes", "long-notes"]) {
+    test(`#28 normalized ${field} saves on ${repeatRule} chores stay clean on remote refresh`, async ({
+      live,
+    }) => {
+      const id = await live.chore({
+        title: "Canonical preview fixture",
+        notes: "Original notes",
+        startDate: "2026-10-14",
+        endDate: "2026-10-15",
+        repeatRule,
+      });
+      const page = await openClockBoard(live, "2026-10-14T12:00:00Z");
+      await page.locator(`[data-chore-preview-id="${id}"]`).click();
+      const preview = page.getByRole("dialog", { name: "Chore preview" });
+      const canonical =
+        field === "title" ? "Saved title" : field === "notes" ? "Saved notes" : "x".repeat(500);
+      const draft =
+        field === "title" ? " Saved title " : field === "notes" ? " Saved notes " : "x".repeat(501);
+      const save = async (label, value, sendsPatch) => {
+        await preview.getByRole("button", { name: label, exact: true }).click();
+        const input = preview.getByPlaceholder(field === "title" ? "Chore title" : "Add Notes");
+        await input.fill(value);
+        const saved = sendsPatch
+          ? page.waitForResponse(
+              (response) =>
+                response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+            )
+          : null;
+        if (field === "title") await input.press("Enter");
+        else await preview.locator("button[aria-expanded]").click();
+        if (sendsPatch && repeatRule === "week")
+          await page.getByRole("button", { name: "All chores", exact: true }).click();
+        if (saved) expect((await saved).status()).toBe(200);
+        await expect(preview.getByRole("button", { name: canonical, exact: true })).toBeVisible();
+      };
+      await save(field === "title" ? "Canonical preview fixture" : "Original notes", draft, true);
+      const persisted = (await live.db.query("select title, notes from chores where id=$1", [id]))
+        .rows[0];
+      expect(field === "title" ? persisted.title : persisted.notes).toBe(canonical);
+      // Exercise an unchanged server value too: truncation still sends a save, while
+      // whitespace-only edits take the no-op path. Neither should leave a dirty draft.
+      await save(
+        canonical,
+        field === "long-notes" ? draft : `${canonical} `,
+        field === "long-notes",
+      );
+      expect(
+        (
+          await live.mutate({
+            action: "edit",
+            scope: "all",
+            choreId: id,
+            occurrenceStartDate: "2026-10-14",
+            title: "Remote final title",
+            notes: "Remote final notes",
+          })
+        ).status,
+      ).toBe(200);
+      const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await refreshed;
+      await expect(
+        preview.getByRole("button", { name: "Remote final title", exact: true }),
+      ).toBeVisible();
+      await expect(
+        preview.getByRole("button", { name: "Remote final notes", exact: true }),
+      ).toBeVisible();
+      await preview.getByRole("button", { name: "Remote final notes", exact: true }).click();
+      await expect(preview.getByPlaceholder("Add Notes")).toHaveValue("Remote final notes");
+      await preview.locator("button[aria-expanded]").click();
+      expect(
+        (await live.db.query("select notes from chores where id=$1", [id])).rows[0].notes,
+      ).toBe("Remote final notes");
+    });
+  }
+}
+
+for (const field of ["title", "notes"]) {
+  test(`#28 status refresh preserves unfinished ${field} whitespace while typing`, async ({
+    live,
+  }) => {
+    const id = await live.chore({
+      title: "Buy milk",
+      notes: "Remember milk",
+      startDate: "2026-10-14",
+      endDate: "2026-10-15",
+    });
+    const page = await openClockBoard(live, "2026-10-14T23:59:00Z");
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    await preview
+      .getByRole("button", { name: field === "title" ? "Buy milk" : "Remember milk", exact: true })
+      .click();
+    const input = preview.getByPlaceholder(field === "title" ? "Chore title" : "Add Notes");
+    const draft = field === "title" ? "Buy milk " : "Remember milk\n";
+    await input.fill(draft);
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(preview).toContainText("Completed");
+    await expect(input).toHaveValue(draft);
+    await expect(input).toBeFocused();
+    await input.press("Control+End");
+    await input.pressSequentially("and bread");
+    await expect(input).toHaveValue(`${draft}and bread`);
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+    );
+    if (field === "title") await input.press("Enter");
+    else await preview.locator("button[aria-expanded]").click();
+    expect((await saved).status()).toBe(200);
+    const stored = (await live.db.query("select title,notes from chores where id=$1", [id]))
+      .rows[0];
+    expect(stored[field]).toBe(`${draft}and bread`);
+  });
+}
+
+for (const control of ["date", "repeat", "date-scope", "repeat-scope"]) {
+  test(`#28 status refresh retains keyboard focus on the ${control} control`, async ({ live }) => {
+    const id = await live.chore({
+      title: "Keyboard refresh fixture",
+      startDate: "2026-10-07",
+      endDate: "2026-10-08",
+      repeatRule: "week",
+    });
+    const page = await openClockBoard(live, "2026-10-14T23:59:00Z");
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    await preview.locator("button[aria-expanded]").click();
+    let focused;
+    if (control.startsWith("date")) {
+      focused = preview.locator("input[type=date]").nth(1);
+      if (control === "date-scope") await focused.fill("2026-10-16");
+    } else {
+      focused = preview.locator("select").filter({ has: page.locator('option[value="biweekly"]') });
+      if (control === "repeat-scope") await focused.selectOption("biweekly");
+    }
+    if (control.endsWith("scope"))
+      focused = page.getByRole("button", { name: "Only current chore", exact: true });
+    await focused.focus();
+    await expect(focused).toBeFocused();
+    expect(
+      (
+        await live.mutate({
+          action: "set",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          status: "closed",
+        })
+      ).status,
+    ).toBe(200);
+    const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+    await page.clock.fastForward(120000);
+    await refreshed;
+    await expect(preview).toContainText("Completed");
+    await expect(focused).toBeFocused();
+  });
+}
+
+for (const repeatRule of ["none", "week"]) {
+  test(`#28 no-op ${repeatRule} notes blur preserves whitespace at the storage cap`, async ({
+    live,
+  }) => {
+    const label = "x".repeat(499);
+    const storedNotes = `${label} `;
+    const id = await live.chore({
+      title: "Boundary notes fixture",
+      notes: `${label} y`,
+      startDate: "2026-10-14",
+      endDate: "2026-10-15",
+      repeatRule,
+    });
+    expect((await live.db.query("select notes from chores where id=$1", [id])).rows[0].notes).toBe(
+      storedNotes,
+    );
+    const page = await openClockBoard(live, "2026-10-14T12:00:00Z");
+    await page.locator(`[data-chore-preview-id="${id}"]`).click();
+    const preview = page.getByRole("dialog", { name: "Chore preview" });
+    await preview.locator("button[aria-expanded]").click();
+    const typeControl = preview.getByRole("combobox", { name: "Chore type" });
+    for (let blur = 0; blur < 2; blur += 1) {
+      const notesButton = preview.getByRole("button", { name: label, exact: true });
+      await notesButton.focus();
+      await notesButton.press("Enter");
+      await expect(preview.getByPlaceholder("Add Notes")).toHaveValue(storedNotes);
+      // Keep the expanded editor open on blur, rather than resetting fields by collapsing it.
+      await typeControl.focus();
+    }
+    expect(
+      (
+        await live.mutate({
+          action: "edit",
+          scope: "all",
+          choreId: id,
+          occurrenceStartDate: "2026-10-14",
+          notes: "Remote boundary notes",
+        })
+      ).status,
+    ).toBe(200);
+    const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await refreshed;
+    const remoteNotes = preview.getByRole("button", { name: "Remote boundary notes", exact: true });
+    await remoteNotes.focus();
+    await remoteNotes.press("Enter");
+    await expect(preview.getByPlaceholder("Add Notes")).toHaveValue("Remote boundary notes");
+    await typeControl.focus();
+    expect((await live.db.query("select notes from chores where id=$1", [id])).rows[0].notes).toBe(
+      "Remote boundary notes",
+    );
+  });
+}
+
+test("#28 a successful type-change retry reconciles a failed raw title draft", async ({ live }) => {
+  const id = await live.chore({
+    title: "Type retry fixture",
+    startDate: "2026-10-14",
+    endDate: "2026-10-15",
+  });
+  const page = await openClockBoard(live, "2026-10-14T12:00:00Z");
+  let rejectTitle = true;
+  await page.route("**/api/chores", async (route) => {
+    if (route.request().method() === "PATCH" && rejectTitle) {
+      rejectTitle = false;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          code: "INTERNAL_SERVER_ERROR",
+          error: "Simulated title failure",
+        }),
+      });
+    } else await route.continue();
+  });
+  await page.locator(`[data-chore-preview-id="${id}"]`).click();
+  const preview = page.getByRole("dialog", { name: "Chore preview" });
+  await preview.getByRole("button", { name: "Type retry fixture", exact: true }).click();
+  await preview.getByPlaceholder("Chore title").fill(" Retried title ");
+  const failed = page.waitForResponse(
+    (response) => response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+  );
+  await preview.getByPlaceholder("Chore title").press("Enter");
+  expect((await failed).status()).toBe(500);
+  await expect(preview).toContainText("Simulated title failure");
+  await preview.locator("button[aria-expanded]").click();
+  const typeControl = preview.getByRole("combobox", { name: "Chore type" });
+  const saved = page.waitForResponse(
+    (response) => response.url().endsWith("/api/chores") && response.request().method() === "PATCH",
+  );
+  await typeControl.selectOption("stay_open");
+  const response = await saved;
+  expect(response.status()).toBe(200);
+  expect(response.request().postDataJSON()).toMatchObject({
+    title: " Retried title ",
+    type: "stay_open",
+  });
+  await expect(typeControl).toBeEnabled();
+  expect((await live.db.query("select title,type from chores where id=$1", [id])).rows[0]).toEqual({
+    title: "Retried title",
+    type: "stay_open",
+  });
+  expect(
+    (
+      await live.mutate({
+        action: "edit",
+        scope: "all",
+        choreId: id,
+        occurrenceStartDate: "2026-10-14",
+        title: "Remote type title",
+      })
+    ).status,
+  ).toBe(200);
+  const refreshed = waitForChoreRange(page, "2026-10-12", "2026-10-18");
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await refreshed;
+  await preview.getByRole("button", { name: "Remote type title", exact: true }).click();
+  await expect(preview.getByPlaceholder("Chore title")).toHaveValue("Remote type title");
+  await preview.getByPlaceholder("Chore title").press("Enter");
+  expect((await live.db.query("select title from chores where id=$1", [id])).rows[0].title).toBe(
+    "Remote type title",
+  );
 });
 
 test("#31 invalid calendar dates return validation errors", async ({ live }) => {

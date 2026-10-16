@@ -10,11 +10,11 @@ export type { UseHouseholdBoardModel } from "@/app/household/board/useHouseholdB
 export default function useHouseholdBoard(): UseHouseholdBoardModel {
   const week = useHouseholdWeek();
   const choresData = useHouseholdChoresData({
-    weekOffset: week.weekOffset,
+    weekStartKey: week.weekStartKey,
+    weekEndKey: week.weekEndKey,
+    refreshVersion: week.refreshVersion,
     todayKey: week.todayKey,
     setTimeZone: week.setTimeZone,
-    setRangeStart: week.setRangeStart,
-    setRangeEnd: week.setRangeEnd,
   });
   const actions = useHouseholdChoreActions({
     chores: choresData.chores,

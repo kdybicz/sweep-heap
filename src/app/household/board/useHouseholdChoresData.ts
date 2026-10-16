@@ -1,7 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo } from "react";
 import {
   type ChoresQueryData,
+  choreCompletionMutationKey,
   fetchTodayChores,
   fetchWeekChores,
   getTodayChoresQueryKey,
@@ -43,28 +44,41 @@ const toNextChores = ({
 };
 
 export default function useHouseholdChoresData({
-  weekOffset,
+  weekStartKey,
+  weekEndKey,
+  refreshVersion,
   todayKey,
   setTimeZone,
-  setRangeStart,
-  setRangeEnd,
 }: UseHouseholdChoresDataParams): UseHouseholdChoresDataModel {
   const queryClient = useQueryClient();
-  const weekChoresQueryKey = useMemo(() => getWeekChoresQueryKey(weekOffset), [weekOffset]);
+  const pendingCompletions = useIsMutating({ mutationKey: choreCompletionMutationKey });
+  const weekChoresQueryKey = useMemo(
+    () => getWeekChoresQueryKey(weekStartKey, weekEndKey),
+    [weekStartKey, weekEndKey],
+  );
   const todayChoresQueryKey = useMemo(() => getTodayChoresQueryKey(todayKey), [todayKey]);
 
   const weekChoresQuery = useQuery({
     queryKey: weekChoresQueryKey,
-    queryFn: ({ signal }) => fetchWeekChores({ weekOffset, signal }),
+    queryFn: ({ signal }) =>
+      fetchWeekChores({ rangeStart: weekStartKey, rangeEnd: weekEndKey, signal }),
     retry: false,
+    enabled: pendingCompletions === 0,
   });
 
   const todayChoresQuery = useQuery({
     queryKey: todayChoresQueryKey,
     queryFn: ({ signal }) => fetchTodayChores({ todayKey, signal }),
     retry: false,
-    enabled: Boolean(todayKey),
+    enabled: Boolean(todayKey) && pendingCompletions === 0,
   });
+
+  useEffect(() => {
+    if (refreshVersion === 0) return;
+    // Resumption can change server state even when the local calendar day did not change.
+    // Mark cached ranges stale too, so returning to a pinned week cannot reuse pre-midnight data.
+    void queryClient.invalidateQueries({ queryKey: ["household-chores"] });
+  }, [queryClient, refreshVersion]);
 
   const setChores = useCallback<Dispatch<SetStateAction<ChoreItem[]>>>(
     (value) => {
@@ -107,18 +121,12 @@ export default function useHouseholdChoresData({
     if (nextTimeZone) {
       setTimeZone((current) => (nextTimeZone !== current ? nextTimeZone : current));
     }
-
-    if (data.rangeStart && data.rangeEnd) {
-      setRangeStart(data.rangeStart);
-      setRangeEnd(data.rangeEnd);
-    }
-  }, [setRangeEnd, setRangeStart, setTimeZone, weekChoresQuery.data]);
+  }, [setTimeZone, weekChoresQuery.data]);
 
   const loadTodayChores = useCallback(async () => {
-    await queryClient.refetchQueries({
+    await queryClient.invalidateQueries({
       queryKey: todayChoresQueryKey,
       exact: true,
-      type: "active",
     });
   }, [queryClient, todayChoresQueryKey]);
 

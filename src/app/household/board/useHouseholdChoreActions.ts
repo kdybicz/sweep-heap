@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
   isChoreEditDirty,
 } from "@/app/household/board/chore-form";
 import { getChorePreviewDateMutationTarget } from "@/app/household/board/chore-preview";
+import { choreCompletionMutationKey } from "@/app/household/board/chores-query";
 import { getHouseholdTodayKey } from "@/app/household/board/date-utils";
 import type { ChoreItem } from "@/app/household/board/types";
 import type {
@@ -69,6 +71,7 @@ export default function useHouseholdChoreActions({
   loadTodayChores,
   timeZone,
 }: UseHouseholdChoreActionsParams): UseHouseholdChoreActionsModel {
+  const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [formMode, setFormMode] = useState<ChoreFormMode>("create");
   const [editingChore, setEditingChore] = useState<ChoreItem | null>(null);
@@ -480,8 +483,11 @@ export default function useHouseholdChoreActions({
     ],
   );
 
-  const markChoreDone = useCallback(
+  const performChoreCompletion = useCallback(
     async (targetChore: ChoreItem) => {
+      // Stop already-running reads before applying optimistic state. The data hook pauses
+      // new reads while this mutation is pending, including focus/midnight refreshes.
+      await queryClient.cancelQueries({ queryKey: ["household-chores"] });
       const choreId = targetChore.id;
       const occurrenceStartDate = targetChore.occurrence_start_date;
       const optimisticStatus = targetChore.type === "stay_open" ? "open" : "closed";
@@ -526,11 +532,18 @@ export default function useHouseholdChoreActions({
           );
         }
       } finally {
-        await loadTodayChores();
+        // Invalidate the affected week as well as Today. Once pending completions settle,
+        // their query observers re-enable and fetch authoritative state.
+        await refreshChoreCollections();
       }
     },
-    [chores, loadTodayChores, setChores],
+    [chores, queryClient, refreshChoreCollections, setChores],
   );
+
+  const { mutateAsync: markChoreDone } = useMutation({
+    mutationKey: choreCompletionMutationKey,
+    mutationFn: performChoreCompletion,
+  });
 
   const primaryChoreAction = useCallback(
     (chore: ChoreItem) => {

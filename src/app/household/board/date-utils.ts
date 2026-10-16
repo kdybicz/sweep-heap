@@ -9,6 +9,16 @@ export const getHouseholdToday = (timeZone: string) =>
 export const getHouseholdTodayKey = (timeZone: string) =>
   toDateKey(getHouseholdToday(timeZone)) ?? LuxonDateTime.utc().toISODate() ?? "";
 
+export const getNextHouseholdMidnightDelay = (
+  timeZone: string,
+  now: DateTime = LuxonDateTime.now(),
+) => {
+  const midnight = now.setZone(timeZone).plus({ days: 1 }).startOf("day");
+  // Some zones repeat midnight. Today changes at its first occurrence, not its second.
+  const firstMidnight = Math.min(...midnight.getPossibleOffsets().map((date) => date.toMillis()));
+  return Math.max(1, firstMidnight - now.toMillis());
+};
+
 export const addDaysToDateKey = (dateKey: string, days: number) => {
   const parsed = LuxonDateTime.fromISO(dateKey, { zone: "UTC" }).startOf("day");
   if (!parsed.isValid) {

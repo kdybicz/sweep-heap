@@ -50,6 +50,19 @@ The #26 browser cases pass normally and cover title, date, notes and repeat edit
 scopes, real top-level PATCH responses, preview continuity, and subsequent edits/deletion of the replacement.
 They also cover retryable failures, offscreen replacements, and moving/deleting a one-off from the expanded preview.
 The #27 progress cases pass normally and count unique occurrences rather than visible day rows.
+The #28 clock cases pass normally and cover Today queries, highlighting and primary-action guards,
+Sunday/Monday week rollover, pinned navigation, 23/25-hour New York DST days, and suspended/same-day
+focus and visibility resumption. Clock contexts are isolated and install fake time after hydration.
+Havana's repeated midnight advances Today at its first occurrence. Hook integration tests also hold a
+stale query response across pending successful/failed completions to check cancellation, refetch deferral and reconciliation.
+Browser cases also preserve and save unsent title, notes, date and repeat edits after a remote status
+change is fetched at midnight.
+Normalized-save cases cover title/notes whitespace and 501-character notes on both one-off and repeating
+chores, including no-op or unchanged-value saves followed by a remote update.
+Typing regressions retain unsent trailing spaces/newlines through a status refresh; keyboard regressions
+retain focus on date/repeat fields and their scope buttons.
+Storage-boundary regressions preserve a persisted trailing space on no-op notes blur. A type-change retry
+case also reconciles a raw title after its initial save fails, then accepts a later remote title update.
 
 The contention suite is separate because it deliberately queues ten requests behind a disposable
 household's PostgreSQL advisory lock. It verifies those connections belong to the dedicated lock pool,

@@ -22,6 +22,8 @@ export type ChoresQueryData = {
   rangeEnd: string | null;
 };
 
+export const choreCompletionMutationKey = ["household-chores", "completion"] as const;
+
 const toChoresQueryData = (data: ChoresApiResponse): ChoresQueryData => ({
   chores: data.chores ?? [],
   timeZone: typeof data.timeZone === "string" ? data.timeZone : null,
@@ -48,22 +50,24 @@ const parseChoresApiResponse = ({
   return toChoresQueryData(data);
 };
 
-export const getWeekChoresQueryKey = (weekOffset: number) =>
-  ["household-chores", "week", weekOffset] as const;
+export const getWeekChoresQueryKey = (rangeStart: string, rangeEnd: string) =>
+  ["household-chores", "week", rangeStart, rangeEnd] as const;
 
 export const getTodayChoresQueryKey = (todayKey: string) =>
   ["household-chores", "today", todayKey] as const;
 
 export const fetchWeekChores = async ({
-  weekOffset,
+  rangeStart,
+  rangeEnd,
   signal,
   fetchImpl = fetch as FetchChoresFn,
 }: {
-  weekOffset: number;
+  rangeStart: string;
+  rangeEnd: string;
   signal?: AbortSignal;
   fetchImpl?: FetchChoresFn;
 }) => {
-  const response = await fetchImpl(`/api/chores?weekOffset=${weekOffset}`, {
+  const response = await fetchImpl(`/api/chores?start=${rangeStart}&end=${rangeEnd}`, {
     cache: "no-store",
     signal,
   });

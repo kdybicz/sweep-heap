@@ -34,6 +34,7 @@ import type {
   CancelChoreScope,
   EditChoreScope,
 } from "@/app/household/board/useHouseholdChoreActions.types";
+import { normalizeChoreNotes } from "@/lib/chore-notes";
 import {
   type ChoreType,
   getChoreStateLabel,
@@ -261,6 +262,7 @@ export default function ChorePreviewPopover({
     sessionId: 0,
   });
   const previousSelectionKeyRef = useRef<string | null>(null);
+  const previousChoreRef = useRef<ChoreItem | null>(null);
   const discardOnBlurRef = useRef(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -722,6 +724,7 @@ export default function ChorePreviewPopover({
         return;
       }
 
+      setTitleDraft((value) => (value === titleDraft ? titleDraft.trim() : value));
       const target = getChorePreviewMutationTarget({
         chore,
         targetChoreId: result.targetChoreId,
@@ -779,6 +782,7 @@ export default function ChorePreviewPopover({
       setIsEditingTitle(false);
 
       if (!areChorePreviewTitleTypeDirty(chore, { title: titleDraft, type })) {
+        setTitleDraft((value) => (value === titleDraft ? chore.title : value));
         if (postAction === "delete") {
           beginDeleteFlow();
           return;
@@ -822,6 +826,7 @@ export default function ChorePreviewPopover({
         return;
       }
 
+      setTitleDraft((value) => (value === titleDraft ? titleDraft.trim() : value));
       if (postAction === "delete") {
         beginDeleteFlow();
         return;
@@ -878,6 +883,7 @@ export default function ChorePreviewPopover({
       setIsEditingNotes(false);
 
       if (nextNotes === savedNotes) {
+        setNotesDraft((value) => (value === notesDraft ? (chore.notes ?? "") : value));
         if (postAction === "delete") {
           beginDeleteFlow();
           return;
@@ -920,6 +926,9 @@ export default function ChorePreviewPopover({
         return;
       }
 
+      setNotesDraft((value) =>
+        value === notesDraft ? (normalizeChoreNotes(notesDraft) ?? "") : value,
+      );
       if (postAction === "delete") {
         beginDeleteFlow();
         return;
@@ -958,6 +967,7 @@ export default function ChorePreviewPopover({
     invalidateActiveSelection();
     resetSaveTracking();
     previousSelectionKeyRef.current = null;
+    previousChoreRef.current = null;
     pendingTitleBlurBehaviorRef.current = null;
     pendingNotesBlurBehaviorRef.current = null;
     suppressNextFooterActionRef.current = null;
@@ -1091,6 +1101,26 @@ export default function ChorePreviewPopover({
 
     const nextState = getChorePreviewFormState(chore);
     const isSameSelection = previousSelectionKeyRef.current === selectionKey;
+    const previousChore = previousChoreRef.current;
+    previousChoreRef.current = chore;
+    if (isSameSelection && previousChore) {
+      // Background updates replace the chore object, not the user's selection. Adopt
+      // refreshed clean fields while preserving dirty drafts and the active editor/scope popup.
+      const previousState = getChorePreviewFormState(previousChore);
+      setTitleDraft((value) => (value === previousChore.title ? chore.title : value));
+      setType((value) => (value === previousChore.type ? chore.type : value));
+      setNotesDraft((value) =>
+        value === (previousChore.notes ?? "") ? (chore.notes ?? "") : value,
+      );
+      setStartDate((value) => (value === previousState.startDate ? nextState.startDate : value));
+      setEndDate((value) => (value === previousState.endDate ? nextState.endDate : value));
+      setRepeat((value) => (value === previousState.repeat ? nextState.repeat : value));
+      setRepeatEndMode((value) =>
+        value === previousState.repeatEndMode ? nextState.repeatEndMode : value,
+      );
+      setRepeatEnd((value) => (value === previousState.repeatEnd ? nextState.repeatEnd : value));
+      return;
+    }
     const nextSessionId = isSameSelection
       ? activeSelectionRef.current.sessionId
       : activeSelectionRef.current.sessionId + 1;
@@ -1172,6 +1202,12 @@ export default function ChorePreviewPopover({
       return;
     }
 
+    if (
+      popoverRef.current?.contains(document.activeElement) ||
+      scopePopupRef.current?.contains(document.activeElement)
+    ) {
+      return;
+    }
     popoverRef.current?.focus();
   }, [chore, isEditingNotes, isEditingTitle, selectionKey]);
 
@@ -1370,6 +1406,9 @@ export default function ChorePreviewPopover({
       return;
     }
 
+    setNotesDraft((value) =>
+      value === notesDraft ? (normalizeChoreNotes(notesDraft) ?? "") : value,
+    );
     const target = getChorePreviewMutationTarget({
       chore,
       targetChoreId: result.targetChoreId,
@@ -1565,6 +1604,8 @@ export default function ChorePreviewPopover({
 
       if (result.error) {
         setSaveError(result.error);
+      } else {
+        setTitleDraft((value) => (value === titleDraft ? titleDraft.trim() : value));
       }
     });
   };

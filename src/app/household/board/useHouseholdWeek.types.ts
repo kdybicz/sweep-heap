@@ -2,11 +2,11 @@ import type { DateTime } from "luxon";
 import type { Dispatch, SetStateAction } from "react";
 
 export type UseHouseholdWeekModel = {
-  weekOffset: number;
+  weekStartKey: string;
+  weekEndKey: string;
+  refreshVersion: number;
   timeZone: string;
   setTimeZone: Dispatch<SetStateAction<string>>;
-  setRangeStart: Dispatch<SetStateAction<string | null>>;
-  setRangeEnd: Dispatch<SetStateAction<string | null>>;
   rangeLabel: string;
   days: DateTime[];
   today: DateTime;
