@@ -3,7 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 const { query } = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("@/lib/db", () => ({ pool: { query } }));
 
-import { insertChore, listActiveChoreSeriesByHousehold } from "@/lib/repositories/chore-repository";
+import {
+  insertChore,
+  listActiveChoreSeriesByHousehold,
+  listChoreExceptionsByHousehold,
+  listChoreOccurrenceExceptions,
+} from "@/lib/repositories/chore-repository";
 import { listActiveChoreSeriesQuery } from "@/lib/repositories/chore-series-query";
 
 const input = {
@@ -40,6 +45,41 @@ describe("chore series selection contract", () => {
       11,
       "2026-10-12",
       "2026-10-18",
+    ]);
+  });
+  it("binds the overflow sentinel row limit without interpolating values into SQL", async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    await listActiveChoreSeriesByHousehold({
+      householdId: 11,
+      rangeStart: "2026-10-12",
+      rangeEnd: "2026-10-18",
+      maxResults: 10001,
+    });
+    expect(query).toHaveBeenLastCalledWith(`${listActiveChoreSeriesQuery} limit $4`, [
+      11,
+      "2026-10-12",
+      "2026-10-18",
+      10001,
+    ]);
+    query.mockResolvedValueOnce({ rows: [] });
+    await listChoreExceptionsByHousehold({
+      householdId: 11,
+      rangeStart: "2026-10-12",
+      rangeEnd: "2026-10-18",
+      maxResults: 10001,
+    });
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining("limit $4"), [
+      11,
+      "2026-10-12",
+      "2026-10-18",
+      10001,
+    ]);
+    query.mockResolvedValueOnce({ rows: [] });
+    await listChoreOccurrenceExceptions({ choreId: 42, fromDate: "2026-10-12", maxResults: 10001 });
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining("limit $3"), [
+      42,
+      "2026-10-12",
+      10001,
     ]);
   });
 });

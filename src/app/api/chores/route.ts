@@ -1,6 +1,7 @@
 import { requireApiHousehold } from "@/lib/api-access";
 import { API_ERROR_CODE, householdMutationBusyResponse, jsonError } from "@/lib/api-error";
 import { validateChorePatchPayload } from "@/lib/api-payload-validation";
+import { ChoreDateValidationError, MAX_CHORE_WEEK_OFFSET } from "@/lib/chore-date-validation";
 import type { ChoreMutationResponse } from "@/lib/chore-mutation-response";
 import { canManageHouseholdChores } from "@/lib/household-roles";
 import { parseJsonObjectBody } from "@/lib/http";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const weekOffsetPattern = /^-?\d+$/;
-const maxWeekOffset = 520;
+const maxWeekOffset = MAX_CHORE_WEEK_OFFSET;
 
 const statusForChoreMutationCode = (code: string) => {
   switch (code) {
@@ -79,6 +80,14 @@ export async function GET(request: Request) {
       { headers: householdAccess.responseHeaders },
     );
   } catch (error) {
+    if (error instanceof ChoreDateValidationError)
+      return jsonError({
+        headers: responseHeaders,
+        status: 400,
+        code: API_ERROR_CODE.VALIDATION_FAILED,
+        error: error.message,
+        fieldErrors: error.fieldErrors,
+      });
     if (error instanceof HouseholdNotFoundError) {
       return jsonError({
         headers: responseHeaders,
@@ -124,6 +133,7 @@ export async function PATCH(request: Request) {
         status: 400,
         code: payloadValidation.code,
         error: payloadValidation.error,
+        ...(payloadValidation.fieldErrors ? { fieldErrors: payloadValidation.fieldErrors } : {}),
       });
     }
 

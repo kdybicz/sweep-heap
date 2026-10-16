@@ -47,4 +47,21 @@ describe("occurrence-relative series dates", () => {
       if (!result.ok) expect(result.fieldErrors).toHaveProperty(field);
     },
   );
+  it.each([
+    ["0001-01-01", "0001-01-02", "0001-01-01", "0001-01-02", "startDate"],
+    ["9999-12-30", "9999-12-30", "9999-12-31", "+010000-01-01", "endDate"],
+    ["2024-01-01", "2024-01-01", "2024-01-01", "2025-01-02", "endDate"],
+  ])(
+    "rejects unsupported interpreted or translated dates",
+    (seriesStartDate, occurrenceStartDate, startDate, exclusiveEndDate, field) => {
+      const result = translateOccurrenceSeriesDates({
+        seriesStartDate,
+        occurrenceStartDate,
+        startDate,
+        exclusiveEndDate,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.fieldErrors).toHaveProperty(field);
+    },
+  );
 });

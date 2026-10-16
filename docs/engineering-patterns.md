@@ -64,6 +64,7 @@ Return a consistent JSON envelope for business API failures. Better Auth's catch
 the provider's response formats, including native text `404` responses for disabled routes:
 
 - `{ ok: false, code: string, error: string }`
+- Chore date/range/duration/work failures use `400 VALIDATION_FAILED` plus `fieldErrors`. Shared format/year normalization and all numeric limits live in `src/lib/chore-date-validation.ts`. Reject malformed fields before chore reads; normalize timestamp fields with household context before checking civil-day ordering/width. Explicit read bounds are a pair, and supplied edit dates must not fall through to defaults when invalid.
 - Include a stable machine-readable `code` field on every business API failure response (for example `code: "HOUSEHOLD_REQUIRED"`) so UI behavior is never tied to user-facing message text.
 - Client and server control flow must branch on `code` (and optional HTTP status), not on `error` message text.
 - Keep route handlers wrapped in top-level `try/catch` so unexpected throws still return the same envelope.
@@ -108,6 +109,10 @@ In `src/lib/occurrences.ts`:
 - Non-repeating (`repeatRule === "none"`) chores must include any day where the chore span overlaps the query range.
 - Treat API/storage `endDate` as exclusive for span math; convert from the inclusive create/edit form input at the UI boundary with the shared helpers in `src/lib/chore-date-range.ts`.
 - Recurrence cursor loops must guard against non-advancing values (`nextCursor.equals(cursor)`) to avoid hangs.
+- API recurrence work receives a request-local `OccurrenceGenerationBudget`, shared across selected series or edit validation/migration. Charge seek/iteration/span work and materialized entries, including candidates hidden by cancellation. List and migration queries fetch at most their row limit plus one sentinel; reject excess instead of silently truncating.
+- Start validation is membership, not span expansion: compare one-off identity or fixed-interval modulo directly, and step calendar rules only within the budget. Legacy large spans must not allocate arrays merely to complete/cancel their start.
+- Convert thrown generation/migration date or work errors to API failures outside `withHouseholdMutationLock()`, after rollback. A migration can fail after source truncation/update or replacement insertion. Validate every mapped exception key against supported years before deleting old keys or upserting new ones.
+- Stop ordinal mapping at the final requested key and compare cursor bounds as dates, not ISO strings: expanded years above 9999 sort before supported four-digit date keys.
 - Keep date math timezone-aware and day-based (`Luxon`, `startOf("day")`, ISO date keys).
 - Inside the recurrence generator, use UTC as a civil-date coordinate system. Keep date-only labels literal and resolve timestamp inputs to their household-local date before clearing time-of-day. Do not seek with elapsed milliseconds in a DST-observing zone or carry a normalized 1 AM midnight into later occurrences.
 - Fixed intervals use `max(0, floor((earliestRelevantStart - origin) / intervalDays))` to find the first cursor, with `earliestRelevantStart = max(origin, rangeStart) - (durationDays - 1)` and calendar-day differences. Preserve the origin's phase, inclusive start cutoffs, and overlapping spans. Month/year rules still step through their clamped sequence.

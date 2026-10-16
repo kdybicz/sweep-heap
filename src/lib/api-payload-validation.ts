@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { API_ERROR_CODE, type ApiErrorCode } from "@/lib/api-error";
+import { getChorePatchDateErrors } from "@/lib/chore-date-validation";
 import { type HouseholdRole, isHouseholdRole } from "@/lib/household-roles";
 
 export type PayloadValidationResult<T> =
@@ -29,6 +30,7 @@ export type ChorePatchValidationResult =
       ok: false;
       error: string;
       code: ApiErrorCode;
+      fieldErrors?: Record<string, string>;
     };
 
 type ChorePatchIntentValidationError = {
@@ -180,7 +182,10 @@ const chorePatchPayloadSchema = z
         message: validationError.message,
         path: [validationError.path],
       });
+      return;
     }
+    for (const [field, message] of Object.entries(getChorePatchDateErrors(payload)))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: [field] });
   })
   .transform((payload) => payload as ChorePatchPayload);
 
@@ -222,6 +227,19 @@ export const validateChorePatchPayload = (
 
   const firstIssue = result.error.issues[0];
   const issuePath = firstIssue?.path[0];
+  const dateFields = new Set(["startDate", "endDate", "repeatEnd", "occurrenceStartDate"]);
+  const fieldErrors = Object.fromEntries(
+    result.error.issues
+      .filter((issue) => dateFields.has(String(issue.path[0])))
+      .map((issue) => [String(issue.path[0]), issue.message]),
+  );
+  if (Object.keys(fieldErrors).length)
+    return {
+      ok: false,
+      code: API_ERROR_CODE.VALIDATION_FAILED,
+      error: "Validation failed",
+      fieldErrors,
+    };
   const code =
     issuePath === "action"
       ? API_ERROR_CODE.ACTION_INVALID

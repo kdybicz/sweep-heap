@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ERROR_CODE } from "@/lib/api-error";
+import {
+  ChoreDateValidationError,
+  MAX_CHORE_EXCEPTION_MIGRATIONS,
+  MAX_CHORE_GENERATED_ENTRIES,
+  MAX_CHORE_QUERY_ROWS,
+} from "@/lib/chore-date-validation";
+import { OccurrenceLimitExceededError } from "@/lib/occurrences";
 
 const {
   deleteChoreOccurrenceExceptionMock,
@@ -1543,6 +1550,175 @@ describe("mutateChore", () => {
     expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { action: "create", startDate: "2026-02-30", endDate: "2026-03-02" },
+    { action: "edit", scope: "single", startDate: null },
+    { action: "edit", scope: "following", seriesEndDate: "2026-04-31" },
+    { action: "set", status: "closed", occurrenceStartDate: "2026-02-30" },
+    { action: "cancel", scope: "all", occurrenceStartDate: "0000-01-01" },
+  ])("rejects malformed consumed dates before chore lookups or writes", async (changes) => {
+    const result = await mutateChore({
+      householdId: 11,
+      payload: { choreId: 3, occurrenceStartDate: "2026-01-04", ...changes },
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      code: "VALIDATION_FAILED",
+      fieldErrors: expect.any(Object),
+    });
+    expect(getHouseholdTimeZoneByIdMock).not.toHaveBeenCalled();
+    expect(getChoreInHouseholdMock).not.toHaveBeenCalled();
+    expect(insertChoreMock).not.toHaveBeenCalled();
+    expect(updateChoreSeriesMock).not.toHaveBeenCalled();
+    expect(updateChoreSeriesEndDateMock).not.toHaveBeenCalled();
+    expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["single", "following", "all"])(
+    "validates resolved partial %s duration before changing the source",
+    async (scope) => {
+      const actual =
+        await vi.importActual<typeof import("@/lib/chore-validation")>("@/lib/chore-validation");
+      validateChoreCreateMock.mockImplementation(actual.validateChoreCreate);
+      getChoreInHouseholdMock.mockResolvedValue({
+        id: 3,
+        title: "Partial fixture",
+        type: "close_on_done",
+        ...scheduledSingleDaySeries,
+        repeat_rule: "day",
+        notes: null,
+      });
+      const result = await mutateChore({
+        householdId: 11,
+        payload: {
+          action: "edit",
+          scope,
+          choreId: 3,
+          occurrenceStartDate: "2026-01-04",
+          endDate: "2028-01-01",
+          title: "Must not change",
+        },
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        code: "VALIDATION_FAILED",
+        fieldErrors: { endDate: expect.stringContaining("366") },
+      });
+      expect(updateChoreSeriesMock).not.toHaveBeenCalled();
+      expect(updateChoreSeriesEndDateMock).not.toHaveBeenCalled();
+      expect(insertChoreMock).not.toHaveBeenCalled();
+      expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a default end beyond the supported year range", async () => {
+    const actual =
+      await vi.importActual<typeof import("@/lib/chore-validation")>("@/lib/chore-validation");
+    validateChoreCreateMock.mockImplementation(actual.validateChoreCreate);
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Upper-bound fixture",
+      type: "close_on_done",
+      start_date: "9999-12-30",
+      end_date: "9999-12-31",
+      repeat_rule: "none",
+      series_end_date: null,
+      notes: null,
+    });
+    const result = await mutateChore({
+      householdId: 11,
+      payload: {
+        action: "edit",
+        scope: "all",
+        choreId: 3,
+        occurrenceStartDate: "9999-12-30",
+        startDate: "9999-12-31",
+      },
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      code: "VALIDATION_FAILED",
+      fieldErrors: { endDate: "Invalid end date" },
+    });
+    expect(updateChoreSeriesMock).not.toHaveBeenCalled();
+  });
+
+  it("bounds calendar validation before exception reads and writes", async () => {
+    getChoreInHouseholdMock.mockResolvedValue({
+      id: 3,
+      title: "Ancient monthly",
+      type: "close_on_done",
+      start_date: "0001-01-01",
+      end_date: "0001-01-02",
+      repeat_rule: "month",
+      series_end_date: null,
+    });
+    const result = await mutateChore({
+      householdId: 11,
+      payload: { action: "set", status: "closed", choreId: 3, occurrenceStartDate: "9999-01-01" },
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      code: "VALIDATION_FAILED",
+      fieldErrors: { occurrenceStartDate: expect.stringContaining("50000") },
+    });
+    expect(getChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
+    expect(upsertChoreOccurrenceExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["all", "following"])(
+    "lets %s resource errors escape the transaction task before converting to 400",
+    async (scope) => {
+      let escaped: unknown;
+      withHouseholdMutationLockMock.mockImplementationOnce(async ({ task }) => {
+        try {
+          return await task();
+        } catch (error) {
+          escaped = error;
+          throw error;
+        }
+      });
+      getChoreInHouseholdMock.mockResolvedValue({
+        id: 3,
+        title: "Source fixture",
+        type: "close_on_done",
+        ...scheduledSingleDaySeries,
+        repeat_rule: "day",
+        notes: null,
+      });
+      insertChoreMock.mockResolvedValue(44);
+      listChoreOccurrenceExceptionsMock.mockResolvedValue(
+        Array(MAX_CHORE_EXCEPTION_MIGRATIONS + 1).fill({
+          chore_id: 3,
+          occurrence_start_date: "2026-01-04",
+          kind: "state",
+          status: "closed",
+          closed_reason: "done",
+        }),
+      );
+      const result = await mutateChore({
+        householdId: 11,
+        payload: {
+          action: "edit",
+          scope,
+          choreId: 3,
+          occurrenceStartDate: "2026-01-04",
+          title: "Rollback fixture",
+        },
+      });
+      expect(escaped).toBeInstanceOf(OccurrenceLimitExceededError);
+      expect(result).toMatchObject({
+        ok: false,
+        code: "VALIDATION_FAILED",
+        fieldErrors: { scope: expect.stringContaining("10000") },
+      });
+      expect(listChoreOccurrenceExceptionsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ maxResults: MAX_CHORE_EXCEPTION_MIGRATIONS + 1 }),
+      );
+      expect(deleteChoreOccurrenceExceptionsMock).not.toHaveBeenCalled();
+    },
+  );
+
   it("rejects set when occurrence date is outside the chore schedule", async () => {
     getChoreInHouseholdMock.mockResolvedValue({
       id: 3,
@@ -1588,6 +1764,94 @@ describe("listChores", () => {
     normalizeRepeatRuleMock.mockImplementation((value: string) => value);
     getHouseholdTimeZoneByIdMock.mockResolvedValue("UTC");
     listChoreExceptionsByHouseholdMock.mockResolvedValue([]);
+  });
+
+  it.each([
+    ["2026-02-30", "2026-03-01"],
+    ["0000-01-01", "0000-01-02"],
+    ["2026-01-01", null],
+    [null, "2026-01-01"],
+    ["", ""],
+    ["2026-01-02", "2026-01-01"],
+    ["2026-01-01", "2026-02-01"],
+    ["0001-01-01", "9999-12-31"],
+  ])(
+    "rejects invalid literal ranges before metadata, chore SQL or generation",
+    async (start, end) => {
+      await expect(
+        listChores({ householdId: 11, weekOffset: 0, start, end }),
+      ).rejects.toBeInstanceOf(ChoreDateValidationError);
+      expect(getHouseholdTimeZoneByIdMock).not.toHaveBeenCalled();
+      expect(listActiveChoreSeriesByHouseholdMock).not.toHaveBeenCalled();
+      expect(listChoreExceptionsByHouseholdMock).not.toHaveBeenCalled();
+    },
+  );
+  it.each([NaN, Infinity, 0.5, 521])(
+    "bounds direct default week offsets %s",
+    async (weekOffset) => {
+      await expect(
+        listChores({ householdId: 11, weekOffset, start: null, end: null }),
+      ).rejects.toBeInstanceOf(ChoreDateValidationError);
+      expect(getHouseholdTimeZoneByIdMock).not.toHaveBeenCalled();
+    },
+  );
+  it("normalizes timestamp endpoints in the household zone before checking width", async () => {
+    getHouseholdTimeZoneByIdMock.mockResolvedValue("America/New_York");
+    listActiveChoreSeriesByHouseholdMock.mockResolvedValue([]);
+    const result = await listChores({
+      householdId: 11,
+      weekOffset: 0,
+      start: "2026-01-01T23:00:00Z",
+      end: "2026-02-01T00:00:00Z",
+    });
+    expect(result).toMatchObject({ rangeStart: "2026-01-01", rangeEnd: "2026-01-31", chores: [] });
+    expect(listActiveChoreSeriesByHouseholdMock).toHaveBeenCalledWith({
+      householdId: 11,
+      rangeStart: "2026-01-01",
+      rangeEnd: "2026-01-31",
+      maxResults: MAX_CHORE_QUERY_ROWS + 1,
+    });
+  });
+  it.each(["series", "exceptions"])(
+    "rejects a %s selection overflow rather than silently truncating",
+    async (which) => {
+      listActiveChoreSeriesByHouseholdMock.mockResolvedValue(
+        which === "series" ? Array(MAX_CHORE_QUERY_ROWS + 1).fill({}) : [],
+      );
+      listChoreExceptionsByHouseholdMock.mockResolvedValue(
+        which === "exceptions" ? Array(MAX_CHORE_QUERY_ROWS + 1).fill({}) : [],
+      );
+      await expect(
+        listChores({ householdId: 11, weekOffset: 0, start: "2026-01-01", end: "2026-01-01" }),
+      ).rejects.toMatchObject({
+        fieldErrors: { range: expect.stringContaining("selection limit") },
+      });
+    },
+  );
+  it("bounds aggregate day-entry expansion and calendar seek work", async () => {
+    const row = {
+      id: 1,
+      title: "Budget fixture",
+      type: "close_on_done",
+      start_date: "2024-01-01",
+      end_date: "2025-01-01",
+      repeat_rule: "day",
+      series_end_date: null,
+      status: "active",
+      notes: null,
+    };
+    listActiveChoreSeriesByHouseholdMock.mockResolvedValue([row]);
+    await expect(
+      listChores({ householdId: 11, weekOffset: 0, start: "2026-01-01", end: "2026-01-31" }),
+    ).rejects.toMatchObject({
+      fieldErrors: { range: expect.stringContaining(String(MAX_CHORE_GENERATED_ENTRIES)) },
+    });
+    listActiveChoreSeriesByHouseholdMock.mockResolvedValue([
+      { ...row, start_date: "0001-01-01", end_date: "0001-01-02", repeat_rule: "month" },
+    ]);
+    await expect(
+      listChores({ householdId: 11, weekOffset: 0, start: "9999-01-02", end: "9999-01-02" }),
+    ).rejects.toMatchObject({ fieldErrors: { range: expect.stringContaining("50000") } });
   });
 
   it("keeps stay-open completion overrides open in list output", async () => {

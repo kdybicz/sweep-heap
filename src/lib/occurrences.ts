@@ -2,6 +2,26 @@ import { DateTime } from "luxon";
 
 export type RepeatRule = "none" | "day" | "week" | "biweek" | "month" | "year";
 
+export type OccurrenceGenerationBudget = { remainingEntries: number; remainingSteps: number };
+export class OccurrenceLimitExceededError extends Error {
+  readonly kind: "entries" | "steps";
+  constructor(kind: "entries" | "steps") {
+    super(`Occurrence ${kind} limit exceeded`);
+    this.name = "OccurrenceLimitExceededError";
+    this.kind = kind;
+  }
+}
+const consumeStep = (budget?: OccurrenceGenerationBudget) => {
+  if (!budget) return;
+  if (budget.remainingSteps <= 0) throw new OccurrenceLimitExceededError("steps");
+  budget.remainingSteps -= 1;
+};
+const consumeEntry = (budget?: OccurrenceGenerationBudget) => {
+  if (!budget) return;
+  if (budget.remainingEntries <= 0) throw new OccurrenceLimitExceededError("entries");
+  budget.remainingEntries -= 1;
+};
+
 export type OccurrenceInput = {
   startDate: string;
   endDate: string;
@@ -10,6 +30,7 @@ export type OccurrenceInput = {
   repeatRule: RepeatRule;
   seriesEndDate?: string | null;
   timeZone: string;
+  budget?: OccurrenceGenerationBudget;
 };
 
 export type OccurrenceDayEntry = {
@@ -65,6 +86,7 @@ export const mapOccurrenceStarts = ({
   targetStartDate,
   targetRepeatRule,
   targetSeriesEndDate,
+  budget,
 }: {
   occurrenceStarts: string[];
   sourceStartDate: string;
@@ -74,33 +96,36 @@ export const mapOccurrenceStarts = ({
   targetStartDate: string;
   targetRepeatRule: RepeatRule;
   targetSeriesEndDate: string | null;
+  budget?: OccurrenceGenerationBudget;
 }) => {
   const mapping = new Map<string, string>();
   const wanted = new Set(occurrenceStarts);
   const last = [...wanted].sort().at(-1);
   if (!last) return mapping;
+  const lastDate = toDate(last, "UTC");
+  if (!lastDate.isValid) return mapping;
+  const sourceCutoff = sourceSeriesEndDate ? toDate(sourceSeriesEndDate, "UTC") : null;
+  const targetCutoff = targetSeriesEndDate ? toDate(targetSeriesEndDate, "UTC") : null;
   let source: DateTime = toDate(sourceStartDate, "UTC");
   let target: DateTime = toDate(targetStartDate, "UTC");
   let targetAvailable = true;
   while (source.isValid) {
+    consumeStep(budget);
     const sourceDate = source.toISODate();
-    if (
-      !sourceDate ||
-      sourceDate > last ||
-      (sourceSeriesEndDate && sourceDate > sourceSeriesEndDate)
-    )
-      break;
+    if (!sourceDate || source > lastDate || (sourceCutoff && source > sourceCutoff)) break;
     if (sourceDate >= fromDate) {
       const targetDate = target.toISODate();
-      if (
-        !targetAvailable ||
-        !targetDate ||
-        (targetSeriesEndDate && targetDate > targetSeriesEndDate)
-      )
-        break;
-      if (wanted.has(sourceDate)) mapping.set(sourceDate, targetDate);
+      if (!targetAvailable || !targetDate || (targetCutoff && target > targetCutoff)) break;
+      if (wanted.has(sourceDate)) {
+        consumeEntry(budget);
+        mapping.set(sourceDate, targetDate);
+        if (sourceDate === last) return mapping;
+      }
       if (targetRepeatRule === "none") targetAvailable = false;
-      else target = advance(target, targetRepeatRule);
+      else {
+        consumeStep(budget);
+        target = advance(target, targetRepeatRule);
+      }
     }
     if (sourceRepeatRule === "none") break;
     const nextSource = advance(source, sourceRepeatRule);
@@ -118,6 +143,7 @@ export const generateOccurrenceDayKeys = ({
   repeatRule,
   seriesEndDate,
   timeZone,
+  budget,
 }: OccurrenceInput) => {
   const dayEntries = generateOccurrenceDayEntries({
     startDate,
@@ -127,6 +153,7 @@ export const generateOccurrenceDayKeys = ({
     repeatRule,
     seriesEndDate,
     timeZone,
+    budget,
   });
 
   const uniqueDays = new Set<string>();
@@ -145,7 +172,9 @@ export const generateOccurrenceDayEntries = ({
   repeatRule,
   seriesEndDate,
   timeZone,
+  budget,
 }: OccurrenceInput): OccurrenceDayEntry[] => {
+  consumeStep(budget);
   const occurrenceSet = new Set<string>();
   const dayEntries: OccurrenceDayEntry[] = [];
   const start = toDate(startDate, timeZone);
@@ -180,6 +209,7 @@ export const generateOccurrenceDayEntries = ({
       Math.round(clampEnd.diff(occurrenceStart, "days").days),
     );
     for (let offset = firstOffset; offset <= lastOffset; offset += 1) {
+      consumeStep(budget);
       const day = occurrenceStart.plus({ days: offset });
       const iso = day.toISODate();
       if (iso) {
@@ -187,6 +217,7 @@ export const generateOccurrenceDayEntries = ({
         if (occurrenceSet.has(key)) {
           continue;
         }
+        consumeEntry(budget);
         occurrenceSet.add(key);
         dayEntries.push({
           occurrenceDay: iso,
@@ -219,20 +250,23 @@ export const generateOccurrenceDayEntries = ({
   } else {
     // Month/year steps depend on preceding clamping, so retain their iterative sequence.
     while (true) {
+      consumeStep(budget);
       const nextCursor = advance(cursor, repeatRule);
-      if (nextCursor.equals(cursor) || nextCursor > earliestRelevantStart) break;
+      if (!nextCursor.isValid || nextCursor.equals(cursor) || nextCursor > earliestRelevantStart)
+        break;
       cursor = nextCursor;
     }
   }
 
   while (cursor <= latestStart) {
+    consumeStep(budget);
     const occurrenceEnds = cursor.plus({ days: spanDays - 1 });
     if (occurrenceEnds >= clampStart && cursor <= clampEnd) {
       addOccurrenceSpan(cursor);
     }
 
     const nextCursor = advance(cursor, repeatRule);
-    if (nextCursor.equals(cursor)) {
+    if (!nextCursor.isValid || nextCursor.equals(cursor)) {
       break;
     }
     cursor = nextCursor;
@@ -247,13 +281,36 @@ export const generateOccurrenceDayEntries = ({
 
 export const isOccurrenceStartInSeries = ({
   occurrenceStartDate,
-  ...series
+  startDate,
+  endDate,
+  repeatRule,
+  seriesEndDate,
+  budget,
 }: Pick<OccurrenceInput, "startDate" | "endDate" | "repeatRule" | "seriesEndDate"> & {
   occurrenceStartDate: string;
-}) =>
-  generateOccurrenceDayEntries({
-    ...series,
-    rangeStart: occurrenceStartDate,
-    rangeEnd: occurrenceStartDate,
-    timeZone: "UTC",
-  }).some((entry) => entry.occurrenceStartDate === occurrenceStartDate);
+  budget?: OccurrenceGenerationBudget;
+}) => {
+  consumeStep(budget);
+  const start = toDate(startDate, "UTC");
+  const end = toDate(endDate, "UTC");
+  const occurrence = toDate(occurrenceStartDate, "UTC");
+  const cutoff = seriesEndDate ? toDate(seriesEndDate, "UTC") : occurrence;
+  if (!start.isValid || !end.isValid || !occurrence.isValid || !cutoff.isValid) return false;
+  // Start membership does not require expanding the occurrence's span (including legacy long spans).
+  if (repeatRule === "none")
+    return (
+      occurrence.equals(start) &&
+      cutoff.plus({ days: spanDaysFromDates(start, end) - 1 }) >= occurrence
+    );
+  if (occurrence < start || occurrence > cutoff) return false;
+  const interval = fixedIntervalDays(repeatRule);
+  if (interval) return occurrence.diff(start, "days").days % interval === 0;
+  let cursor: DateTime = start;
+  while (cursor < occurrence) {
+    consumeStep(budget);
+    const next = advance(cursor, repeatRule);
+    if (!next.isValid || next.equals(cursor)) return false;
+    cursor = next;
+  }
+  return cursor.equals(occurrence);
+};

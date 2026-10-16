@@ -60,9 +60,11 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Types: `close_on_done`, `stay_open`.
 - Repeat rules: `none`, `day`, `week`, `biweek`, `month`, `year`.
 - Create validation enforces required fields, date ordering, and repeat/end compatibility.
+- Real calendar dates use years `0001..9999`; supplied invalid edit dates never fall back to defaults. Complete ISO timestamps retain household-date normalization. GET explicit endpoints must come together, are inclusive and span at most 31 days; create/edit exclusive durations are at most 366 days.
+- List work is capped at 10,000 rows per selection, 10,000 generated day entries and 50,000 recurrence/span steps; edits migrate at most 10,000 exceptions within the same work budget. Overflows return `400 VALIDATION_FAILED` with field errors, without truncation or partial writes. DB constraints/backfill are staged separately in #10.
 - Occurrences are generated lazily from series (date-only, household timezone) and merged with sparse occurrence exceptions keyed by `occurrenceStartDate`.
 - SQL excludes expired one-offs using their exclusive end date while retaining recurring origins and clipped spans that can overlap the requested dates.
-- Day/week/biweek generation and start validation jump near the requested range rather than walking from the origin. Civil-date arithmetic avoids midnight/DST drift; month/year rules retain iterative clamping.
+- Day/week/biweek generation jumps near the requested range; start membership is checked directly without expanding spans. Civil-date arithmetic avoids midnight/DST drift; month/year rules retain bounded iterative clamping.
 
 ### Done and cancel
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.
