@@ -190,4 +190,5 @@ configuration tests run in the default Vitest gate and do not require the live s
 
 The original review's sanitized results and progress screenshot are retained under
 [`docs/reviews/`](reviews/2026-10-11.md). GitHub Issue [#8](https://github.com/kdybicz/sweep-heap/issues/8)
-tracks additional integration/E2E coverage.
+is completed. The maintainer accepts local live-suite execution; CI continues to gate lint, unit
+tests and typechecking without a PostgreSQL/Mailpit/browser stack.
