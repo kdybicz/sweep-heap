@@ -23,7 +23,6 @@
 - `docs/requirements.md` is the stable source for current behavior, constraints, and known gaps.
 - GitHub Issues are the execution backlog and sequencing plan.
 - Cross-cutting backlog areas:
-  - [#8](https://github.com/kdybicz/sweep-heap/issues/8): integration and end-to-end coverage hardening.
   - [#9](https://github.com/kdybicz/sweep-heap/issues/9): API rate limiting and abuse protections.
   - [#10](https://github.com/kdybicz/sweep-heap/issues/10): stricter DB constraints with a staged migration rollout.
 - Workflow rule: when completing an issue tracked here, update this file in the same change if behavior, constraints, or caveats changed.
@@ -321,7 +320,7 @@
 - Colocate tests with the source they validate (for example `route.ts` with `route.test.ts`).
 - Mock repositories in service tests; avoid DB in unit tests.
 - Project default gate for code changes: `make dev-fix` (format, lint fix, tests, typecheck).
-- Coverage expansion is tracked in [#8](https://github.com/kdybicz/sweep-heap/issues/8) (Postgres-backed integration tests plus minimal auth/chore/account-deletion E2E flow).
+- Local PostgreSQL-backed smoke, API/browser regression and isolated contention suites provide integration/E2E coverage. [#8](https://github.com/kdybicz/sweep-heap/issues/8) is completed; the maintainer accepts local execution without adding a database/mail/browser CI stack. CI gates lint, unit tests and typechecking.
 - Live smoke, issue-linked browser/API regressions, and isolated pool contention tests are available through the commands in [E2E testing](e2e-testing.md). These require the local stack and are separate from the default Vitest gate.
 
 ## Known Gaps and Implementation Caveats

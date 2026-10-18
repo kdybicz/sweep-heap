@@ -65,14 +65,24 @@ The registry's newer UI 6.11.3 declares Next 16.4.1, but that UI release is not 
 at assessment time. Recheck its dependency eligibility, advisories and runtime compatibility
 under the normal [security-update process](security-updates.md) before adopting it without a pin.
 
+On 2026-10-18, forcing the existing UI 6.11.1 override to the age-eligible Next 16.4.1 was tested
+twice. Preview startup failed with `ENOENT` for `.next/server/preview-props.json`; restoring 16.3.8
+made all three template iframe checks pass. Keep the compatible 16.3.8 override until the aligned
+UI release is eligible. UI 6.11.3 becomes eligible on 2026-10-19 at 19:02:44.336 UTC; renderer
+2.1.1, required by the aligned CLI, becomes eligible earlier that day. No age exception is approved.
+
 The migration removes all React Email deprecation notices and its esbuild 0.27.4 tree. Both the
 CLI and UI resolve esbuild 0.28.2, which is outside the recorded vulnerable ranges. The unfiltered
 recursive audit still reports these development-tool findings under
 [#16](https://github.com/kdybicz/sweep-heap/issues/16):
 
 - `GHSA-67mh-4wv8-2f99` (moderate): esbuild 0.18.20 via Drizzle Kit → deprecated esbuild-kit loader/core-utils.
-- `GHSA-g7r4-m6w7-qqqr` (low, Windows development server): esbuild 0.27.7 via Drizzle Kit → tsx 4.21.0.
 - The esbuild-kit loader/core-utils deprecation notices also remain in that Drizzle tree.
+
+The low Windows development-server advisory `GHSA-g7r4-m6w7-qqqr` was removed on 2026-10-18 by
+refreshing Drizzle Kit's existing `tsx ^4.21.0` range to tsx 4.23.15 / esbuild 0.28.2. This needs
+neither a direct tsx dependency nor a forced esbuild resolution. Drizzle's migration metadata check
+and loading `drizzle.config.ts` through the updated tsx runner both pass without changing the DB.
 
 No global esbuild override is added: those parents constrain incompatible versions. The high/critical
 audit reports no suggestions. Existing UI peer-packaging warnings remain nonfatal; real Node/Next
