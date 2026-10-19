@@ -3,6 +3,7 @@ SHELL := /bin/bash
 
 NVM_DIR ?= $(HOME)/.nvm
 NODE_VERSION := $(shell cat .nvmrc)
+args ?=
 
 ifneq ($(strip $(AGENT)),)
 export DATABASE_URL ?= postgresql://chores:chores@host.docker.internal:5432/chores
@@ -17,14 +18,12 @@ define run
 @bash -lc 'set -eo pipefail; \
 if [ -s "$(NVM_DIR)/nvm.sh" ]; then \
 	source "$(NVM_DIR)/nvm.sh"; \
-	nvm install "$(NODE_VERSION)"; \
-	nvm use "$(NODE_VERSION)" >/dev/null; \
-	corepack enable >/dev/null 2>&1 || true; \
+	nvm use "$(NODE_VERSION)" >/dev/null 2>&1 || nvm install "$(NODE_VERSION)"; \
 fi; \
 $(1)'
 endef
 
-.PHONY: help install dev email-dev db-generate db-migrate db-reset seed-chores db-studio typecheck test test/e2e test/e2e/regressions test/e2e/contention e2e/install build lint lint-fix format format-write dev-check dev-fix
+.PHONY: help install dev email-dev db-generate db-migrate db-reset seed-chores db-studio typecheck test test/e2e test/e2e/combined test/e2e/regressions test/e2e/contention e2e/install build lint lint-fix format format-write dev-check dev-fix
 
 help:
 	@printf '%s\n' \
@@ -40,73 +39,79 @@ help:
 	  '  dev-check    Format, lint, test, typecheck' \
 	  '  dev-fix      Auto-fix format/lint then test/typecheck'
 	@printf '%s\n' \
-	  '  e2e/install             Download Chromium into .e2e/browsers' \
+	  '  e2e/install             Download Chromium into the configured browser cache' \
 	  '  test/e2e                Run live smoke tests with a managed app' \
-	  '  test/e2e/regressions    Run issue-linked expected-failure regressions' \
-	  '  test/e2e/contention     Run isolated database-pool contention regression'
+	  '  test/e2e/combined       Run smoke and regressions with one managed app' \
+	  '  test/e2e/regressions    Run issue-linked regressions' \
+	  '  test/e2e/contention     Run isolated database-pool contention regression' \
+	  '  args="--grep ..."       Filter an E2E suite during iteration'
 
 db-generate:
-	$(call run,yarn db:generate)
+	$(call run,corepack yarn db:generate)
 
 install:
 	$(call run,corepack yarn@4.12.0 install --immutable)
 
 dev:
-	$(call run,yarn dev)
+	$(call run,corepack yarn dev)
 
 email-dev:
-	$(call run,yarn email:dev)
+	$(call run,corepack yarn email:dev)
 
 db-migrate:
-	$(call run,yarn db:migrate)
+	$(call run,corepack yarn db:migrate)
 
 db-reset:
-	$(call run,yarn db:reset)
+	$(call run,corepack yarn db:reset)
 
 seed-chores:
-	$(call run,yarn seed:chores)
+	$(call run,corepack yarn seed:chores)
 
 db-studio:
-	$(call run,yarn db:studio)
+	$(call run,corepack yarn db:studio)
 
 typecheck:
-	$(call run,yarn typecheck)
+	$(call run,corepack yarn typecheck)
 
 test:
-	$(call run,yarn test)
+	$(call run,corepack yarn test)
 
 # manual — requires local PostgreSQL, Mailpit and Chromium; see docs/e2e-testing.md
 test/e2e:
-	$(call run,yarn test:e2e)
+	$(call run,corepack yarn test:e2e $(args))
+
+# manual — smoke and regressions share one managed app; contention stays separate
+test/e2e/combined:
+	$(call run,corepack yarn test:e2e:combined $(args))
 
 # manual — requires the live local stack
 test/e2e/regressions:
-	$(call run,yarn test:e2e:regressions)
+	$(call run,corepack yarn test:e2e:regressions $(args))
 
 # manual — intentionally saturates only the managed test app pool
 test/e2e/contention:
-	$(call run,yarn test:e2e:contention)
+	$(call run,corepack yarn test:e2e:contention $(args))
 
 e2e/install:
-	$(call run,yarn e2e:install)
+	$(call run,corepack yarn e2e:install)
 
 build:
-	$(call run,yarn build)
+	$(call run,corepack yarn build)
 
 lint:
-	$(call run,yarn lint)
+	$(call run,corepack yarn lint)
 
 lint-fix:
-	$(call run,yarn lint:fix)
+	$(call run,corepack yarn lint:fix)
 
 format:
-	$(call run,yarn format)
+	$(call run,corepack yarn format)
 
 format-write:
-	$(call run,yarn format:write)
+	$(call run,corepack yarn format:write)
 
 dev-check:
-	$(call run,yarn dev:check)
+	$(call run,corepack yarn dev:check)
 
 dev-fix:
-	$(call run,yarn dev:fix)
+	$(call run,corepack yarn dev:fix)
