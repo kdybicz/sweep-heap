@@ -20,7 +20,7 @@ if [ -s "$(NVM_DIR)/nvm.sh" ]; then \
 	source "$(NVM_DIR)/nvm.sh"; \
 	nvm use "$(NODE_VERSION)" >/dev/null 2>&1 || nvm install "$(NODE_VERSION)"; \
 fi; \
-$(1)'
+$(subst ','\'',$(1))'
 endef
 
 .PHONY: help install dev email-dev db-generate db-migrate db-reset seed-chores db-studio typecheck test test/e2e test/e2e/combined test/e2e/regressions test/e2e/contention e2e/install build lint lint-fix format format-write dev-check dev-fix
