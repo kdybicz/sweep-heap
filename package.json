@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "E2E_SUITE=smoke playwright test --project smoke",
+    "test:e2e:combined": "E2E_SUITE=all playwright test --project smoke --project regressions",
     "test:e2e:regressions": "E2E_SUITE=regressions playwright test --project regressions",
     "test:e2e:contention": "E2E_SUITE=contention playwright test --project contention",
     "e2e:install": "playwright install chromium",

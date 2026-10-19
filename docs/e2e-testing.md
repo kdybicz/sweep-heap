@@ -18,6 +18,20 @@ make e2e/install
 make test/e2e
 ```
 
+When both smoke and regression coverage are needed, share one managed app startup:
+
+```bash
+make test/e2e/combined
+```
+
+During iteration, run only the relevant regressions, then use the combined command at the final checkpoint:
+
+```bash
+make test/e2e/regressions args='--grep "#32"'
+```
+
+The combined run still uses one worker and never includes contention tests. Run contention separately on its own managed app. Run `make dev-fix` at the final checkpoint for format, lint, unit tests and typechecking; iterate on the failing check if it fails rather than rerunning everything after every edit.
+
 `make test/e2e` runs the passing smoke flow: sign-in, board rendering, invitation acceptance,
 chore create/complete/cancel, protected household deletion, member leave, and emailed account
 deletion. All test accounts use unique `e2e-<uuid>-...@example.com` addresses.
@@ -125,6 +139,9 @@ AGENT=1 make test/e2e
 Chromium requires OS libraries and fonts. On a supported host or an image where package installation
 is available, install them with `yarn playwright install-deps chromium`. Rootless minimal agent images
 should use a matching Playwright image rather than relying on a previous container's private libraries.
+The `opencode-sandbox` image also supplies Chromium libraries/fonts. Its `PLAYWRIGHT_BROWSERS_PATH`
+uses a persistent shared browser cache; `make e2e/install` downloads the project's pinned browser there.
+No custom `LD_LIBRARY_PATH`, `FONTCONFIG_FILE` or `FONTCONFIG_PATH` is needed in that image.
 For example, with `.env.local` pointing to the README's local services:
 
 ```bash
@@ -160,7 +177,7 @@ The config loads dotenv values through `@next/env`. Exported Make/environment va
 | `E2E_BASE_URL` | `http://127.0.0.1:3100`; managed local HTTP origin and port; an optional root trailing slash is normalized away |
 | `E2E_DATABASE_URL` | Falls back to `DATABASE_URL`; used by both the app and fixture queries |
 | `E2E_MAILPIT_URL` | `http://localhost:8025`, or the host override under `AGENT` |
-| `PLAYWRIGHT_BROWSERS_PATH` | Make defaults to workspace `.e2e/browsers`; may point to a preinstalled browser directory |
+| `PLAYWRIGHT_BROWSERS_PATH` | Make defaults to workspace `.e2e/browsers`; an inherited value takes precedence, including the sandbox image's persistent shared cache |
 
 The app subprocess overrides `AUTH_URL` to the test origin. SMTP settings and `AUTH_SECRET` come from
 the usual environment. `E2E_BASE_URL` must use `localhost` or `127.0.0.1` so these suites always manage
@@ -185,6 +202,7 @@ configuration tests run in the default Vitest gate and do not require the live s
   machine-readable Playwright reports. Explicit screenshots and sanitized evidence attachments are
   in `.e2e/test-results/<suite>/`. Running one suite preserves the other suites' artifacts. These
   files are workspace-local and gitignored.
+- The combined smoke/regression run writes `.e2e/results-all.json` and `.e2e/test-results/all/`, preserving reports from individually run suites.
 - Browser storage state, videos and traces are not saved. API helpers strip credential-bearing request
   call logs from errors; do not add raw cookie/token output to reports.
 
