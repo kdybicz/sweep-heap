@@ -3,6 +3,7 @@
 Use this page for day-to-day implementation decisions. For full detail, use `docs/requirements.md`.
 
 ## Current Product Surface
+
 - Auth: magic-link sign in/out.
 - Household: create, select active household, edit, role-aware membership.
 - Members: invite, resend, revoke, promote/demote, remove, leave, transfer ownership.
@@ -12,6 +13,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 ## Core Rules
 
 ### Household and roles
+
 - Household mutation lock waits use a dedicated pool and return `409 HOUSEHOLD_MUTATION_BUSY` after five seconds; pool checkout saturation also returns this code. Guarded writes share the lock transaction and are fenced on connection loss. Account deletion locks all active memberships without waiting and preserves the confirmation token on conflicts. Invitation SMTP runs outside the lock.
 - Better Auth organization HTTP routes return `404`; use guarded `/api/households/**` APIs. Server-side `auth.api` organization methods remain available to household services.
 - Any signed-in user can create a household, including users who already belong to another active household.
@@ -40,6 +42,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ### Invites
+
 - Expired pending invitations stay visible for resend/revoke. Replacement creation retires expired rows and clears old secrets; authorized resend preserves id/role and issues a new secret. The pending-email index has one bounded fresh-transaction retry, then `409 USER_ALREADY_INVITED`.
 - Invite validity is `invitationId + secret` + pending-status expiry window (7 days).
 - Invite create/resend is best-effort for SMTP delivery; check `inviteEmailSent` in success responses.
@@ -50,6 +53,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - If the wrong account is signed in, the invite page should offer an explicit sign-out-and-continue path that preserves the invite callback.
 
 ### Chores
+
 - All chore writers share the household transaction. Single/following source changes, replacement and completion copying are atomic; failed writes preserve the source and support retry. API permissions are rechecked after acquiring the lock.
 - Inline date edits use `dateBasis=occurrence`; whole-series edits translate the selected instance's delta/duration against the stored origin. Default/`series` requests retain absolute-date semantics. Changing duration alone never moves the series anchor.
 - Missing `type` defaults to `close_on_done` only on create. Partial edits preserve the stored type in all scopes; explicit invalid types fail validation before writes.
@@ -68,6 +72,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Following splits retain `recurrence_anchor_day` when start/cadence are unchanged; duration-only edits preserve it, changed starts/cadences reset it, and single edits detach a one-off. The deployment migration remaps legacy exception identities by ordinal without merging collisions; see [rollout policy](calendar-recurrence-migration.md).
 
 ### Done and cancel
+
 - `close_on_done`: done sets `status=closed`, `closed_reason=done`.
 - `stay_open`: done sets `status=open`, `closed_reason=done`.
 - Completion undo is currently disabled; `UndoToastStack` is parked in the codebase but not wired into the board.
@@ -91,6 +96,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Single click or keyboard activation opens a compact chore preview popover; the popover shows status, primary completion/log actions, delete for viewers who can manage chores, notes, and inline editing for title/date/repeat fields when expanded, including whole-series edit scopes where applicable.
 
 ## API Snapshot
+
 - Includes business APIs plus auth/session routes used by invite acceptance and sign-out flows.
 - `GET|POST /api/auth/[...auth]`
 - `GET /api/health`
@@ -113,6 +119,7 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - If post-delete remaining-household inspection fails entirely, household deletion falls back to `/household/select`.
 
 ## Key File Map
+
 - Routes: `src/app/api/**/route.ts`
 - Tests (colocated): `src/**/*.test.ts`, `src/**/*.test.tsx`
 - Repositories (SQL): `src/lib/repositories/*-repository.ts`
@@ -123,16 +130,19 @@ Use this page for day-to-day implementation decisions. For full detail, use `doc
 - Schema and migrations: `src/lib/drizzle/schema.ts`, `drizzle/**`
 
 ## Known Gaps (Do Not Forget)
+
 - No append-only chore event log yet (only latest exception state).
 - Chore-write conflicts are not exposed as explicit retryable responses; household lock contention returns `HOUSEHOLD_MUTATION_BUSY`.
 - Board UI exposes cancel actions from the chore preview popover for single-occurrence, this-and-following, and whole-series cancellation depending on the targeted recurrence.
 
 ## Backlog Links
+
 - Execution backlog lives in [GitHub Issues](https://github.com/kdybicz/sweep-heap/issues). Cross-cutting work includes [#9](https://github.com/kdybicz/sweep-heap/issues/9) and [#10](https://github.com/kdybicz/sweep-heap/issues/10). [#8](https://github.com/kdybicz/sweep-heap/issues/8) is completed; local integration/E2E runs are sufficient and do not require a database/mail/browser CI stack.
 - The [2026-10-11 review snapshot](reviews/2026-10-11.md) links each reviewed defect and optimization to its issue. [E2E testing](e2e-testing.md) documents the reusable live harness.
 - `docs/todo.md` is a pointer to the issue backlog, not a separate source of backlog truth.
 
 ## Change Checklist
+
 - Keep route handlers thin and transport-focused.
 - Keep SQL in repositories; keep domain rules in services.
 - When changing household member/invite flows, review `src/lib/services/household-members-service.ts` first, then the route handlers and colocated route tests.

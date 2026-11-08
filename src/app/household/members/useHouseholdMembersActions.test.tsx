@@ -78,6 +78,8 @@ import { useHouseholdMembersActions } from "@/app/household/members/useHousehold
 
 type HookValue = ReturnType<typeof useHouseholdMembersActions>;
 
+let hookValue: HookValue | undefined;
+
 const member = {
   userId: 7,
   name: "Taylor",
@@ -94,26 +96,25 @@ const invite = {
   expiresAt: "2026-01-08T00:00:00.000Z",
 };
 
-const renderHookHarness = () => {
-  let hookValue: HookValue | undefined;
+function HouseholdMembersActionsHarness() {
+  hookValue = useHouseholdMembersActions({
+    closeActionsMenu: closeActionsMenuMock,
+    initialMembers: [member],
+    initialPendingInvites: [invite],
+    viewerUserId: member.userId,
+  });
+  return null;
+}
 
-  function Harness() {
-    hookValue = useHouseholdMembersActions({
-      closeActionsMenu: closeActionsMenuMock,
-      initialMembers: [member],
-      initialPendingInvites: [invite],
-      viewerUserId: member.userId,
-    });
-    return null;
-  }
-
-  renderToStaticMarkup(<Harness />);
+const renderHookHarness = (): HookValue => {
+  hookValue = undefined;
+  renderToStaticMarkup(<HouseholdMembersActionsHarness />);
 
   if (!hookValue) {
     throw new Error("Hook harness failed to initialize");
   }
 
-  return hookValue;
+  return hookValue as HookValue;
 };
 
 describe("useHouseholdMembersActions", () => {

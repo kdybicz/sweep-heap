@@ -155,12 +155,12 @@ architecture configured in `.yarnrc.yml`.
 
 The config loads dotenv values through `@next/env`. Exported Make/environment values take precedence.
 
-| Variable | Default / purpose |
-| --- | --- |
-| `E2E_BASE_URL` | `http://127.0.0.1:3100`; managed local HTTP origin and port; an optional root trailing slash is normalized away |
-| `E2E_DATABASE_URL` | Falls back to `DATABASE_URL`; used by both the app and fixture queries |
-| `E2E_MAILPIT_URL` | `http://localhost:8025`, or the host override under `AGENT` |
-| `PLAYWRIGHT_BROWSERS_PATH` | Make defaults to workspace `.e2e/browsers`; may point to a preinstalled browser directory |
+| Variable                   | Default / purpose                                                                                               |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `E2E_BASE_URL`             | `http://127.0.0.1:3100`; managed local HTTP origin and port; an optional root trailing slash is normalized away |
+| `E2E_DATABASE_URL`         | Falls back to `DATABASE_URL`; used by both the app and fixture queries                                          |
+| `E2E_MAILPIT_URL`          | `http://localhost:8025`, or the host override under `AGENT`                                                     |
+| `PLAYWRIGHT_BROWSERS_PATH` | Make defaults to workspace `.e2e/browsers`; may point to a preinstalled browser directory                       |
 
 The app subprocess overrides `AUTH_URL` to the test origin. SMTP settings and `AUTH_SECRET` come from
 the usual environment. `E2E_BASE_URL` must use `localhost` or `127.0.0.1` so these suites always manage

@@ -18,10 +18,11 @@ vi.mock("@/auth", () => ({
   auth: authMock,
 }));
 
-import { GET, POST, runtime } from "@/app/api/auth/[...auth]/route";
-
 describe("/api/auth/[...auth] route", () => {
-  it("exports node runtime and delegates handlers to better-auth", () => {
+  it("exports node runtime and delegates handlers to better-auth", async () => {
+    vi.resetModules();
+    const { GET, POST, runtime } = await import("@/app/api/auth/[...auth]/route");
+
     expect(runtime).toBe("nodejs");
     expect(toNextJsHandlerMock).toHaveBeenCalledWith(authMock);
     expect(GET).toBe(getHandlerMock);

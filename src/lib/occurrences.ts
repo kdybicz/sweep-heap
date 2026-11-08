@@ -208,6 +208,7 @@ export const generateOccurrenceDayEntries = ({
     return dayEntries;
   }
 
+  // biome-ignore lint/complexity/useMathMinMax: Retain the DateTime rather than its numeric timestamp.
   const clampStart = start > from ? start : from;
   const clampEnd = to;
 
@@ -254,6 +255,7 @@ export const generateOccurrenceDayEntries = ({
   }
 
   const earliestRelevantStart = clampStart.minus({ days: spanDays - 1 });
+  // biome-ignore lint/complexity/useMathMinMax: Retain the DateTime rather than its numeric timestamp.
   const latestStart = seriesEnd < clampEnd ? seriesEnd : clampEnd;
   let cursor = start;
   const interval = fixedIntervalDays(repeatRule);

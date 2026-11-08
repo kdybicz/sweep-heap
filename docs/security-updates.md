@@ -143,7 +143,7 @@ Only after explicit approval, add that exact package/version:
 
 ```yaml
 npmPreapprovedPackages:
-  - 'package-name@1.2.3'
+  - "package-name@1.2.3"
 ```
 
 Document the approval, reason, and cleanup date in the pull request and a GitHub Issue. Remove the

@@ -1,17 +1,20 @@
 # Chores - Working Requirements (Current Baseline)
 
 ## Purpose
+
 - This file is a living, implementation-focused requirements doc for contributors and coding agents.
 - It describes what is currently implemented in code, plus known gaps that affect planning.
 - If code and this document disagree, treat code as source of truth and update this file.
 - For a compact day-to-day version, use `docs/requirements-quick-reference.md`.
 
 ## Status
+
 - Last reviewed against code: 2026-10-11. See [the review evidence](reviews/2026-10-11.md) for confirmed defects and linked GitHub Issues.
 - Product phase: MVP with active iteration.
 - Current scope includes auth, households, members/invites, chores board UI, and account settings.
 
 ## Target Behavior vs Current Baseline
+
 - Target (product intent): deterministic calendar recurrence, explicit conflict handling, and auditable state history.
 - Current (implemented): lazy series generation + one sparse occurrence-exceptions table, optimistic UI updates, and replace-in-place exception writes.
 - Important deltas to keep visible:
@@ -20,6 +23,7 @@
 - Working rule for contributors: preserve current behavior unless a change is intentional, tested, and documented here.
 
 ## Requirements and Issue Integration
+
 - `docs/requirements.md` is the stable source for current behavior, constraints, and known gaps.
 - GitHub Issues are the execution backlog and sequencing plan.
 - Cross-cutting backlog areas:
@@ -29,6 +33,7 @@
 - The [2026-10-11 review snapshot](reviews/2026-10-11.md) links the reviewed defects and optimizations to their GitHub Issues; current execution status remains in GitHub.
 
 ## Tech and Architecture Baseline
+
 - Frontend: Next.js 16 App Router, React 19, TypeScript, Tailwind CSS v4.
 - Auth: Better Auth magic-link flow (email-based sign in).
 - Backend: Next.js route handlers under `src/app/api/**/route.ts`.
@@ -39,6 +44,7 @@
 ## Product Scope
 
 ### In scope now
+
 - Magic-link sign in, sign out, and invite-based sign-in handoff.
 - Household setup and editing (name, icon, time zone, member chore-management toggle), with the same toggle available during both create and later edits.
 - Household member management:
@@ -56,6 +62,7 @@
 - Health endpoint for DB connectivity.
 
 ### Out of scope now
+
 - Points, rankings, approvals, and other gamification mechanics.
 - Private chores visible only to a subset of household members.
 - Smart home integrations and monetization.
@@ -65,6 +72,7 @@
 ## Domain Model (Current)
 
 ### Core entities
+
 - `users`: authenticated users.
 - `households`: shared container for chores and members.
 - `household_memberships`: household membership with role (`owner`, `admin`, or `member`) and status (`active`).
@@ -74,11 +82,13 @@
 - `delete_account_tokens`: one-time account deletion confirmation tokens.
 
 ### Chore terminology
+
 - Series: the durable chore definition (`start_date`, `end_date`, `repeat_rule`, optional `series_end_date`).
 - Occurrence day: calendar date returned by derived generation (no time-of-day).
 - Exception: persisted one-off state or cancel record for one series/occurrence-start pair.
 
 ## Identity, Membership, and Household Rules
+
 - A signed-in user can create additional households while already belonging to other active households.
 - The household setup page is also the signed-in create-household entry point for existing members who want to add another household.
 - `active_household_id` is the primary acting-household context.
@@ -111,6 +121,7 @@
 - Admins cannot manage owner memberships or owner-role invites (assign, demote, remove, resend, revoke).
 
 ## Invite Rules
+
 - Household invite links require Better Auth `invitationId + secret` and pending-status expiry checks (7 days).
 - Invite create/resend delivery is best-effort: APIs return `ok: true` even when SMTP send fails, with `inviteEmailSent: false` in the response.
 - Expired pending invitations remain visible as expired on the members page with role-aware resend/revoke controls. Creating a replacement cancels expired pending rows for that normalized household/email and clears their secret hashes. Resending refreshes the same id and role, then rotates the secret and extends validity by seven days.
@@ -127,6 +138,7 @@
 ## Chore Rules (Implemented)
 
 ### Chore series fields
+
 - Required: `title`, `type`, `startDate`, `endDate`, `repeatRule`.
 - Optional: `seriesEndDate`, `notes`.
 - Allowed `type`: `close_on_done`, `stay_open`.
@@ -134,6 +146,7 @@
 - Accepted input aliases: `daily`, `weekly`, `biweekly`, `monthly`, `yearly`.
 
 ### Validation at create time
+
 - `title` required.
 - `type` must be valid.
 - `startDate` and `endDate` required.
@@ -143,6 +156,7 @@
 - `notes` is trimmed and capped at 500 chars.
 
 ### Calendar validation and workload limits
+
 - API calendar dates must be real Gregorian dates in years `0001` through `9999`, with complete `YYYY-MM-DD` spelling. Complete ISO calendar timestamps up to 64 characters are also supported; numeric offset hours/minutes must be valid. Reduced-precision, week-date and ordinal-date spellings are rejected.
 - Date-only values stay literal. Query/start/end/repeat-cutoff timestamps resolve to the household-local date; occurrence-start identifiers retain UTC normalization. Both source timestamp calendar dates and normalized dates must stay in supported years.
 - Explicit GET `start` and `end` are supplied together. Query endpoints are inclusive, ordered, and span at most 31 civil days. Omitted endpoints retain household-local Monday-Sunday defaults and the existing route's `weekOffset` clamp of `-520..520`.
@@ -153,6 +167,7 @@
 - These are application-boundary limits, not a schema constraint migration. Existing long-span one-offs remain readable within bounded queries and can be completed/canceled without span expansion; schedule edits must produce supported dates/durations. Auditing/backfill before strict database constraints remains tracked in [#10](https://github.com/kdybicz/sweep-heap/issues/10).
 
 ### Occurrence generation behavior
+
 - Occurrences are generated lazily from series plus sparse occurrence exceptions.
 - The SQL series prefilter excludes non-repeating chores whose exclusive `end_date` is on or before the requested start date. Repeating origins may have older end dates and remain eligible when their recurrence cutoff plus duration can overlap the requested range. One-off spans clipped at either query boundary remain eligible.
 - Generation is date-only and timezone-aware (household timezone).
@@ -171,6 +186,7 @@
   - `occurrence_start_date`: recurrence instance identity used for set/cancel actions.
 
 ### Completion behavior
+
 - `close_on_done`:
   - Mark done writes exception `kind = state`, `status = closed`, `closed_reason = done`.
 - `stay_open`:
@@ -179,6 +195,7 @@
 - `action=set` must target a valid generated occurrence start date for that chore series.
 
 ### Cancellation behavior
+
 - `action=cancel` requires `scope=single|following|all`.
 - `scope=single` upserts an occurrence exception with `kind = canceled` for one instance.
 - `scope=following` is allowed only for repeating chores and truncates the series by setting `series_end_date` to one day before the targeted occurrence start date.
@@ -188,6 +205,7 @@
 - Mutation payloads use `occurrenceStartDate` (not `occurrenceDate`).
 
 ### Edit behavior
+
 - Chore mutation reads and writes share one household transaction, coordinated with completion and cancellation writers. Failed single/following replacement creation or completion copying leaves the source schedule and exceptions unchanged, and retry remains possible. API permissions are rechecked after lock acquisition; lock contention returns `409 HOUSEHOLD_MUTATION_BUSY`.
 - `action=edit` requires `scope=single|following|all`.
 - `scope=single` creates a detached one-off chore row and marks the targeted original occurrence canceled.
@@ -201,6 +219,7 @@
 - Date edits default to absolute series dates for whole-series scope. The inline preview sends `dateBasis=occurrence`; the service translates the selected occurrence's day shift and exclusive duration against the stored series origin. Duration-only changes preserve earlier occurrences. Single/following edits keep their submitted instance dates; first-instance following uses whole-series semantics. Repeat-end dates remain their explicit/stored calendar cutoff.
 
 ### UI interaction constraints
+
 - Weekly and Today chore reads expose independent loading/error states and retry controls. Fresh network, server or malformed-response failures show accessible errors rather than empty schedules; week progress stays unavailable until that range has data. Failed background refreshes preserve the same range's last-known chores/progress with an out-of-date notice. A successful retry clears the error and updates data; navigation never borrows another range's data. Auth/household context errors retain their recovery redirects.
 - Add-chore and edit/cancel actions remain available for past dates; only the primary done/open action is currently blocked for past-dated occurrences.
 - Primary action in the chore preview popover is disabled for past-dated occurrences.
@@ -219,6 +238,7 @@
 - Single click or keyboard activation on a board chore opens a compact preview popover with title, status, date span, repeat cadence, notes, primary completion/log action, and delete when the viewer can manage chores; clicking the metadata block expands inline editing UI for title/date/repeat fields with single, future, and whole-series scope choices where applicable. When regular members are not allowed to manage chores, add buttons and edit/delete controls are hidden while completion/log actions remain available.
 
 ## API Surface (Current Snapshot)
+
 - Failure envelope contract: API routes return `{ ok: false, code: string, error: string }` for handled errors.
 - Snapshot includes the app's business APIs plus the auth/session routes that drive sign-in callbacks and sign-out redirects.
 - `GET|POST /api/auth/[...auth]`
@@ -283,6 +303,7 @@
   - Same-origin sign-out endpoint for switch-account and recovery flows; signs out the current session and redirects to a safe local path.
 
 ## Operational and Abuse-Prevention Guardrails
+
 - Current baseline:
   - No dedicated app-level API rate limiting middleware is implemented.
   - Protection mainly relies on authentication checks and route-level validation.
@@ -291,6 +312,7 @@
   - Optionally complement with edge/WAF protections.
 
 ## Account Deletion Requirements (Current)
+
 - Delete request requires authenticated user with an email.
 - Delete request is blocked when the user owns any household that still has other active members.
 - Delete request email delivery is required: when confirmation email send fails, API returns `500` with `Failed to send confirmation email`.
@@ -301,6 +323,7 @@
   - Any households that become empty (no active memberships) are also removed.
 
 ## Ownership and Deletion Reconciliation (Current)
+
 - Household mutation locks use a separate bounded connection pool so queued locks cannot starve business queries. Connection acquisition is bounded to five seconds, then PostgreSQL lock waits to five seconds before `409 HOUSEHOLD_MUTATION_BUSY`; callbacks retain the lock until they finish.
 - Both invite acceptance APIs, including the post-sign-in completion callback, preserve lock contention as `409 HOUSEHOLD_MUTATION_BUSY`. The invitation remains pending and the same link can be retried; completion returns JSON for this conflict instead of an unexpected-error redirect.
 - Guarded callback writes share their advisory-lock transaction, so losing the lock connection aborts those writes; further queries are fenced. SDK nested transactions use savepoints.
@@ -310,12 +333,14 @@
 - Multi-household support treats `active_household_id` as the acting context; membership list and ownership checks are evaluated against the targeted household, not inferred by latest membership.
 
 ## Code Organization Conventions
+
 - Keep route handlers transport-focused (auth, parsing, response mapping).
 - Keep SQL/data access in `src/lib/repositories/*-repository.ts`.
 - Keep reusable domain logic in `src/lib/services/*-service.ts`; household member/invite orchestration now lives primarily in `src/lib/services/household-members-service.ts` and chore mutation rules live in `src/lib/services/chore-service.ts`.
 - Use the `src/lib/repositories/index.ts` barrel for repositories and specific `src/lib/services/*-service.ts` imports for services. There is no service barrel.
 
 ## Testing and Quality Gates
+
 - Prefer focused unit tests for service and route behavior.
 - Colocate tests with the source they validate (for example `route.ts` with `route.test.ts`).
 - Mock repositories in service tests; avoid DB in unit tests.
@@ -324,6 +349,7 @@
 - Live smoke, issue-linked browser/API regressions, and isolated pool contention tests are available through the commands in [E2E testing](e2e-testing.md). These require the local stack and are separate from the default Vitest gate.
 
 ## Known Gaps and Implementation Caveats
+
 - Chore concurrency conflicts are not implemented as explicit retryable conflicts; exception upserts remain last-write-wins. Household lock contention has a retryable `409 HOUSEHOLD_MUTATION_BUSY` response.
 - No dedicated event/audit history table exists for chore state transitions; only latest exception state is stored.
 - `closed_reason = schedule_end` lifecycle is not currently persisted by background process; closure is mostly represented by derived listing behavior.
@@ -332,5 +358,6 @@
 - Some data invariants are enforced at app-validation level rather than strict DB constraints; staged hardening is tracked in [#10](https://github.com/kdybicz/sweep-heap/issues/10).
 
 ## Decision Notes for Future Work
+
 - If recurrence behavior is changed, update both `src/lib/occurrences.ts` and the overlap prefilters in `src/lib/repositories/chore-repository.ts`, then align tests plus API/UI assumptions.
 - If auditability becomes mandatory, introduce append-only event storage instead of relying on exception row replacement.

@@ -28,11 +28,11 @@ This is database-plan evidence on a controlled temporary-table fixture. It exclu
 
 ## Results
 
-| Query and indexes | Plan | Actual output rows | Rows removed by filter | Root local blocks accessed | Execution times, ms | Median, ms |
-| --- | --- | ---: | ---: | ---: | --- | ---: |
-| Old query, primary key only | Sequential scan | 20,005 | 100,000 | 1,696 | 28.577, 29.137, 29.449 | 29.137 |
-| Fixed query, primary key only | Sequential scan | 5 | 120,000 | 1,696 | 15.596, 15.640, 15.719 | 15.640 |
-| Fixed query, candidate active-household index | Bitmap heap/index scan | 5 | 20,000 | 305 | 3.172, 2.590, 2.735 | 2.735 |
+| Query and indexes                             | Plan                   | Actual output rows | Rows removed by filter | Root local blocks accessed | Execution times, ms    | Median, ms |
+| --------------------------------------------- | ---------------------- | -----------------: | ---------------------: | -------------------------: | ---------------------- | ---------: |
+| Old query, primary key only                   | Sequential scan        |             20,005 |                100,000 |                      1,696 | 28.577, 29.137, 29.449 |     29.137 |
+| Fixed query, primary key only                 | Sequential scan        |                  5 |                120,000 |                      1,696 | 15.596, 15.640, 15.719 |     15.640 |
+| Fixed query, candidate active-household index | Bitmap heap/index scan |                  5 |                 20,000 |                        305 | 3.172, 2.590, 2.735    |      2.735 |
 
 Selected fields from the median samples:
 
@@ -56,7 +56,7 @@ Selected fields from the median samples:
       "Local Hit Blocks": 0,
       "Local Read Blocks": 1696
     },
-    "Execution Time": 15.640
+    "Execution Time": 15.64
   },
   "candidateIndex": {
     "Plan": {

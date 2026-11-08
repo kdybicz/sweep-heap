@@ -33,6 +33,7 @@ export const generateOccurrencesByStepping = ({
     return dayEntries;
   const spanDays = Math.max(Math.round(end.diff(start, "days").days), 1);
   if (seriesEnd.plus({ days: spanDays - 1 }) < from || start > to) return dayEntries;
+  // biome-ignore lint/complexity/useMathMinMax: Retain the DateTime rather than its numeric timestamp.
   const clampStart = start > from ? start : from;
   const clampEnd = to;
   const addSpan = (occurrenceStart: DateTime) => {
@@ -60,6 +61,7 @@ export const generateOccurrencesByStepping = ({
     return sorted();
   }
   const earliestRelevantStart = clampStart.minus({ days: spanDays - 1 });
+  // biome-ignore lint/complexity/useMathMinMax: Retain the DateTime rather than its numeric timestamp.
   const latestStart = seriesEnd < clampEnd ? seriesEnd : clampEnd;
   let cursor: DateTime = start;
   while (true) {

@@ -51,20 +51,20 @@ Captured on 2026-10-16 with Node v24.22.0. This is a Node/Luxon CPU probe, exclu
 
 All times are milliseconds, rounded to three decimals.
 
-| Rule | Age, years | Generation before | Generation after | Validation before | Validation after |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Daily | 1 | 12.530 | 3.117 | 11.832 | 1.004 |
-| Daily | 10 | 47.516 | 2.566 | 14.847 | 0.296 |
-| Daily | 26 | 37.653 | 0.531 | 36.853 | 0.283 |
-| Daily | 75 | 138.041 | 1.078 | 111.421 | 0.203 |
-| Weekly | 1 | 1.211 | 0.442 | 0.981 | 0.362 |
-| Weekly | 10 | 2.646 | 0.243 | 2.743 | 0.165 |
-| Weekly | 26 | 6.167 | 0.191 | 6.089 | 0.186 |
-| Weekly | 75 | 19.310 | 0.230 | 17.341 | 0.269 |
-| Biweekly | 1 | 0.183 | 0.086 | 0.229 | 0.116 |
-| Biweekly | 10 | 1.123 | 0.133 | 1.055 | 0.125 |
-| Biweekly | 26 | 2.586 | 0.111 | 2.563 | 0.130 |
-| Biweekly | 75 | 7.823 | 0.185 | 7.802 | 0.157 |
+| Rule     | Age, years | Generation before | Generation after | Validation before | Validation after |
+| -------- | ---------: | ----------------: | ---------------: | ----------------: | ---------------: |
+| Daily    |          1 |            12.530 |            3.117 |            11.832 |            1.004 |
+| Daily    |         10 |            47.516 |            2.566 |            14.847 |            0.296 |
+| Daily    |         26 |            37.653 |            0.531 |            36.853 |            0.283 |
+| Daily    |         75 |           138.041 |            1.078 |           111.421 |            0.203 |
+| Weekly   |          1 |             1.211 |            0.442 |             0.981 |            0.362 |
+| Weekly   |         10 |             2.646 |            0.243 |             2.743 |            0.165 |
+| Weekly   |         26 |             6.167 |            0.191 |             6.089 |            0.186 |
+| Weekly   |         75 |            19.310 |            0.230 |            17.341 |            0.269 |
+| Biweekly |          1 |             0.183 |            0.086 |             0.229 |            0.116 |
+| Biweekly |         10 |             1.123 |            0.133 |             1.055 |            0.125 |
+| Biweekly |         26 |             2.586 |            0.111 |             2.563 |            0.130 |
+| Biweekly |         75 |             7.823 |            0.185 |             7.802 |            0.157 |
 
 Daily generation emits seven entries; weekly emits one. Depending on phase, a biweekly series emits zero or one entry in this one-week window. Every validation probe checks a valid scheduled start. The operation-count tests use deliberately aligned origins so their output workload is identical at each age.
 

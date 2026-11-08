@@ -1,6 +1,6 @@
 # React Email 6 migration and compatibility
 
-Assessed on 2026-10-16 for [#35](https://github.com/kdybicz/sweep-heap/issues/35).
+Assessed on 2026-11-08 for [#35](https://github.com/kdybicz/sweep-heap/issues/35).
 
 ## Supported path and selected release
 
@@ -9,17 +9,16 @@ and [changelog](https://react.email/docs/changelog) consolidate components and r
 into `react-email`, and rename the preview server to `@react-email/ui`. The deprecated component
 packages are replaced by this maintained API, not by another email framework.
 
-| Package | Selected version / role | Compatibility evidence |
-| --- | --- | --- |
-| `react-email` | `6.11.1`, runtime dependency | Node `>=20.19.0`, React/React DOM 18 or 19; compatible with our Node 24 and aligned React 19.2.8 pins |
-| `@react-email/ui` | `6.11.1`, dev dependency | Official preview-server replacement; CLI discovers the installed UI; all three preview iframes verified |
-| `@react-email/render` | `2.1.0`, transitive | Maintained renderer re-exported by `react-email`; no direct application import/pin needed |
+| Package               | Selected version / role      | Compatibility evidence                                                                                  |
+| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `react-email`         | `6.11.6`, runtime dependency | Node `>=20.19.0`, React/React DOM 18 or 19; compatible with our Node 24 and aligned React 19.3.1 pins   |
+| `@react-email/ui`     | `6.11.6`, dev dependency     | Official preview-server replacement; CLI discovers the installed UI; all three preview iframes verified |
+| `@react-email/render` | `2.2.0`, transitive          | Maintained renderer re-exported by `react-email`; no direct application import/pin needed               |
 
-Registry metadata: [`react-email@6.11.1`](https://registry.npmjs.org/react-email/6.11.1),
-[`@react-email/ui@6.11.1`](https://registry.npmjs.org/@react-email/ui/6.11.1).
-They were published on 2026-10-06 at 19:31:25Z and 19:33:38Z respectively. At assessment time,
-6.11.1 is the newest stable pair eligible under `npmMinimalAgeGate: 3d`: 6.11.2 was published
-2026-10-14, while 6.11.3 was published 2026-10-16. Exact direct pins remain in place, install
+Registry metadata: [`react-email@6.11.6`](https://registry.npmjs.org/react-email/6.11.6),
+[`@react-email/ui@6.11.6`](https://registry.npmjs.org/@react-email/ui/6.11.6).
+They were published on 2026-10-29 at 14:09:51Z and 14:12:59Z respectively and are the newest
+stable pair eligible under `npmMinimalAgeGate: 3d`. Exact direct pins remain in place, install
 scripts remain disabled, and no age-gate exception was added.
 
 The old direct `@react-email/components`, `@react-email/render` and
@@ -50,34 +49,28 @@ install scripts disabled. Keep using the wrapper; direct CLI startup can try to 
 
 ## Security and follow-up ownership
 
-`@react-email/ui@6.11.1` declares exact `next@16.3.3`, so the old preview-server resolution moves
-to the narrow descriptor `@react-email/ui/next: 16.3.8`. Application Next.js stays at 16.3.8.
-The security exception is still necessary: removing it would reintroduce an older Next.js tree.
-Registry audit metadata identifies 16.3.3 as affected by
-[`GHSA-vcvr-r3jv-pc5j`](https://github.com/advisories/GHSA-vcvr-r3jv-pc5j)
-(critical, fixed in 16.3.6) and
-[`GHSA-cjq9-62q9-8jv4`](https://github.com/advisories/GHSA-cjq9-62q9-8jv4)
-(high, fixed in 16.3.8), plus lower-severity findings fixed by 16.3.8.
-Do not remove or replace the whole resolutions block as part of this rename.
+`@react-email/ui@6.11.6` declares exact `next@16.4.3`, which is outside the current Next.js
+advisory range. Application Next.js is 16.4.5. The obsolete
+`@react-email/ui/next: 16.3.8` resolution is removed: the supported UI now supplies its own secure
+Next.js release, so forcing another version is no longer necessary. [#18](https://github.com/kdybicz/sweep-heap/issues/18)
+records the completed compatibility investigation.
 
-[#18](https://github.com/kdybicz/sweep-heap/issues/18) remains the owner of removing this override.
-The registry's newer UI 6.11.3 declares Next 16.4.1, but that UI release is not yet age-eligible
-at assessment time. Recheck its dependency eligibility, advisories and runtime compatibility
-under the normal [security-update process](security-updates.md) before adopting it without a pin.
-
-On 2026-10-18, forcing the existing UI 6.11.1 override to the age-eligible Next 16.4.1 was tested
-twice. Preview startup failed with `ENOENT` for `.next/server/preview-props.json`; restoring 16.3.8
-made all three template iframe checks pass. Keep the compatible 16.3.8 override until the aligned
-UI release is eligible. UI 6.11.3 becomes eligible on 2026-10-19 at 19:02:44.336 UTC; renderer
-2.1.1, required by the aligned CLI, becomes eligible earlier that day. No age exception is approved.
+On 2026-10-18, forcing UI 6.11.1 from Next 16.3.8 to 16.4.1 failed preview startup with `ENOENT`
+for `.next/server/preview-props.json`. The aligned UI release avoids that unsupported combination;
+keep preview-iframe verification whenever the UI or its Next.js dependency changes.
 
 The migration removes all React Email deprecation notices and its esbuild 0.27.4 tree. Both the
 CLI and UI resolve esbuild 0.28.2, which is outside the recorded vulnerable ranges. The unfiltered
 recursive audit still reports these development-tool findings under
 [#16](https://github.com/kdybicz/sweep-heap/issues/16):
 
-- `GHSA-67mh-4wv8-2f99` (moderate): esbuild 0.18.20 via Drizzle Kit → deprecated esbuild-kit loader/core-utils.
+- `GHSA-67mh-4wv8-2f99` (moderate): esbuild 0.18.20 via Drizzle Kit -> deprecated esbuild-kit loader/core-utils.
 - The esbuild-kit loader/core-utils deprecation notices also remain in that Drizzle tree.
+
+`GHSA-3g3m-2fjr-6pw4` (moderate) remains through `react-email@6.11.6` -> `glob@13.0.6`.
+`react-email@6.11.8` raises the range to `glob ^14.0.3`, but it is still within the three-day age
+gate. [#55](https://github.com/kdybicz/sweep-heap/issues/55) records its eligibility time and
+required verification. No exception is approved.
 
 The low Windows development-server advisory `GHSA-g7r4-m6w7-qqqr` was removed on 2026-10-18 by
 refreshing Drizzle Kit's existing `tsx ^4.21.0` range to tsx 4.23.15 / esbuild 0.28.2. This needs

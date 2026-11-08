@@ -17,7 +17,7 @@ This is a Next.js 16 app for shared household chores, backed by PostgreSQL and B
 - [`docs/engineering-patterns.md`](docs/engineering-patterns.md) - canonical implementation patterns and contracts.
 - [`docs/calendar-recurrence-migration.md`](docs/calendar-recurrence-migration.md) - original-anchor calendar recurrence, exception identities and deployment rollout.
 - [`docs/security-updates.md`](docs/security-updates.md) - monthly dependency maintenance, urgent remediation, and approved package age-gate exceptions.
-- [`docs/react-email-migration.md`](docs/react-email-migration.md) - maintained React Email packages, compatibility assessment and preview security pin.
+- [`docs/react-email-migration.md`](docs/react-email-migration.md) - maintained React Email packages and preview compatibility assessment.
 - [`docs/e2e-testing.md`](docs/e2e-testing.md) - repeatable live API/browser tests, Docker setup, cleanup, and reports.
 - [`docs/reviews/2026-10-11.md`](docs/reviews/2026-10-11.md) - whole-project review evidence and GitHub issue links.
 
@@ -71,19 +71,19 @@ openssl rand -base64 32
 
 ## Setup, Migrate, Seed, Run
 
-1) Start local services (Postgres + Mailpit):
+1. Start local services (Postgres + Mailpit):
 
 ```bash
 docker compose up -d
 ```
 
-2) Install dependencies:
+2. Install dependencies:
 
 ```bash
 make install
 ```
 
-3) Prepare data (choose one):
+3. Prepare data (choose one):
 
 - Demo data (runs migrations first):
 
@@ -99,7 +99,7 @@ make db-migrate
 
 If you rerun demo seeding, use `make db-reset && make seed-chores` (seed inserts fixed demo rows and is not idempotent).
 
-4) Run the app:
+4. Run the app:
 
 ```bash
 make dev
