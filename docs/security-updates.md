@@ -11,6 +11,9 @@ including non-breaking major releases, then remediate advisories that remain. St
 up-to-date `master` branch, work on a dedicated branch, and create a GitHub Issue for deferred
 upgrades, advisories, or resolution cleanup.
 
+Use `routine-security-updates-<month>-<year>` for the branch, `Run <Month> routine security
+updates` for the commit, and `Routine Security Updates - <Month> <Year>` for the pull request.
+
 Urgent updates between monthly passes are deliberately narrow. Change only runtime dependencies
 affected by high or critical advisories, confirm each path with `yarn why <package>`, and leave
 development-only, moderate, low, and deprecation findings for the next monthly pass. Do not
@@ -104,8 +107,9 @@ their issues and the pull request.
 
 Review `package.json` and `yarn.lock` after each group for unexpected major upgrades, downgrades,
 duplicate versions, unrelated churn, and pins that prevent newer fixes. If upgrading Yarn itself,
-update the explicit version in `make install`, `.github/actions/setup-ci/action.yml`, and the README
-along with `package.json`.
+update every explicit version reference, including `package.json`, `make install`,
+`.github/actions/setup-ci/action.yml`, the README, and the E2E container commands. Search for the
+old version afterward so documentation and executable pins cannot drift.
 
 ## 4. Apply remediations
 

@@ -5,6 +5,7 @@ import { API_ERROR_CODE } from "@/lib/api-error";
 const {
   cancelInvitationMock,
   createInvitationMock,
+  getPendingInviteMock,
   listInvitationsMock,
   listMembersMock,
   removeMemberMock,
@@ -17,6 +18,7 @@ const {
 } = vi.hoisted(() => ({
   cancelInvitationMock: vi.fn(),
   createInvitationMock: vi.fn(),
+  getPendingInviteMock: vi.fn(),
   listInvitationsMock: vi.fn(),
   listMembersMock: vi.fn(),
   removeMemberMock: vi.fn(),
@@ -53,6 +55,7 @@ vi.mock("@/lib/services/ownership-guard-service", () => ({
 }));
 
 vi.mock("@/lib/repositories/household-repository", () => ({
+  getPendingHouseholdInviteById: getPendingInviteMock,
   retireExpiredHouseholdInvitesForEmail: retireExpiredInvitesMock,
   refreshExpiredPendingHouseholdInvite: refreshExpiredInviteMock,
 }));
@@ -80,6 +83,8 @@ describe("household-members-service", () => {
   beforeEach(() => {
     cancelInvitationMock.mockReset();
     createInvitationMock.mockReset();
+    getPendingInviteMock.mockReset();
+    getPendingInviteMock.mockResolvedValue(pendingInvite());
     listInvitationsMock.mockReset();
     listMembersMock.mockReset();
     removeMemberMock.mockReset();
@@ -164,9 +169,9 @@ describe("household-members-service", () => {
   });
 
   it("refreshes an expired resend only after checking owner-role protections", async () => {
-    listInvitationsMock.mockResolvedValue([
+    getPendingInviteMock.mockResolvedValue(
       pendingInvite({ role: "owner", expiresAt: new Date("2025-01-01") }),
-    ]);
+    );
     const denied = await resendHouseholdInvite({
       actorRole: "admin",
       householdId: 11,
@@ -226,7 +231,6 @@ describe("household-members-service", () => {
       released = true;
       return result;
     });
-    listInvitationsMock.mockResolvedValue([pendingInvite()]);
     createInvitationMock.mockResolvedValue(pendingInvite());
     sendHouseholdInviteMock.mockImplementationOnce(async () => {
       expect(released).toBe(true);
@@ -366,7 +370,7 @@ describe("household-members-service", () => {
   });
 
   it("preserves owner role when resending an owner invite", async () => {
-    listInvitationsMock.mockResolvedValue([pendingInvite({ role: "owner" })]);
+    getPendingInviteMock.mockResolvedValue(pendingInvite({ role: "owner" }));
     createInvitationMock.mockResolvedValue(pendingInvite({ role: "owner" }));
 
     const result = await resendHouseholdInvite({
@@ -385,7 +389,7 @@ describe("household-members-service", () => {
   });
 
   it("blocks non-owners from resending owner invites", async () => {
-    listInvitationsMock.mockResolvedValue([pendingInvite({ role: "owner" })]);
+    getPendingInviteMock.mockResolvedValue(pendingInvite({ role: "owner" }));
 
     const result = await resendHouseholdInvite({
       actorRole: "admin",
@@ -407,7 +411,6 @@ describe("household-members-service", () => {
   });
 
   it("revokes a pending invite", async () => {
-    listInvitationsMock.mockResolvedValue([pendingInvite()]);
     cancelInvitationMock.mockResolvedValue({});
 
     const result = await revokeHouseholdInvite({

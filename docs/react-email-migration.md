@@ -1,6 +1,6 @@
 # React Email 6 migration and compatibility
 
-Assessed on 2026-11-08 for [#35](https://github.com/kdybicz/sweep-heap/issues/35).
+Assessed on 2026-11-14 for [#35](https://github.com/kdybicz/sweep-heap/issues/35).
 
 ## Supported path and selected release
 
@@ -9,15 +9,15 @@ and [changelog](https://react.email/docs/changelog) consolidate components and r
 into `react-email`, and rename the preview server to `@react-email/ui`. The deprecated component
 packages are replaced by this maintained API, not by another email framework.
 
-| Package               | Selected version / role      | Compatibility evidence                                                                                  |
-| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `react-email`         | `6.11.6`, runtime dependency | Node `>=20.19.0`, React/React DOM 18 or 19; compatible with our Node 24 and aligned React 19.3.1 pins   |
-| `@react-email/ui`     | `6.11.6`, dev dependency     | Official preview-server replacement; CLI discovers the installed UI; all three preview iframes verified |
-| `@react-email/render` | `2.2.0`, transitive          | Maintained renderer re-exported by `react-email`; no direct application import/pin needed               |
+| Package               | Selected version / role       | Compatibility evidence                                                                                  |
+| --------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `react-email`         | `6.11.11`, runtime dependency | Node `>=20.19.0`, React/React DOM 18 or 19; compatible with our Node 24 and aligned React 19.3.1 pins   |
+| `@react-email/ui`     | `6.11.11`, dev dependency     | Official preview-server replacement; CLI discovers the installed UI; all three preview iframes verified |
+| `@react-email/render` | `2.3.1`, transitive           | Maintained renderer re-exported by `react-email`; no direct application import/pin needed               |
 
-Registry metadata: [`react-email@6.11.6`](https://registry.npmjs.org/react-email/6.11.6),
-[`@react-email/ui@6.11.6`](https://registry.npmjs.org/@react-email/ui/6.11.6).
-They were published on 2026-10-29 at 14:09:51Z and 14:12:59Z respectively and are the newest
+Registry metadata: [`react-email@6.11.11`](https://registry.npmjs.org/react-email/6.11.11),
+[`@react-email/ui@6.11.11`](https://registry.npmjs.org/@react-email/ui/6.11.11).
+They were published on 2026-11-10 at 15:11:46Z and 15:14:36Z respectively and are the newest
 stable pair eligible under `npmMinimalAgeGate: 3d`. Exact direct pins remain in place, install
 scripts remain disabled, and no age-gate exception was added.
 
@@ -49,8 +49,8 @@ install scripts disabled. Keep using the wrapper; direct CLI startup can try to 
 
 ## Security and follow-up ownership
 
-`@react-email/ui@6.11.6` declares exact `next@16.4.3`, which is outside the current Next.js
-advisory range. Application Next.js is 16.4.5. The obsolete
+`@react-email/ui@6.11.11` declares exact `next@16.4.3`, which is outside the current Next.js
+advisory range. Application Next.js is 16.4.6. The obsolete
 `@react-email/ui/next: 16.3.8` resolution is removed: the supported UI now supplies its own secure
 Next.js release, so forcing another version is no longer necessary. [#18](https://github.com/kdybicz/sweep-heap/issues/18)
 records the completed compatibility investigation.
@@ -67,16 +67,17 @@ recursive audit still reports these development-tool findings under
 - `GHSA-67mh-4wv8-2f99` (moderate): esbuild 0.18.20 via Drizzle Kit -> deprecated esbuild-kit loader/core-utils.
 - The esbuild-kit loader/core-utils deprecation notices also remain in that Drizzle tree.
 
-`GHSA-3g3m-2fjr-6pw4` (moderate) remains through `react-email@6.11.6` -> `glob@13.0.6`.
-`react-email@6.11.8` raises the range to `glob ^14.0.3`, but it is still within the three-day age
-gate. [#55](https://github.com/kdybicz/sweep-heap/issues/55) records its eligibility time and
-required verification. No exception is approved.
+React Email 6.11.11 resolves `glob@14.0.4` and `minimatch@11.0.8`, removing
+`GHSA-3g3m-2fjr-6pw4` and `GHSA-g3hv-75wg-m249`. [#55](https://github.com/kdybicz/sweep-heap/issues/55)
+records the completed age-gate follow-up. No exception was required.
 
 The low Windows development-server advisory `GHSA-g7r4-m6w7-qqqr` was removed on 2026-10-18 by
 refreshing Drizzle Kit's existing `tsx ^4.21.0` range to tsx 4.23.15 / esbuild 0.28.2. This needs
 neither a direct tsx dependency nor a forced esbuild resolution. Drizzle's migration metadata check
 and loading `drizzle.config.ts` through the updated tsx runner both pass without changing the DB.
 
-No global esbuild override is added: those parents constrain incompatible versions. The high/critical
-audit reports no suggestions. Existing UI peer-packaging warnings remain nonfatal; real Node/Next
-rendering, production build and preview startup are verified rather than hidden with new overrides.
+No global esbuild override is added: those parents constrain incompatible versions. All previous
+resolutions are removed after the resulting parent dependency declarations were verified to supply
+compatible versions. The high/critical audit reports no suggestions. Existing UI peer-packaging
+warnings remain nonfatal; real Node/Next rendering, production build and preview startup are
+verified rather than hidden with new overrides.

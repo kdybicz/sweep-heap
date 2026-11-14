@@ -17,6 +17,7 @@ import {
   toAuthApiError,
 } from "@/lib/organization-api";
 import {
+  getPendingHouseholdInviteById,
   refreshExpiredPendingHouseholdInvite,
   retireExpiredHouseholdInvitesForEmail,
 } from "@/lib/repositories/household-repository";
@@ -153,17 +154,10 @@ const findTargetMemberByUserId = async ({
 const findPendingInviteById = async ({
   householdId,
   inviteId,
-  requestHeaders,
 }: {
   householdId: number;
   inviteId: number;
-  requestHeaders: Headers;
-}) => {
-  const pendingInvites = await listOrganizationInvites({ householdId, requestHeaders });
-  return pendingInvites.find(
-    (pendingInvite) => Number(pendingInvite.id) === inviteId && pendingInvite.status === "pending",
-  );
-};
+}) => getPendingHouseholdInviteById({ householdId, inviteId });
 
 const mapInviteCreateFailure = ({
   existingInvite,
@@ -498,7 +492,6 @@ export const resendHouseholdInvite = async ({
       const invite = await findPendingInviteById({
         householdId,
         inviteId,
-        requestHeaders: request.headers,
       });
       if (!invite) {
         return serviceFailure({
@@ -561,7 +554,7 @@ export const revokeHouseholdInvite = async ({
   withHouseholdMutationLock({
     householdId,
     task: async () => {
-      const invite = await findPendingInviteById({ householdId, inviteId, requestHeaders });
+      const invite = await findPendingInviteById({ householdId, inviteId });
       if (!invite) {
         return serviceFailure({
           status: 404,

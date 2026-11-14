@@ -207,6 +207,20 @@ export const getPendingHouseholdInviteByIdAndSecret = async ({
   return result.rows[0] ?? null;
 };
 
+export const getPendingHouseholdInviteById = async ({
+  householdId,
+  inviteId,
+}: {
+  householdId: number;
+  inviteId: number;
+}) => {
+  const result = await pool.query<HouseholdInviteRecord & { status: "pending" }>(
+    'select i.id as "id", i.household_id as "householdId", h.name as "householdName", i.email as "email", i.role as "role", i.invited_by_user_id as "invitedByUserId", i.status as "status", i.created_at as "createdAt", i.expires_at as "expiresAt" from household_member_invites i join households h on h.id = i.household_id where i.household_id = $1 and i.id = $2 and i.status = \'pending\' limit 1',
+    [householdId, inviteId],
+  );
+  return result.rows[0] ?? null;
+};
+
 export const setPendingHouseholdInviteSecretHash = async ({
   inviteId,
   secretHash,

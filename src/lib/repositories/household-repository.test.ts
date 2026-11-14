@@ -15,6 +15,7 @@ import {
   countActiveHouseholdMembersExcludingUser,
   getHouseholdSummaryForUser,
   getHouseholdTimeZoneById,
+  getPendingHouseholdInviteById,
   getPendingHouseholdInviteByIdAndSecret,
   listActiveHouseholdsForUser,
   listOwnedHouseholdsWithOtherMembers,
@@ -84,6 +85,45 @@ describe("getPendingHouseholdInviteByIdAndSecret", () => {
     });
 
     expect(invite).toBeNull();
+  });
+});
+
+describe("getPendingHouseholdInviteById", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("returns a pending invite without applying actor-specific visibility filters", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          id: 12,
+          householdId: 11,
+          householdName: "Home",
+          email: "pending@example.com",
+          role: "owner",
+          invitedByUserId: 7,
+          status: "pending",
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          expiresAt: new Date("2025-01-01T00:00:00.000Z"),
+        },
+      ],
+    });
+
+    const invite = await getPendingHouseholdInviteById({ householdId: 11, inviteId: 12 });
+
+    expect(queryMock.mock.calls[0]?.[1]).toEqual([11, 12]);
+    expect(queryMock.mock.calls[0]?.[0]).toContain("i.status = 'pending'");
+    expect(queryMock.mock.calls[0]?.[0]).not.toContain("expires_at >");
+    expect(invite).toMatchObject({ id: 12, role: "owner", status: "pending" });
+  });
+
+  it("returns null when the pending invite is absent", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+
+    await expect(
+      getPendingHouseholdInviteById({ householdId: 11, inviteId: 12 }),
+    ).resolves.toBeNull();
   });
 });
 
