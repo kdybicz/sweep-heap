@@ -24,7 +24,7 @@ This is a Next.js 16 app for shared household chores, backed by PostgreSQL and B
 ## Local Environment Requirements
 
 - Node.js 24 (see `.nvmrc` and `package.json#engines`)
-- Corepack enabled (`corepack enable`) so `yarn@4.12.0` is used
+- Corepack enabled (`corepack enable`) so `yarn@4.18.1` is used
 - Docker + Docker Compose (for local Postgres and Mailpit)
 
 ## Required Environment Variables

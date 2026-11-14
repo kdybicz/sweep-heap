@@ -49,7 +49,7 @@ db-generate:
 	$(call run,yarn db:generate)
 
 install:
-	$(call run,corepack yarn@4.12.0 install --immutable)
+	$(call run,corepack yarn@4.18.1 install --immutable)
 
 dev:
 	$(call run,yarn dev)

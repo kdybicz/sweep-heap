@@ -141,8 +141,8 @@ docker run --rm --init --ipc=host --platform linux/amd64 \
       npm uninstall --global yarn
       npm install --global corepack
     fi
-    corepack yarn@4.12.0 install --immutable
-    corepack yarn@4.12.0 test:e2e
+    corepack yarn@4.18.1 install --immutable
+    corepack yarn@4.18.1 test:e2e
   '
 ```
 
